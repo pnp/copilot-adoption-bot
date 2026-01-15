@@ -16,8 +16,8 @@ permissions:
 env:
   DOTNET_VERSION: '10.0.x'
   AZURE_WEBAPP_PACKAGE_PATH: './publish'
-  SOLUTION_PATH: 'src/Full/Office Nudge.sln'
-  WORKING_DIRECTORY: 'src/Full'
+  SOLUTION_PATH: 'src/Full/Bot/Adoption Bot.sln'
+  WORKING_DIRECTORY: 'src/Full/Bot'
 
 jobs:
   build:

@@ -12,8 +12,8 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  solution: 'src/Full/Office Nudge.sln'
-  workingDirectory: 'src/Full'
+  solution: 'src/Full/Bot/Adoption Bot.sln'
+  workingDirectory: 'src/Full/Bot'
   buildConfiguration: 'Release'
   dotnetVersion: '10.0.x'
   azureSubscription: 'AzureServiceConnection'
