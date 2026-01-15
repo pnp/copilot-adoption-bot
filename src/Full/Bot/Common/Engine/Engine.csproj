@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+<PropertyGroup>
+  <TargetFramework>net10.0</TargetFramework>
+</PropertyGroup>
+
+<ItemGroup>
+  <EmbeddedResource Include="Bot\Cards\Templates\BotDiagFinished.json" />
+  <EmbeddedResource Include="Bot\Cards\Templates\BotFirstIntro.json" />
+  <EmbeddedResource Include="Bot\Cards\Templates\BotResumeConversationIntro.json" />
+  <EmbeddedResource Include="BackgroundServices\Templates\copilot-chat-tips.json" />
+  <EmbeddedResource Include="BackgroundServices\Templates\m365-copilot-tips.json" />
+		<EmbeddedResource Include="BackgroundServices\Templates\copilot-chat-tips-advanced.json" />
+		<EmbeddedResource Include="BackgroundServices\Templates\m365-copilot-tips-advanced.json" />
+</ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
+    <PackageReference Include="Azure.Data.Tables" Version="12.11.0" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.24.0" />
+    <PackageReference Include="Azure.Storage.Queues" Version="12.22.0" />
+    <PackageReference Include="Microsoft.Bot.Builder.Integration.AspNet.Core" Version="4.23.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Graph" Version="5.99.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DataUtils\DataUtils.csproj" />
+  </ItemGroup>
+
+</Project>
+

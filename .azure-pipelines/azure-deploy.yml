@@ -1,0 +1,117 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  solution: 'src/Full/Office Nudge.sln'
+  workingDirectory: 'src/Full'
+  buildConfiguration: 'Release'
+  dotnetVersion: '10.0.x'
+  azureSubscription: 'AzureServiceConnection'
+  webAppName: 'office-nudge-web'
+
+stages:
+  - stage: Build
+    displayName: 'Build and Test'
+    jobs:
+      - job: Build
+        displayName: 'Build Solution'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'Use .NET SDK $(dotnetVersion)'
+            inputs:
+              packageType: 'sdk'
+              version: '$(dotnetVersion)'
+
+          - task: NodeTool@0
+            displayName: 'Use Node.js 20.x'
+            inputs:
+              versionSpec: '20.x'
+
+          - task: Npm@1
+            displayName: 'Install Node dependencies'
+            inputs:
+              command: 'ci'
+              workingDir: '$(workingDirectory)/Web/web.client'
+
+          - task: Npm@1
+            displayName: 'Build Node client'
+            inputs:
+              command: 'custom'
+              workingDir: '$(workingDirectory)/Web/web.client'
+              customCommand: 'run build'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Restore NuGet packages'
+            inputs:
+              command: 'restore'
+              projects: '$(solution)'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Build solution'
+            inputs:
+              command: 'build'
+              projects: '$(solution)'
+              arguments: '--configuration $(buildConfiguration) --no-restore'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Run unit tests'
+            inputs:
+              command: 'test'
+              projects: '$(solution)'
+              arguments: '--configuration $(buildConfiguration) --no-build --verbosity normal --logger trx --results-directory $(Agent.TempDirectory)/TestResults'
+              publishTestResults: true
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish Web.Server'
+            inputs:
+              command: 'publish'
+              publishWebProjects: false
+              projects: '$(workingDirectory)/Web/Web.Server/Web.Server.csproj'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/webapp'
+              zipAfterPublish: true
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish build artifacts'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)/webapp'
+              ArtifactName: 'webapp'
+              publishLocation: 'Container'
+
+  - stage: Deploy
+    displayName: 'Deploy to Azure'
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployWebApp
+        displayName: 'Deploy to Azure Web App'
+        environment: 'Production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@1
+                  displayName: 'Download build artifacts'
+                  inputs:
+                    buildType: 'current'
+                    downloadType: 'single'
+                    artifactName: 'webapp'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Azure Web App'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(webAppName)'
+                    package: '$(System.ArtifactsDirectory)/webapp/*.zip'
+                    runtimeStack: 'DOTNETCORE|10.0'

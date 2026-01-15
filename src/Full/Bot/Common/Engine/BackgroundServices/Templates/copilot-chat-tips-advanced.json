@@ -1,0 +1,251 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "💬 Copilot Chat tips (Advanced)",
+      "size": "Large",
+      "weight": "Bolder",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Use Copilot Chat like an expert teammate: give it a role, constraints, and ask it to verify the answer.",
+      "isSubtle": true,
+      "spacing": "Small",
+      "wrap": true
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "⬆️ Upgrade your prompts",
+          "weight": "Bolder",
+          "wrap": true,
+          "spacing": "Small"
+        },
+        {
+          "type": "FactSet",
+          "facts": [
+            {
+              "title": "Role",
+              "value": "\"Act as an editor / project manager / analyst...\""
+            },
+            {
+              "title": "Constraints",
+              "value": "\"Keep it under 100 words / use bullet points / no jargon...\""
+            },
+            {
+              "title": "Trade-offs",
+              "value": "\"Give me a quick approach and a thorough approach, with pros/cons.\""
+            },
+            {
+              "title": "Verification",
+              "value": "\"What assumptions are you making? What should I double-check?\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "⚡ High-leverage workflows (click to try)",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "Container",
+      "spacing": "Small",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "🎯",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Decision helper",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Compare options with pros and cons",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "✏️",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Content review",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Get feedback on tone and clarity",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "📊",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Plan complex projects",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Break into phases with clear milestones",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "🔍",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Research topics",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Get summaries with real-world examples",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "🏆 Pro move",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Ask for a *short answer first*, then \"expand only the section I choose\". It keeps responses useful and focused on what you need.",
+      "wrap": true
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Decision matrix",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=I%20need%20to%20choose%20between%203%20vendors%20for%20our%20new%20office%20supplies.%20Create%20a%20comparison%20table%20with%20cost%2C%20delivery%20time%2C%20quality%2C%20and%20customer%20service.%20Recommend%20which%20one%20and%20why."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Review my message",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Act%20as%20an%20editor.%20Review%20this%20message%20for%20clarity%2C%20tone%2C%20and%20professionalism.%20Suggest%20improvements%3A%20%5Bpaste%20your%20message%5D"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Project breakdown",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=I%27m%20planning%20a%20company%20event%20for%20100%20people.%20Break%20this%20into%20weekly%20tasks%20with%20what%20success%20looks%20like%20for%20each%20phase."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Research summary",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Explain%20the%20main%20benefits%20of%20hybrid%20work%20according%20to%20recent%20research.%20Give%20me%203%20key%20points%20with%20examples."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Copilot learning",
+      "url": "https://support.microsoft.com/copilot"
+    }
+  ]
+}

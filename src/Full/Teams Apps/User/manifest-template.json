@@ -1,0 +1,44 @@
+{
+    "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+    "version": "1.0.0",
+    "manifestVersion": "1.16",
+    "id": "<<BOT_APP_ID>>",
+    "packageName": "com.officenudge.bot",
+    "name": {
+        "short": "Office Nudge Bot",
+        "full": "Office Nudge Bot - get tips about copilot usage"
+    },
+    "developer": {
+        "name": "Sam Betts",
+        "mpnId": "",
+        "websiteUrl": "https://github.com/sambetts/office-nudge",
+        "privacyUrl": "https://github.com/sambetts/office-nudge",
+        "termsOfUseUrl": "https://github.com/sambetts/office-nudge"
+    },
+    "description": {
+        "short": "Office Nudge Bot - get tips about copilot usage",
+        "full": "Office Nudge Bot sends you helpful tips and tricks to get the most out of Microsoft Copilot in Office apps."
+    },
+    "icons": {
+        "outline": "outline.png",
+        "color": "color.png"
+    },
+    "accentColor": "#00B7C3",
+    "bots": [
+        {
+            "botId": "<<BOT_APP_ID>>",
+            "scopes": [
+                "personal"
+            ],
+            "isNotificationOnly": false,
+            "supportsFiles": false
+        }
+    ],
+    "permissions": [
+        "identity",
+        "messageTeamMembers"
+    ],
+    "validDomains": [
+        "token.botframework.com"
+    ]
+}

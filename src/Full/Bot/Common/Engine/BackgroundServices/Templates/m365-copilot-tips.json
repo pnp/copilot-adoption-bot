@@ -1,0 +1,262 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "✨ Microsoft 365 Copilot tips (Beginner)",
+      "size": "Large",
+      "weight": "Bolder",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Use M365 Copilot where work already lives: inside Teams, Outlook, Word, Excel, and PowerPoint. Ask for a first draft - then refine.",
+      "isSubtle": true,
+      "spacing": "Small",
+      "wrap": true
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "🚀 Fast wins in your apps",
+          "weight": "Bolder",
+          "wrap": true,
+          "spacing": "Small"
+        },
+        {
+          "type": "FactSet",
+          "facts": [
+            {
+              "title": "Teams Chat",
+              "value": "\"Summarize this conversation and list action items with owners.\""
+            },
+            {
+              "title": "Outlook",
+              "value": "\"Draft a reply confirming the meeting and asking for the agenda.\""
+            },
+            {
+              "title": "Word",
+              "value": "\"Convert these bullet points into a 1-page summary with an introduction.\""
+            },
+            {
+              "title": "PowerPoint",
+              "value": "\"Create a 5-slide presentation from this document outline.\""
+            },
+            {
+              "title": "Excel",
+              "value": "\"What's causing the sales decline? Analyze trends and suggest 3 actions.\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "💡 Get better results (click to try)",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "Container",
+      "spacing": "Small",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "📅",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Meeting summaries",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Get decisions and next steps from Teams meetings",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "✉️",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Email catch-up",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Summarize what you missed while away",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "📄",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Document analysis",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Compare versions or extract key points",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "📊",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Data insights",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Find patterns and trends in your spreadsheets",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "⚡ Quick tips",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "Be specific",
+          "value": "Reference specific files or meetings by name."
+        },
+        {
+          "title": "Set the tone",
+          "value": "Specify \"professional\", \"friendly\", or \"concise\"."
+        },
+        {
+          "title": "Always review",
+          "value": "You're the decision-maker - verify before sending."
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Summarize emails",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Summarize%20the%20emails%20I%20received%20from%20%5BName%5D%20this%20week.%20What%20are%20the%20key%20topics%20and%20any%20urgent%20items%3F"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Meeting recap",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Summarize%20the%20last%20team%20meeting.%20List%20decisions%20made%2C%20action%20items%2C%20and%20who%27s%20responsible%20for%20each."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Analyze my data",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=In%20my%20sales%20spreadsheet%2C%20identify%20which%20product%20categories%20are%20growing%20and%20which%20are%20declining.%20Suggest%20why%20this%20might%20be%20happening."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "M365 Copilot help",
+      "url": "https://support.microsoft.com/microsoft-365-copilot"
+    }
+  ]
+}

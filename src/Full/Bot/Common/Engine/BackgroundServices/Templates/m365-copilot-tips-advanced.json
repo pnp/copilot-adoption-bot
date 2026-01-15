@@ -1,0 +1,282 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "✨ Microsoft 365 Copilot tips (Advanced)",
+      "size": "Large",
+      "weight": "Bolder",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Get maximum leverage from your M365 content: ask Copilot to compare, extract insights, and turn information into actions.",
+      "isSubtle": true,
+      "spacing": "Small",
+      "wrap": true
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "⚡ Power moves (click to try)",
+          "weight": "Bolder",
+          "wrap": true,
+          "spacing": "Small"
+        },
+        {
+          "type": "Container",
+          "spacing": "Small",
+          "items": [
+            {
+              "type": "ColumnSet",
+              "columns": [
+                {
+                  "type": "Column",
+                  "width": "auto",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "🔗",
+                      "size": "Large"
+                    }
+                  ]
+                },
+                {
+                  "type": "Column",
+                  "width": "stretch",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "Cross-reference meetings",
+                      "weight": "Bolder",
+                      "wrap": true
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "Find what was discussed about a topic across multiple meetings",
+                      "isSubtle": true,
+                      "wrap": true,
+                      "spacing": "None"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "ColumnSet",
+              "spacing": "Small",
+              "columns": [
+                {
+                  "type": "Column",
+                  "width": "auto",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "📧",
+                      "size": "Large"
+                    }
+                  ]
+                },
+                {
+                  "type": "Column",
+                  "width": "stretch",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "Email intelligence",
+                      "weight": "Bolder",
+                      "wrap": true
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "Track decision threads and identify blockers",
+                      "isSubtle": true,
+                      "wrap": true,
+                      "spacing": "None"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "ColumnSet",
+              "spacing": "Small",
+              "columns": [
+                {
+                  "type": "Column",
+                  "width": "auto",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "📑",
+                      "size": "Large"
+                    }
+                  ]
+                },
+                {
+                  "type": "Column",
+                  "width": "stretch",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "Document comparison",
+                      "weight": "Bolder",
+                      "wrap": true
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "See what changed between versions and why it matters",
+                      "isSubtle": true,
+                      "wrap": true,
+                      "spacing": "None"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "ColumnSet",
+              "spacing": "Small",
+              "columns": [
+                {
+                  "type": "Column",
+                  "width": "auto",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "📊",
+                      "size": "Large"
+                    }
+                  ]
+                },
+                {
+                  "type": "Column",
+                  "width": "stretch",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "Data storytelling",
+                      "weight": "Bolder",
+                      "wrap": true
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "Turn spreadsheet insights into a narrative presentation",
+                      "isSubtle": true,
+                      "wrap": true,
+                      "spacing": "None"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "ColumnSet",
+              "spacing": "Small",
+              "columns": [
+                {
+                  "type": "Column",
+                  "width": "auto",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "🔍",
+                      "size": "Large"
+                    }
+                  ]
+                },
+                {
+                  "type": "Column",
+                  "width": "stretch",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "Knowledge extraction",
+                      "weight": "Bolder",
+                      "wrap": true
+                    },
+                    {
+                      "type": "TextBlock",
+                      "text": "Pull insights from multiple documents into one summary",
+                      "isSubtle": true,
+                      "wrap": true,
+                      "spacing": "None"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "🏢 Enterprise-ready prompts",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "Cite sources",
+          "value": "\"List the files and email threads you referenced.\""
+        },
+        {
+          "title": "Risk assessment",
+          "value": "\"What are the key risks and mitigation strategies?\""
+        },
+        {
+          "title": "Action tracking",
+          "value": "\"Create a table with action items, owners, and due dates.\""
+        },
+        {
+          "title": "Compliance check",
+          "value": "\"Does this align with our data retention policy?\""
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "💡 Best practice: The more specific your reference (file name, date range, meeting title), the better the results.",
+      "isSubtle": true,
+      "spacing": "Small",
+      "wrap": true
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Cross-reference meetings",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Search%20all%20my%20meetings%20from%20the%20past%20month%20where%20we%20discussed%20the%20budget.%20Summarize%20the%20key%20decisions%20and%20who%20raised%20concerns."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Track email thread",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Trace%20the%20email%20thread%20about%20%5BProject%20Name%5D.%20Who%20made%20the%20final%20decision%2C%20what%20were%20the%20alternatives%2C%20and%20what%27s%20blocking%20progress%3F"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Compare documents",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Compare%20%5BDocument%20v1%5D%20and%20%5BDocument%20v2%5D.%20Create%20a%20summary%20of%20changes%20grouped%20by%3A%20strategic%20shifts%2C%20new%20requirements%2C%20and%20removed%20items."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Multi-doc insights",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Review%20%5BFolder%20Name%5D%20and%20extract%20the%20top%205%20risks%20mentioned%20across%20all%20documents.%20For%20each%20risk%2C%20note%20which%20doc%20mentioned%20it%20and%20any%20mitigation%20suggested."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "M365 Copilot help",
+      "url": "https://support.microsoft.com/microsoft-365-copilot"
+    }
+  ]
+}
