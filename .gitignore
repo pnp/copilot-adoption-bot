@@ -10,6 +10,8 @@
 *.userosscache
 *.sln.docstates
 
+.vscode/
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
@@ -371,3 +373,4 @@ FodyWeavers.xsd
 /ActivityImporter.ConsoleApp/Properties/ServiceDependencies/feedbackbotdev - Web Deploy
 src/Full/Teams Apps/User/manifest.json
 /src/Full/Bot/Web/web.client/.vscode
+.github/copilot-instructions.md
