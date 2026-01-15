@@ -10,7 +10,7 @@ A Teams bot that sends beautifully designed adaptive cards with Copilot tips, pr
 
 ## Why This Bot?
 
-Traditional training emails get ignored. Long training sessions are forgotten. **Copilot Adoption Bot meets users where they work**�right in Microsoft Teams�with bite-sized, actionable guidance at the perfect moment.
+Traditional training emails get ignored. Long training sessions are forgotten. **Copilot Adoption Bot meets users where they work** right in Microsoft Teams with bite-sized, actionable guidance at the perfect moment.
 
 | Traditional Email | Copilot Adoption Bot |
 |------------------|------------------|
@@ -150,11 +150,11 @@ See the **[Deployment Guide](DEPLOYMENT.md)** for complete instructions.
 
 ```
 src/Full/Bot/
-??? Web.Server/          # ASP.NET Core Web API and Teams bot
-??? web.client/          # React frontend application
-??? Common.Engine/       # Core business logic and services
-??? Common.DataUtils/    # Data access and storage utilities
-??? UnitTests/          # Unit and integration tests
+├── Web.Server/          # ASP.NET Core Web API and Teams bot
+├── web.client/          # React frontend application
+├── Common.Engine/       # Core business logic and services
+├── Common.DataUtils/    # Data access and storage utilities
+└── UnitTests/          # Unit and integration tests
 ```
 
 ---
@@ -207,4 +207,4 @@ This project is part of the [Microsoft 365 & Power Platform Community](https://p
 
 ---
 
-Made with ?? by the Microsoft 365 Community
+Made with ❤️ by the Microsoft 365 Community

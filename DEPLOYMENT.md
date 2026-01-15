@@ -70,11 +70,11 @@ The storage account requires both Table Storage and Blob Storage:
 
 ```
 Storage Account
-??? Table Storage
-?   ??? MessageTemplates (template metadata)
-?   ??? MessageLogs (delivery tracking)
-??? Blob Storage
-    ??? message-templates (container for JSON payloads)
+├── Table Storage
+│   ├── MessageTemplates (template metadata)
+│   └── MessageLogs (delivery tracking)
+└── Blob Storage
+    └── message-templates (container for JSON payloads)
 ```
 
 **Note**: The `message-templates` blob container is automatically created by the application on first run.

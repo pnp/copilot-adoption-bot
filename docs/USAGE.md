@@ -30,7 +30,7 @@ This guide covers how to use the Copilot Adoption Bot to create and send adaptiv
   "body": [
     {
       "type": "TextBlock",
-      "text": "?? Copilot Tip: Use Specific Prompts",
+      "text": "💡 Copilot Tip: Use Specific Prompts",
       "size": "Large",
       "weight": "Bolder"
     },
