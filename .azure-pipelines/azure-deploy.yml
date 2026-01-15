@@ -63,13 +63,24 @@ stages:
               projects: '$(solution)'
               arguments: '--configuration $(buildConfiguration) --no-restore'
 
+          - script: |
+              echo "$(TESTS_APPSETTINGS_JSON)" > appsettings.json
+            displayName: 'Create test appsettings.json from variable'
+            workingDirectory: '$(workingDirectory)/UnitTests'
+            condition: and(succeeded(), ne(variables['TESTS_APPSETTINGS_JSON'], ''))
+
           - task: DotNetCoreCLI@2
             displayName: 'Run unit tests'
+            condition: and(succeeded(), ne(variables['TESTS_APPSETTINGS_JSON'], ''))
             inputs:
               command: 'test'
               projects: '$(solution)'
               arguments: '--configuration $(buildConfiguration) --no-build --verbosity normal --logger trx --results-directory $(Agent.TempDirectory)/TestResults'
               publishTestResults: true
+
+          - script: echo "##vso[task.logissue type=warning]Tests skipped - TESTS_APPSETTINGS_JSON variable not configured"
+            displayName: 'Skip tests notification'
+            condition: and(succeeded(), eq(variables['TESTS_APPSETTINGS_JSON'], ''))
 
           - task: DotNetCoreCLI@2
             displayName: 'Publish Web.Server'
