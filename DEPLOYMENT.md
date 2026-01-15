@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This document covers all deployment options for the Office Nudge Teams application, including prerequisites, Azure resource setup, CI/CD pipelines, and infrastructure configuration.
+This document covers all deployment options for the Copilot Adoption Bot Teams application, including prerequisites, Azure resource setup, CI/CD pipelines, and infrastructure configuration.
 
 ## Table of Contents
 
@@ -188,10 +188,10 @@ This project includes pre-configured CI/CD pipelines for both GitHub Actions and
    - Navigate to **Certificates & secrets** - **Federated credentials**
    - Click **+ Add credential**
    - Select **GitHub Actions deploying Azure resources**
-   - Configure:
-     - **Organization**: Your GitHub organization/username
-     - **Repository**: `office-nudge`
-     - **Entity type**: Branch
+     - Configure:
+       - **Organization**: Your GitHub organization/username
+       - **Repository**: `copilot-adoption-bot`
+       - **Entity type**: Branch
      - **Branch**: `main`
      - **Name**: `github-actions-main`
 
