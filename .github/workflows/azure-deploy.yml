@@ -48,15 +48,15 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore "${{ env.SOLUTION_PATH }}"
 
-      - name: Build solution
-        run: dotnet build "${{ env.SOLUTION_PATH }}" --configuration Release --no-restore
-
       - name: Create test appsettings.json from secret
         if: ${{ env.HAS_TESTS_CONFIG == 'true' }}
         working-directory: ${{ env.WORKING_DIRECTORY }}/UnitTests
         env:
           TESTS_APPSETTINGS_JSON: ${{ secrets.TESTS_APPSETTINGS_JSON }}
         run: echo "$TESTS_APPSETTINGS_JSON" > appsettings.json
+
+      - name: Build solution
+        run: dotnet build "${{ env.SOLUTION_PATH }}" --configuration Release --no-restore
 
       - name: Run unit tests
         if: ${{ env.HAS_TESTS_CONFIG == 'true' }}
