@@ -17,7 +17,6 @@ import {
 import { 
     Settings20Regular, 
     ArrowReset20Regular, 
-    Save20Regular,
     Sparkle20Regular,
     Info20Regular,
     ArrowSync20Regular,
@@ -510,17 +509,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ loader }) => {
                     <Button 
                         appearance="primary" 
                         onClick={handleSave} 
-                        loading={saving}
                         disabled={!hasChanges || saving}
                     >
-                        Save Changes
+                        {saving ? 'Saving...' : 'Save Changes'}
                     </Button>
                     <Button 
                         appearance="secondary" 
                         onClick={handleResetToDefaults} 
-                        loading={saving}
+                        disabled={saving}
                     >
-                        Reset to Defaults
+                        {saving ? 'Resetting...' : 'Reset to Defaults'}
                     </Button>
                 </div>
             </Card>

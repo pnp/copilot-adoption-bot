@@ -166,6 +166,24 @@ export interface CacheOperationResponse {
   error?: string;
 }
 
+// ID Token Claims for MSAL authentication
+export interface IdTokenClaims {
+  given_name?: string;
+  family_name?: string;
+  name?: string;
+  preferred_username?: string;
+  oid?: string;
+  tid?: string;
+  sub?: string;
+  email?: string;
+}
 
+// Survey Page Models
+export interface SurveyPageDTO {
+  id: string;
+  title: string;
+  description?: string;
+  cardPayload?: string;
+}
 
 
