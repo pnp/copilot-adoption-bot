@@ -1,0 +1,269 @@
+﻿{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "💬 Meet Copilot Chat - your AI work assistant",
+      "size": "Large",
+      "weight": "Bolder",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Copilot Chat is like having a helpful colleague who's always available. Ask questions, brainstorm ideas, get things done faster - all in a natural conversation. No special commands needed.",
+      "isSubtle": true,
+      "spacing": "Small",
+      "wrap": true
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "✨ What makes Copilot Chat different?",
+          "weight": "Bolder",
+          "wrap": true,
+          "spacing": "Small"
+        },
+        {
+          "type": "FactSet",
+          "facts": [
+            {
+              "title": "Instant help",
+              "value": "Get answers, ideas, and assistance anytime you need it."
+            },
+            {
+              "title": "Work context",
+              "value": "It understands your work - files, meetings, emails, and more."
+            },
+            {
+              "title": "Your assistant",
+              "value": "Draft messages, summarize content, plan your day, learn new things."
+            },
+            {
+              "title": "Conversational",
+              "value": "Just talk naturally - refine, ask follow-ups, iterate together."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "🚀 Great ways to get started (click to try)",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "Container",
+      "spacing": "Small",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "📅",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Organize your day",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Get help prioritizing tasks and planning your time",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "✉️",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Write better messages",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Draft emails, responses, and communications",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "📝",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Summarize anything",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Turn long content into key points and action items",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "💡",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Learn something new",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Get clear explanations of work topics or concepts",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "💭 How to talk to Copilot",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "Start simple",
+          "value": "Try one clear request - you can always add more detail."
+        },
+        {
+          "title": "Be specific",
+          "value": "Mention the format you want: bullets, email, steps, summary."
+        },
+        {
+          "title": "Keep going",
+          "value": "Say \"make it shorter\" or \"add more context\" to refine."
+        },
+        {
+          "title": "It's OK to explore",
+          "value": "Ask \"what if\" questions or try different approaches."
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Ready to give it a try? Pick any starter prompt below and see what happens. Remember, you can always adjust and iterate!",
+      "isSubtle": true,
+      "spacing": "Medium",
+      "wrap": true
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Plan my day",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Help%20me%20plan%20my%20workday.%20I%20have%203%20meetings%2C%20need%20to%20finish%20a%20report%2C%20and%20respond%20to%20several%20emails.%20How%20should%20I%20prioritize%3F"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Draft an email",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Help%20me%20write%20a%20professional%20email%20to%20my%20team%20announcing%20a%20project%20update.%20Keep%20it%20friendly%20and%20under%2080%20words."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Explain a concept",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Explain%20what%20agile%20methodology%20is%20and%20why%20teams%20use%20it.%20Make%20it%20simple%20and%20include%20a%20quick%20example."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Learn more about Copilot Chat",
+      "url": "https://support.microsoft.com/copilot"
+    }
+  ]
+}

@@ -61,6 +61,15 @@ public class DefaultTemplateInitializationService : IHostedService
     {
         const string systemCreator = "system@initialization";
 
+        // Copilot Chat (Intro)
+        var copilotChatIntro = await ReadEmbeddedResourceAsync("Engine.BackgroundServices.Templates.copilot-chat-intro.json");
+        await templateService.CreateTemplate(
+            "Copilot Chat - Getting Started",
+            copilotChatIntro,
+            systemCreator);
+
+        _logger.LogInformation("Created default template: Copilot Chat - Getting Started");
+
         // Copilot Chat (Beginner)
         var copilotChatBeginner = await ReadEmbeddedResourceAsync("Engine.BackgroundServices.Templates.copilot-chat-tips.json");
         await templateService.CreateTemplate(
@@ -78,6 +87,15 @@ public class DefaultTemplateInitializationService : IHostedService
             systemCreator);
 
         _logger.LogInformation("Created default template: Copilot Chat - Tips (Advanced)");
+
+        // Microsoft 365 Copilot (Intro)
+        var m365CopilotIntro = await ReadEmbeddedResourceAsync("Engine.BackgroundServices.Templates.m365-copilot-intro.json");
+        await templateService.CreateTemplate(
+            "Microsoft 365 Copilot - Getting Started",
+            m365CopilotIntro,
+            systemCreator);
+
+        _logger.LogInformation("Created default template: Microsoft 365 Copilot - Getting Started");
 
         // Microsoft 365 Copilot (Beginner)
         var m365CopilotBeginner = await ReadEmbeddedResourceAsync("Engine.BackgroundServices.Templates.m365-copilot-tips.json");
@@ -109,7 +127,8 @@ public class DefaultTemplateInitializationService : IHostedService
             throw new FileNotFoundException($"Embedded resource '{resourceName}' not found.");
         }
 
-        using var reader = new StreamReader(stream);
+        // Explicitly use UTF-8 encoding to preserve emojis and special characters
+        using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
         return await reader.ReadToEndAsync();
     }
 }

@@ -1,0 +1,248 @@
+﻿{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "🚀 Start your Copilot journey in Microsoft 365",
+      "size": "Large",
+      "weight": "Bolder",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Microsoft 365 Copilot is your AI assistant built right into the apps you use every day - Teams, Outlook, Word, Excel, and PowerPoint. It helps you work faster and focus on what matters most.",
+      "isSubtle": true,
+      "spacing": "Small",
+      "wrap": true
+    },
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "✨ What can Copilot do for you?",
+          "weight": "Bolder",
+          "wrap": true,
+          "spacing": "Small"
+        },
+        {
+          "type": "FactSet",
+          "facts": [
+            {
+              "title": "Save hours",
+              "value": "Draft documents, emails, and presentations in seconds."
+            },
+            {
+              "title": "Stay caught up",
+              "value": "Get meeting summaries and email highlights instantly."
+            },
+            {
+              "title": "Work smarter",
+              "value": "Analyze data, find insights, and make better decisions."
+            },
+            {
+              "title": "Focus better",
+              "value": "Let Copilot handle the busywork while you do your best work."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "💡 Where to start (click to try now)",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "Container",
+      "spacing": "Small",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "📧",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "In Outlook: Catch up on emails",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Ask Copilot to summarize what you missed",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "💬",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "In Teams: Get meeting insights",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Find key decisions and action items from meetings",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "📝",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "In Word: Create a first draft",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Start with your ideas, let Copilot write the draft",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "📊",
+                  "size": "Large"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "In Excel: Understand your data",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Ask questions about trends, patterns, and insights",
+                  "isSubtle": true,
+                  "wrap": true,
+                  "spacing": "None"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "🎯 Your first prompt",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "The best way to learn is by doing. Pick any task below and give it a try - you can always refine the results. Remember: you're in control, Copilot is here to help.",
+      "isSubtle": true,
+      "spacing": "Small",
+      "wrap": true
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Summarize my emails",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Summarize%20my%20unread%20emails%20from%20today.%20Highlight%20anything%20urgent%20or%20that%20needs%20my%20response."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Recap a meeting",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Summarize%20my%20most%20recent%20meeting.%20What%20were%20the%20key%20decisions%2C%20action%20items%2C%20and%20who%20owns%20each%20task%3F"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Try: Draft a response",
+      "url": "https://teams.microsoft.com/l/chat/0/0?message=Help%20me%20draft%20a%20professional%20response%20to%20%5Bperson%27s%20name%5D%20confirming%20I%20can%20attend%20the%20meeting%20and%20asking%20for%20the%20agenda."
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Learn more about M365 Copilot",
+      "url": "https://support.microsoft.com/microsoft-365-copilot"
+    }
+  ]
+}

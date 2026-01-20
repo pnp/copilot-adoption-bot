@@ -5,6 +5,13 @@
 </PropertyGroup>
 
 <ItemGroup>
+  <None Remove="BackgroundServices\Templates\copilot-chat-intro.json" />
+  <None Remove="BackgroundServices\Templates\m365-copilot-intro.json" />
+</ItemGroup>
+
+<ItemGroup>
+  <EmbeddedResource Include="BackgroundServices\Templates\copilot-chat-intro.json" />
+  <EmbeddedResource Include="BackgroundServices\Templates\m365-copilot-intro.json" />
   <EmbeddedResource Include="Bot\Cards\Templates\BotDiagFinished.json" />
   <EmbeddedResource Include="Bot\Cards\Templates\BotFirstIntro.json" />
   <EmbeddedResource Include="Bot\Cards\Templates\BotResumeConversationIntro.json" />

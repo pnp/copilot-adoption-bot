@@ -165,7 +165,18 @@ public class MessageTemplateStorageManager : TableStorageManager
         var blobName = $"{templateId}.json";
         var blobClient = containerClient.GetBlobClient(blobName);
 
-        var content = BinaryData.FromString(jsonPayload);
+        // Explicitly use UTF-8 encoding to preserve emojis and special characters
+        var utf8Bytes = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
+        var content = new BinaryData(utf8Bytes);
+        
+        var uploadOptions = new BlobUploadOptions
+        {
+            HttpHeaders = new BlobHttpHeaders
+            {
+                ContentType = "application/json; charset=utf-8"
+            }
+        };
+        
         await blobClient.UploadAsync(content, overwrite: true);
 
         return blobClient.Uri.ToString();
