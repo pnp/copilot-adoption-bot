@@ -60,6 +60,9 @@ public class TeamsBot<T>(ConversationState conversationState, UserState userStat
                     Logger.LogInformation($"Resuming conversation with user {userIdentity.UserId} by sending next card (card {card.TemplateName}).");
                     var resumeActivity = MessageFactory.Attachment(nextCardAttachmentToSend);
                     await turnContext.SendActivityAsync(resumeActivity, cancellationToken);
+                    
+                    // Save card info to user state
+                    await SaveCardInfoToUserState(turnContext, card);
                 }
                 else
                 {
@@ -77,5 +80,30 @@ public class TeamsBot<T>(ConversationState conversationState, UserState userStat
 
         // Run the Dialog with the new Invoke Activity.
         await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>(nameof(DialogState)), cancellationToken);
+    }
+
+    /// <summary>
+    /// Save card information to user state for access in MainDialogue
+    /// </summary>
+    private async Task SaveCardInfoToUserState(ITurnContext turnContext, PendingCardInfo card)
+    {
+        const string CACHE_NAME_CONVO_STATE = "CACHE_NAME_CONVO_STATE";
+        var convoStateProp = UserState.CreateProperty<Dialogues.MainDialogueConvoState>(CACHE_NAME_CONVO_STATE);
+        var convoState = await convoStateProp.GetAsync(turnContext);
+        if (convoState == null)
+        {
+            convoState = new Dialogues.MainDialogueConvoState();
+        }
+
+        convoState.LastCardSent = new Dialogues.LastCardInfo
+        {
+            TemplateName = card.TemplateName,
+            TemplateId = card.TemplateId,
+            CardJson = card.CardJson,
+            SentDate = card.SentDate
+        };
+
+        await convoStateProp.SetAsync(turnContext, convoState);
+        await UserState.SaveChangesAsync(turnContext);
     }
 }

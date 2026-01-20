@@ -3,7 +3,6 @@ import {
     Button,
     Card,
     CardHeader,
-    Label,
     Spinner,
     Text,
     Textarea,
@@ -18,7 +17,6 @@ import {
     Settings20Regular, 
     ArrowReset20Regular, 
     Sparkle20Regular,
-    Info20Regular,
     ArrowSync20Regular,
     Delete20Regular,
 } from '@fluentui/react-icons';

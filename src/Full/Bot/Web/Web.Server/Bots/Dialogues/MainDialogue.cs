@@ -65,7 +65,7 @@ public class MainDialogue : CommonBotDialogue
                 var aiResponse = await _aiFoundryService.HandleFollowUpChatAsync(
                     stepContext.Context.Activity.From.Id,
                     userMessage,
-                    convoState.LastNudgeContext,
+                    convoState.LastCardSent?.CardJson,
                     conversationHistory
                 );
 
@@ -121,16 +121,22 @@ public class MainDialogue : CommonBotDialogue
 }
 
 internal class MainDialogueConvoState
-{
-    public string RandomStateVal { get; set; } = Guid.NewGuid().ToString();
-    
-    /// <summary>
-    /// Context about the last nudge sent to this user (for AI follow-up)
-    /// </summary>
-    public string? LastNudgeContext { get; set; }
-    
+{       
     /// <summary>
     /// Conversation history for AI follow-up (role, message pairs)
     /// </summary>
     public List<(string role, string message)>? ConversationHistory { get; set; }
+    
+    /// <summary>
+    /// Information about the last card sent to this user
+    /// </summary>
+    public LastCardInfo? LastCardSent { get; set; }
+}
+
+public class LastCardInfo
+{
+    public string? TemplateName { get; set; }
+    public string? TemplateId { get; set; }
+    public string? CardJson { get; set; }
+    public DateTime? SentDate { get; set; }
 }
