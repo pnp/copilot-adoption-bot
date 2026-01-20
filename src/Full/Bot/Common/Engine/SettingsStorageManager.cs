@@ -15,7 +15,7 @@ public class SettingsStorageManager : TableStorageManager
     /// <summary>
     /// Default system prompt for follow-up chat conversations
     /// </summary>
-    public const string DefaultFollowUpChatSystemPrompt = @"You are a helpful assistant for a Microsoft Teams bot called Office Nudge. 
+    public const string DefaultFollowUpChatSystemPrompt = @"You are a helpful assistant for a Microsoft Teams bot called Office Adoption Bot. 
 Users receive nudge messages (tips, reminders, notifications) and may reply with questions or feedback.
 
 Your role:

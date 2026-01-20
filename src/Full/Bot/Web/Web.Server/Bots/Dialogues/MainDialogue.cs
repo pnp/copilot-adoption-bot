@@ -100,7 +100,7 @@ public class MainDialogue : CommonBotDialogue
 
         // Default response when AI is not enabled or no message
         await SendMsg(stepContext.Context!,
-                        "Hi! I'm the Office Nudge bot. I deliver important messages and tips to help you stay productive. " +
+                        "Hi! I'm the Office Adoption Bot. I deliver important messages and tips to help you stay productive. " +
                         "If you have questions about a message I sent, feel free to reply!"
                      );
         return await stepContext.EndDialogAsync();

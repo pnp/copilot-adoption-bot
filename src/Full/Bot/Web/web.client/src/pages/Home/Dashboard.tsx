@@ -60,9 +60,9 @@ export const Dashboard: React.FC<{ loader?: BaseAxiosApiLoader }> = (props) => {
         <div>
             <section className="page--header">
                 <div className="page-title">
-                    <h1>Office Nudge Dashboard</h1>
+                    <h1>Office Adoption Bot Dashboard</h1>
 
-                    <p>Welcome to the Office Nudge control panel. View message statistics and user coverage below.</p>
+                    <p>Welcome to the Office Adoption Bot control panel. View message statistics and user coverage below.</p>
 
                     {/* Copilot Connected Status */}
                     {copilotStatus && (
