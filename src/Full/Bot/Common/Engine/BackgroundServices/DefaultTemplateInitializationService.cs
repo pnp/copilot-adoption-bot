@@ -62,7 +62,7 @@ public class DefaultTemplateInitializationService : IHostedService
         const string systemCreator = "system@initialization";
 
         // Copilot Chat (Beginner)
-        var copilotChatBeginner = await ReadEmbeddedResourceAsync("Common.Engine.BackgroundServices.Templates.copilot-chat-tips.json");
+        var copilotChatBeginner = await ReadEmbeddedResourceAsync("Engine.BackgroundServices.Templates.copilot-chat-tips.json");
         await templateService.CreateTemplate(
             "Copilot Chat - Tips (Beginner)",
             copilotChatBeginner,
@@ -71,7 +71,7 @@ public class DefaultTemplateInitializationService : IHostedService
         _logger.LogInformation("Created default template: Copilot Chat - Tips (Beginner)");
 
         // Copilot Chat (Advanced)
-        var copilotChatAdvanced = await ReadEmbeddedResourceAsync("Common.Engine.BackgroundServices.Templates.copilot-chat-tips-advanced.json");
+        var copilotChatAdvanced = await ReadEmbeddedResourceAsync("Engine.BackgroundServices.Templates.copilot-chat-tips-advanced.json");
         await templateService.CreateTemplate(
             "Copilot Chat - Tips (Advanced)",
             copilotChatAdvanced,
@@ -80,7 +80,7 @@ public class DefaultTemplateInitializationService : IHostedService
         _logger.LogInformation("Created default template: Copilot Chat - Tips (Advanced)");
 
         // Microsoft 365 Copilot (Beginner)
-        var m365CopilotBeginner = await ReadEmbeddedResourceAsync("Common.Engine.BackgroundServices.Templates.m365-copilot-tips.json");
+        var m365CopilotBeginner = await ReadEmbeddedResourceAsync("Engine.BackgroundServices.Templates.m365-copilot-tips.json");
         await templateService.CreateTemplate(
             "Microsoft 365 Copilot - Tips (Beginner)",
             m365CopilotBeginner,
@@ -89,7 +89,7 @@ public class DefaultTemplateInitializationService : IHostedService
         _logger.LogInformation("Created default template: Microsoft 365 Copilot - Tips (Beginner)");
 
         // Microsoft 365 Copilot (Advanced)
-        var m365CopilotAdvanced = await ReadEmbeddedResourceAsync("Common.Engine.BackgroundServices.Templates.m365-copilot-tips-advanced.json");
+        var m365CopilotAdvanced = await ReadEmbeddedResourceAsync("Engine.BackgroundServices.Templates.m365-copilot-tips-advanced.json");
         await templateService.CreateTemplate(
             "Microsoft 365 Copilot - Tips (Advanced)",
             m365CopilotAdvanced,

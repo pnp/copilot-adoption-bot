@@ -231,29 +231,24 @@ export const BatchHistoryPage: React.FC<BatchHistoryPageProps> = ({ loader }) =>
                                                         size="small"
                                                         icon={<Eye20Regular />}
                                                         onClick={() => handleViewBatch(batch.id)}
-                                                    >
-                                                        View Progress
-                                                    </Button>
+                                                        title="View Progress"
+                                                    />
                                                     <Button
                                                         size="small"
-                                                        appearance="subtle"
                                                         icon={<Copy20Regular />}
                                                         onClick={() => handleCopyBatch(batch)}
                                                         disabled={copyingBatchId === batch.id}
-                                                    >
-                                                        {copyingBatchId === batch.id ? 'Copying...' : 'Copy Batch'}
-                                                    </Button>
+                                                        title="Copy Batch"
+                                                    />
                                                     <Dialog>
                                                         <DialogTrigger disableButtonEnhancement>
                                                             <Button
                                                                 size="small"
-                                                                appearance="subtle"
                                                                 icon={<Delete20Regular />}
                                                                 onClick={() => setBatchToDelete(batch)}
                                                                 disabled={deletingBatchId === batch.id}
-                                                            >
-                                                                {deletingBatchId === batch.id ? 'Deleting...' : 'Delete'}
-                                                            </Button>
+                                                                title="Delete Batch"
+                                                            />
                                                         </DialogTrigger>
                                                         <DialogSurface>
                                                             <DialogBody>

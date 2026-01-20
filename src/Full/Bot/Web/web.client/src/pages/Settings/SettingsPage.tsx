@@ -475,27 +475,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ loader }) => {
                     }
                 />
 
-                <div className={styles.infoCard}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS }}>
-                        <Info20Regular />
-                        <Text size={200}>
-                            {isUsingDefault 
-                                ? 'Using default system prompt.' 
-                                : 'Custom system prompt configured.'}
-                        </Text>
-                    </div>
-
-                    <div className={styles.metaInfo}>
-                        <Text size={300}>
-                            {isUsingDefault 
-                                ? settings?.defaultFollowUpChatSystemPrompt 
-                                : settings?.followUpChatSystemPrompt}
-                        </Text>
-                    </div>
-                </div>
-
                 <div className={styles.formField}>
-                    <Label htmlFor="followUpChatPrompt">Follow-up Chat System Prompt</Label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS, marginBottom: tokens.spacingVerticalS }}>
+                        <Badge 
+                            appearance="filled" 
+                            color={isUsingDefault ? 'informative' : 'brand'}
+                        >
+                            {isUsingDefault ? 'Default Prompt' : 'Custom Prompt'}
+                        </Badge>
+                    </div>
                     <Textarea
                         id="followUpChatPrompt"
                         value={followUpChatPrompt}
