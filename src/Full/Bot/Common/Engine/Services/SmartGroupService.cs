@@ -41,6 +41,18 @@ public class SmartGroupMemberDto
     public string? EmployeeType { get; set; }
     public DateTimeOffset? HireDate { get; set; }
     public double? ConfidenceScore { get; set; }
+    
+    // Copilot usage statistics
+    public DateTime? CopilotLastActivityDate { get; set; }
+    public DateTime? CopilotChatLastActivityDate { get; set; }
+    public DateTime? TeamsCopilotLastActivityDate { get; set; }
+    public DateTime? WordCopilotLastActivityDate { get; set; }
+    public DateTime? ExcelCopilotLastActivityDate { get; set; }
+    public DateTime? PowerPointCopilotLastActivityDate { get; set; }
+    public DateTime? OutlookCopilotLastActivityDate { get; set; }
+    public DateTime? OneNoteCopilotLastActivityDate { get; set; }
+    public DateTime? LoopCopilotLastActivityDate { get; set; }
+    public DateTime? LastCopilotStatsUpdate { get; set; }
 }
 
 /// <summary>
@@ -200,7 +212,18 @@ public class SmartGroupService
                 ManagerDisplayName = user?.ManagerDisplayName,
                 EmployeeType = user?.EmployeeType,
                 HireDate = user?.HireDate,
-                ConfidenceScore = m.ConfidenceScore
+                ConfidenceScore = m.ConfidenceScore,
+                // Copilot usage statistics
+                CopilotLastActivityDate = user?.CopilotLastActivityDate,
+                CopilotChatLastActivityDate = user?.CopilotChatLastActivityDate,
+                TeamsCopilotLastActivityDate = user?.TeamsCopilotLastActivityDate,
+                WordCopilotLastActivityDate = user?.WordCopilotLastActivityDate,
+                ExcelCopilotLastActivityDate = user?.ExcelCopilotLastActivityDate,
+                PowerPointCopilotLastActivityDate = user?.PowerPointCopilotLastActivityDate,
+                OutlookCopilotLastActivityDate = user?.OutlookCopilotLastActivityDate,
+                OneNoteCopilotLastActivityDate = user?.OneNoteCopilotLastActivityDate,
+                LoopCopilotLastActivityDate = user?.LoopCopilotLastActivityDate,
+                LastCopilotStatsUpdate = user?.LastCopilotStatsUpdate
             };
         }).ToList();
 
@@ -259,7 +282,18 @@ public class SmartGroupService
                 ManagerDisplayName = user?.ManagerDisplayName,
                 EmployeeType = user?.EmployeeType,
                 HireDate = user?.HireDate,
-                ConfidenceScore = m.ConfidenceScore
+                ConfidenceScore = m.ConfidenceScore,
+                // Copilot usage statistics
+                CopilotLastActivityDate = user?.CopilotLastActivityDate,
+                CopilotChatLastActivityDate = user?.CopilotChatLastActivityDate,
+                TeamsCopilotLastActivityDate = user?.TeamsCopilotLastActivityDate,
+                WordCopilotLastActivityDate = user?.WordCopilotLastActivityDate,
+                ExcelCopilotLastActivityDate = user?.ExcelCopilotLastActivityDate,
+                PowerPointCopilotLastActivityDate = user?.PowerPointCopilotLastActivityDate,
+                OutlookCopilotLastActivityDate = user?.OutlookCopilotLastActivityDate,
+                OneNoteCopilotLastActivityDate = user?.OneNoteCopilotLastActivityDate,
+                LoopCopilotLastActivityDate = user?.LoopCopilotLastActivityDate,
+                LastCopilotStatsUpdate = user?.LastCopilotStatsUpdate
             };
         }).ToList();
     }
@@ -337,7 +371,18 @@ public class SmartGroupService
             ManagerDisplayName = entity.ManagerDisplayName,
             EmployeeType = entity.EmployeeType,
             HireDate = entity.HireDate,
-            ConfidenceScore = entity.ConfidenceScore
+            ConfidenceScore = entity.ConfidenceScore,
+            // Copilot usage statistics
+            CopilotLastActivityDate = entity.CopilotLastActivityDate,
+            CopilotChatLastActivityDate = entity.CopilotChatLastActivityDate,
+            TeamsCopilotLastActivityDate = entity.TeamsCopilotLastActivityDate,
+            WordCopilotLastActivityDate = entity.WordCopilotLastActivityDate,
+            ExcelCopilotLastActivityDate = entity.ExcelCopilotLastActivityDate,
+            PowerPointCopilotLastActivityDate = entity.PowerPointCopilotLastActivityDate,
+            OutlookCopilotLastActivityDate = entity.OutlookCopilotLastActivityDate,
+            OneNoteCopilotLastActivityDate = entity.OneNoteCopilotLastActivityDate,
+            LoopCopilotLastActivityDate = entity.LoopCopilotLastActivityDate,
+            LastCopilotStatsUpdate = entity.LastCopilotStatsUpdate
         };
     }
 }

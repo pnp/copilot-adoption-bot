@@ -115,6 +115,17 @@ export interface SmartGroupMemberDto {
   employeeType?: string;
   hireDate?: string;
   confidenceScore?: number;
+  // Copilot usage statistics
+  copilotLastActivityDate?: string;
+  copilotChatLastActivityDate?: string;
+  teamsCopilotLastActivityDate?: string;
+  wordCopilotLastActivityDate?: string;
+  excelCopilotLastActivityDate?: string;
+  powerPointCopilotLastActivityDate?: string;
+  outlookCopilotLastActivityDate?: string;
+  oneNoteCopilotLastActivityDate?: string;
+  loopCopilotLastActivityDate?: string;
+  lastCopilotStatsUpdate?: string;
 }
 
 export interface SmartGroupResolutionResult {

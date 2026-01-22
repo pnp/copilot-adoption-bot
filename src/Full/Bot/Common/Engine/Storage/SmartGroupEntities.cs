@@ -152,6 +152,18 @@ public class SmartGroupMemberCacheEntity : ITableEntity
     /// </summary>
     public double? ConfidenceScore { get; set; }
 
+    // Copilot usage statistics
+    public DateTime? CopilotLastActivityDate { get; set; }
+    public DateTime? CopilotChatLastActivityDate { get; set; }
+    public DateTime? TeamsCopilotLastActivityDate { get; set; }
+    public DateTime? WordCopilotLastActivityDate { get; set; }
+    public DateTime? ExcelCopilotLastActivityDate { get; set; }
+    public DateTime? PowerPointCopilotLastActivityDate { get; set; }
+    public DateTime? OutlookCopilotLastActivityDate { get; set; }
+    public DateTime? OneNoteCopilotLastActivityDate { get; set; }
+    public DateTime? LoopCopilotLastActivityDate { get; set; }
+    public DateTime? LastCopilotStatsUpdate { get; set; }
+
     /// <summary>
     /// When this member was added to the cache
     /// </summary>

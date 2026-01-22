@@ -50,6 +50,13 @@ const useStyles = makeStyles({
         display: 'flex',
         gap: tokens.spacingHorizontalS,
     },
+    truncatedText: {
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        maxWidth: '200px',
+        display: 'block',
+    },
     emptyState: {
         padding: tokens.spacingVerticalXXL,
         textAlign: 'center',
@@ -217,7 +224,11 @@ export const BatchHistoryPage: React.FC<BatchHistoryPageProps> = ({ loader }) =>
                                             </TableCellLayout>
                                         </TableCell>
                                         <TableCell>
-                                            <TableCellLayout>{batch.senderUpn}</TableCellLayout>
+                                            <TableCellLayout>
+                                                <div className={styles.truncatedText} title={batch.senderUpn}>
+                                                    {batch.senderUpn}
+                                                </div>
+                                            </TableCellLayout>
                                         </TableCell>
                                         <TableCell>
                                             <TableCellLayout>
