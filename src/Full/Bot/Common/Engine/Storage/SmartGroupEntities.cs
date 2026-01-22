@@ -78,6 +78,21 @@ public class SmartGroupMemberCacheEntity : ITableEntity
     public string? DisplayName { get; set; }
 
     /// <summary>
+    /// User's given name
+    /// </summary>
+    public string? GivenName { get; set; }
+
+    /// <summary>
+    /// User's surname
+    /// </summary>
+    public string? Surname { get; set; }
+
+    /// <summary>
+    /// User's email
+    /// </summary>
+    public string? Mail { get; set; }
+
+    /// <summary>
     /// User's department
     /// </summary>
     public string? Department { get; set; }
@@ -86,6 +101,51 @@ public class SmartGroupMemberCacheEntity : ITableEntity
     /// User's job title
     /// </summary>
     public string? JobTitle { get; set; }
+
+    /// <summary>
+    /// User's office location
+    /// </summary>
+    public string? OfficeLocation { get; set; }
+
+    /// <summary>
+    /// User's city
+    /// </summary>
+    public string? City { get; set; }
+
+    /// <summary>
+    /// User's country
+    /// </summary>
+    public string? Country { get; set; }
+
+    /// <summary>
+    /// User's state
+    /// </summary>
+    public string? State { get; set; }
+
+    /// <summary>
+    /// User's company name
+    /// </summary>
+    public string? CompanyName { get; set; }
+
+    /// <summary>
+    /// Manager's UPN
+    /// </summary>
+    public string? ManagerUpn { get; set; }
+
+    /// <summary>
+    /// Manager's display name
+    /// </summary>
+    public string? ManagerDisplayName { get; set; }
+
+    /// <summary>
+    /// Employee type
+    /// </summary>
+    public string? EmployeeType { get; set; }
+
+    /// <summary>
+    /// Hire date
+    /// </summary>
+    public DateTimeOffset? HireDate { get; set; }
 
     /// <summary>
     /// Confidence score from AI (0.0 - 1.0)

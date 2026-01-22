@@ -15,6 +15,8 @@ export function NavMenu() {
       setSelectedValue('templates');
     } else if (path === '/sendnudge') {
       setSelectedValue('sendnudge');
+    } else if (path === '/smartgroups') {
+      setSelectedValue('smartgroups');
     } else if (path === '/batchhistory') {
       setSelectedValue('batchhistory');
     } else if (path === '/settings') {
@@ -30,6 +32,8 @@ export function NavMenu() {
       history.push('/templates');
     } else if (data.value === "sendnudge") {
       history.push('/sendnudge');
+    } else if (data.value === "smartgroups") {
+      history.push('/smartgroups');
     } else if (data.value === "batchhistory") {
       history.push('/batchhistory');
     } else if (data.value === "settings") {
@@ -48,6 +52,9 @@ export function NavMenu() {
         </Tab>
         <Tab id="SendNudge" value="sendnudge">
           Send Nudge
+        </Tab>
+        <Tab id="SmartGroups" value="smartgroups">
+          Smart Groups
         </Tab>
         <Tab id="BatchHistory" value="batchhistory">
           Batch History

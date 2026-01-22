@@ -26,8 +26,20 @@ public class SmartGroupMemberDto
 {
     public string UserPrincipalName { get; set; } = null!;
     public string? DisplayName { get; set; }
+    public string? GivenName { get; set; }
+    public string? Surname { get; set; }
+    public string? Mail { get; set; }
     public string? Department { get; set; }
     public string? JobTitle { get; set; }
+    public string? OfficeLocation { get; set; }
+    public string? City { get; set; }
+    public string? Country { get; set; }
+    public string? State { get; set; }
+    public string? CompanyName { get; set; }
+    public string? ManagerUpn { get; set; }
+    public string? ManagerDisplayName { get; set; }
+    public string? EmployeeType { get; set; }
+    public DateTimeOffset? HireDate { get; set; }
     public double? ConfidenceScore { get; set; }
 }
 
@@ -174,8 +186,20 @@ public class SmartGroupService
             {
                 RowKey = m.UserPrincipalName,
                 DisplayName = user?.DisplayName,
+                GivenName = user?.GivenName,
+                Surname = user?.Surname,
+                Mail = user?.Mail,
                 Department = user?.Department,
                 JobTitle = user?.JobTitle,
+                OfficeLocation = user?.OfficeLocation,
+                City = user?.City,
+                Country = user?.Country,
+                State = user?.State,
+                CompanyName = user?.CompanyName,
+                ManagerUpn = user?.ManagerUpn,
+                ManagerDisplayName = user?.ManagerDisplayName,
+                EmployeeType = user?.EmployeeType,
+                HireDate = user?.HireDate,
                 ConfidenceScore = m.ConfidenceScore
             };
         }).ToList();
@@ -221,8 +245,20 @@ public class SmartGroupService
             {
                 UserPrincipalName = m.UserPrincipalName,
                 DisplayName = user?.DisplayName,
+                GivenName = user?.GivenName,
+                Surname = user?.Surname,
+                Mail = user?.Mail,
                 Department = user?.Department,
                 JobTitle = user?.JobTitle,
+                OfficeLocation = user?.OfficeLocation,
+                City = user?.City,
+                Country = user?.Country,
+                State = user?.State,
+                CompanyName = user?.CompanyName,
+                ManagerUpn = user?.ManagerUpn,
+                ManagerDisplayName = user?.ManagerDisplayName,
+                EmployeeType = user?.EmployeeType,
+                HireDate = user?.HireDate,
                 ConfidenceScore = m.ConfidenceScore
             };
         }).ToList();
@@ -230,11 +266,41 @@ public class SmartGroupService
 
     /// <summary>
     /// Get UPNs for a smart group (for use in sending nudges)
+    /// This will automatically resolve the group if it hasn't been resolved yet or if the cache is stale
     /// </summary>
     public async Task<List<string>> GetSmartGroupUpns(string groupId)
     {
-        var resolution = await ResolveSmartGroupMembers(groupId);
-        return resolution.Members.Select(m => m.UserPrincipalName).ToList();
+        _logger.LogInformation($"Getting UPNs for smart group {groupId}");
+        
+        var group = await _storageManager.GetSmartGroup(groupId);
+        if (group == null)
+        {
+            throw new InvalidOperationException($"Smart group {groupId} not found");
+        }
+
+        // Check if we need to resolve (never resolved, or cache is older than 1 hour)
+        bool needsResolve = !group.LastResolvedDate.HasValue || 
+                           (DateTime.UtcNow - group.LastResolvedDate.Value).TotalHours >= 1;
+
+        if (needsResolve)
+        {
+            _logger.LogInformation($"Smart group {groupId} needs resolution (LastResolvedDate: {group.LastResolvedDate})");
+            var resolution = await ResolveSmartGroupMembers(groupId, forceRefresh: false);
+            return resolution.Members.Select(m => m.UserPrincipalName).ToList();
+        }
+        else
+        {
+            // Use cached results
+            _logger.LogInformation($"Using cached results for smart group {groupId}");
+            var cachedMembers = await _storageManager.GetCachedSmartGroupMembers(groupId);
+            if (cachedMembers.Count == 0)
+            {
+                _logger.LogWarning($"Smart group {groupId} has LastResolvedDate but no cached members. Re-resolving...");
+                var resolution = await ResolveSmartGroupMembers(groupId, forceRefresh: true);
+                return resolution.Members.Select(m => m.UserPrincipalName).ToList();
+            }
+            return cachedMembers.Select(m => m.RowKey).ToList();
+        }
     }
 
     private static SmartGroupDto MapToDto(SmartGroupTableEntity entity)
@@ -257,8 +323,20 @@ public class SmartGroupService
         {
             UserPrincipalName = entity.RowKey,
             DisplayName = entity.DisplayName,
+            GivenName = entity.GivenName,
+            Surname = entity.Surname,
+            Mail = entity.Mail,
             Department = entity.Department,
             JobTitle = entity.JobTitle,
+            OfficeLocation = entity.OfficeLocation,
+            City = entity.City,
+            Country = entity.Country,
+            State = entity.State,
+            CompanyName = entity.CompanyName,
+            ManagerUpn = entity.ManagerUpn,
+            ManagerDisplayName = entity.ManagerDisplayName,
+            EmployeeType = entity.EmployeeType,
+            HireDate = entity.HireDate,
             ConfidenceScore = entity.ConfidenceScore
         };
     }

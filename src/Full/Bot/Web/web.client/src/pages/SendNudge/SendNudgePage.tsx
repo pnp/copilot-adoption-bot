@@ -20,18 +20,11 @@ import {
     createBatchAndSend,
     getCopilotConnectedStatus,
     getAllSmartGroups,
-    createSmartGroup,
-    updateSmartGroup,
-    deleteSmartGroup,
-    previewSmartGroup,
 } from '../../api/ApiCalls';
-import { MessageTemplateDto, CreateBatchAndSendRequest, CopilotConnectedStatusDto, SmartGroupDto, SmartGroupMemberDto } from '../../apimodels/Models';
+import { MessageTemplateDto, CreateBatchAndSendRequest, CopilotConnectedStatusDto, SmartGroupDto } from '../../apimodels/Models';
 import { BatchDetailsSection } from './components/BatchDetailsSection';
 import { SmartGroupsSection } from './components/SmartGroupsSection';
 import { RecipientsSection } from './components/RecipientsSection';
-import { CreateSmartGroupDialog } from './components/CreateSmartGroupDialog';
-import { EditSmartGroupDialog } from './components/EditSmartGroupDialog';
-import { AISummaryHelpDialog } from './components/AISummaryHelpDialog';
 import { SuccessMessageCard } from './components/SuccessMessageCard';
 
 const useStyles = makeStyles({
@@ -106,25 +99,6 @@ const [isCopiedBatch, setIsCopiedBatch] = useState(false);
 const [copilotConnectedStatus, setCopilotConnectedStatus] = useState<CopilotConnectedStatusDto | null>(null);
 const [smartGroups, setSmartGroups] = useState<SmartGroupDto[]>([]);
 const [selectedSmartGroupIds, setSelectedSmartGroupIds] = useState<string[]>([]);
-const [showCreateSmartGroupDialog, setShowCreateSmartGroupDialog] = useState(false);
-const [newSmartGroupName, setNewSmartGroupName] = useState('');
-const [newSmartGroupDescription, setNewSmartGroupDescription] = useState('');
-const [creatingSmartGroup, setCreatingSmartGroup] = useState(false);
-const [previewMembers, setPreviewMembers] = useState<SmartGroupMemberDto[]>([]);
-const [previewing, setPreviewing] = useState(false);
-const [hasPreviewedCreate, setHasPreviewedCreate] = useState(false);
-
-// Edit smart group states
-const [editingSmartGroup, setEditingSmartGroup] = useState<SmartGroupDto | null>(null);
-const [showEditSmartGroupDialog, setShowEditSmartGroupDialog] = useState(false);
-const [editSmartGroupName, setEditSmartGroupName] = useState('');
-const [editSmartGroupDescription, setEditSmartGroupDescription] = useState('');
-const [updatingSmartGroup, setUpdatingSmartGroup] = useState(false);
-const [deletingSmartGroupId, setDeletingSmartGroupId] = useState<string | null>(null);
-const [editPreviewMembers, setEditPreviewMembers] = useState<SmartGroupMemberDto[]>([]);
-const [editPreviewing, setEditPreviewing] = useState(false);
-const [hasPreviewedEdit, setHasPreviewedEdit] = useState(false);
-const [showAISummaryHelp, setShowAISummaryHelp] = useState(false);
 
 useEffect(() => {
     loadTemplates();
@@ -196,137 +170,6 @@ const loadSmartGroups = async () => {
         }
     };
 
-    const handleCreateSmartGroup = async () => {
-        if (!loader || !newSmartGroupName.trim() || !newSmartGroupDescription.trim()) return;
-
-        try {
-            setCreatingSmartGroup(true);
-            setError(null);
-            
-            const newGroup = await createSmartGroup(loader, {
-                name: newSmartGroupName.trim(),
-                description: newSmartGroupDescription.trim()
-            });
-
-            setSmartGroups([...smartGroups, newGroup]);
-            setNewSmartGroupName('');
-            setNewSmartGroupDescription('');
-            setShowCreateSmartGroupDialog(false);
-            setSuccess(`Smart group "${newGroup.name}" created successfully!`);
-            setPreviewMembers([]);
-            setHasPreviewedCreate(false);
-        } catch (err: any) {
-            setError(err.message || 'Failed to create smart group');
-            console.error('Error creating smart group:', err);
-        } finally {
-            setCreatingSmartGroup(false);
-        }
-    };
-
-    const handlePreviewSmartGroup = async () => {
-        if (!loader || !newSmartGroupDescription.trim()) return;
-
-        try {
-            setPreviewing(true);
-            setError(null);
-            
-            const result = await previewSmartGroup(loader, {
-                description: newSmartGroupDescription.trim(),
-                maxUsers: 50
-            });
-
-            setPreviewMembers(result.members);
-            setHasPreviewedCreate(true);
-        } catch (err: any) {
-            setError(err.message || 'Failed to preview smart group');
-            console.error('Error previewing smart group:', err);
-        } finally {
-            setPreviewing(false);
-        }
-    };
-
-    const handleEditSmartGroup = (group: SmartGroupDto) => {
-        setEditingSmartGroup(group);
-        setEditSmartGroupName(group.name);
-        setEditSmartGroupDescription(group.description);
-        setEditPreviewMembers([]);
-        setHasPreviewedEdit(false);
-        setShowEditSmartGroupDialog(true);
-    };
-
-    const handlePreviewEditSmartGroup = async () => {
-        if (!loader || !editSmartGroupDescription.trim()) return;
-
-        try {
-            setEditPreviewing(true);
-            setError(null);
-            
-            const result = await previewSmartGroup(loader, {
-                description: editSmartGroupDescription.trim(),
-                maxUsers: 50
-            });
-
-            setEditPreviewMembers(result.members);
-            setHasPreviewedEdit(true);
-        } catch (err: any) {
-            setError(err.message || 'Failed to preview smart group');
-            console.error('Error previewing smart group:', err);
-        } finally {
-            setEditPreviewing(false);
-        }
-    };
-
-    const handleUpdateSmartGroup = async () => {
-        if (!loader || !editingSmartGroup || !editSmartGroupName.trim() || !editSmartGroupDescription.trim()) return;
-
-        try {
-            setUpdatingSmartGroup(true);
-            setError(null);
-            
-            const updatedGroup = await updateSmartGroup(loader, editingSmartGroup.id, {
-                name: editSmartGroupName.trim(),
-                description: editSmartGroupDescription.trim()
-            });
-
-            setSmartGroups(smartGroups.map(g => g.id === updatedGroup.id ? updatedGroup : g));
-            setShowEditSmartGroupDialog(false);
-            setEditingSmartGroup(null);
-            setSuccess(`Smart group "${updatedGroup.name}" updated successfully!`);
-        } catch (err: any) {
-            setError(err.message || 'Failed to update smart group');
-            console.error('Error updating smart group:', err);
-        } finally {
-            setUpdatingSmartGroup(false);
-        }
-    };
-
-    const handleDeleteSmartGroup = async (groupId: string) => {
-        if (!loader) return;
-
-        const group = smartGroups.find(g => g.id === groupId);
-        if (!group) return;
-
-        if (!window.confirm(`Are you sure you want to delete the smart group "${group.name}"?`)) {
-            return;
-        }
-
-        try {
-            setDeletingSmartGroupId(groupId);
-            setError(null);
-            
-            await deleteSmartGroup(loader, groupId);
-
-            setSmartGroups(smartGroups.filter(g => g.id !== groupId));
-            setSelectedSmartGroupIds(selectedSmartGroupIds.filter(id => id !== groupId));
-            setSuccess(`Smart group "${group.name}" deleted successfully!`);
-        } catch (err: any) {
-            setError(err.message || 'Failed to delete smart group');
-            console.error('Error deleting smart group:', err);
-        } finally {
-            setDeletingSmartGroupId(null);
-        }
-    };
-
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file || !loader) return;
@@ -363,10 +206,6 @@ const loadSmartGroups = async () => {
 
     const handleRemoveUpn = (upn: string) => {
         setRecipientUpns(recipientUpns.filter(u => u !== upn));
-    };
-
-    const handleFileUploadClick = () => {
-        fileInputRef.current?.click();
     };
 
     const handleSendNudges = async () => {
@@ -487,53 +326,11 @@ const loadSmartGroups = async () => {
             />
 
             {copilotConnectedStatus?.isEnabled && (
-                <>
-                    <SmartGroupsSection
-                        smartGroups={smartGroups}
-                        selectedSmartGroupIds={selectedSmartGroupIds}
-                        deletingSmartGroupId={deletingSmartGroupId}
-                        onToggle={handleSmartGroupToggle}
-                        onEdit={handleEditSmartGroup}
-                        onDelete={handleDeleteSmartGroup}
-                        onShowHelp={() => setShowAISummaryHelp(true)}
-                        onShowCreateDialog={() => setShowCreateSmartGroupDialog(true)}
-                    />
-
-                    <CreateSmartGroupDialog
-                        open={showCreateSmartGroupDialog}
-                        onOpenChange={setShowCreateSmartGroupDialog}
-                        name={newSmartGroupName}
-                        setName={setNewSmartGroupName}
-                        description={newSmartGroupDescription}
-                        setDescription={setNewSmartGroupDescription}
-                        previewMembers={previewMembers}
-                        hasPreviewedCreate={hasPreviewedCreate}
-                        previewing={previewing}
-                        creating={creatingSmartGroup}
-                        onPreview={handlePreviewSmartGroup}
-                        onCreate={handleCreateSmartGroup}
-                    />
-
-                    <EditSmartGroupDialog
-                        open={showEditSmartGroupDialog}
-                        onOpenChange={setShowEditSmartGroupDialog}
-                        name={editSmartGroupName}
-                        setName={setEditSmartGroupName}
-                        description={editSmartGroupDescription}
-                        setDescription={setEditSmartGroupDescription}
-                        previewMembers={editPreviewMembers}
-                        hasPreviewedEdit={hasPreviewedEdit}
-                        previewing={editPreviewing}
-                        updating={updatingSmartGroup}
-                        onPreview={handlePreviewEditSmartGroup}
-                        onUpdate={handleUpdateSmartGroup}
-                    />
-
-                    <AISummaryHelpDialog
-                        open={showAISummaryHelp}
-                        onOpenChange={setShowAISummaryHelp}
-                    />
-                </>
+                <SmartGroupsSection
+                    smartGroups={smartGroups}
+                    selectedSmartGroupIds={selectedSmartGroupIds}
+                    onToggle={handleSmartGroupToggle}
+                />
             )}
 
             <RecipientsSection

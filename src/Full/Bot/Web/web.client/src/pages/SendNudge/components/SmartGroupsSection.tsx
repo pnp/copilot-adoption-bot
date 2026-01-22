@@ -3,19 +3,16 @@ import {
     Button,
     Text,
     Checkbox,
-    DialogTrigger,
     makeStyles,
     tokens,
 } from '@fluentui/react-components';
 import {
     Sparkle20Regular,
     PeopleTeam20Regular,
-    Edit20Regular,
-    Delete20Regular,
-    AddCircle20Regular,
-    Info20Regular,
+    Settings20Regular,
 } from '@fluentui/react-icons';
 import { SmartGroupDto } from '../../../apimodels/Models';
+import { useHistory } from 'react-router-dom';
 
 const useStyles = makeStyles({
     smartGroupSection: {
@@ -39,52 +36,57 @@ const useStyles = makeStyles({
         flexDirection: 'column',
         gap: tokens.spacingVerticalXXS,
     },
+    memberInfo: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: tokens.spacingHorizontalXS,
+    },
 });
 
 interface SmartGroupsSectionProps {
     smartGroups: SmartGroupDto[];
     selectedSmartGroupIds: string[];
-    deletingSmartGroupId: string | null;
     onToggle: (groupId: string, checked: boolean) => void;
-    onEdit: (group: SmartGroupDto) => void;
-    onDelete: (groupId: string) => void;
-    onShowHelp: () => void;
-    onShowCreateDialog: () => void;
 }
 
 export const SmartGroupsSection: React.FC<SmartGroupsSectionProps> = ({
     smartGroups,
     selectedSmartGroupIds,
-    deletingSmartGroupId,
     onToggle,
-    onEdit,
-    onDelete,
-    onShowHelp,
-    onShowCreateDialog,
 }) => {
     const styles = useStyles();
+    const history = useHistory();
 
     return (
         <div className={styles.smartGroupSection}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: tokens.spacingVerticalS }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS }}>
                     <Sparkle20Regular />
-                    <Text weight="semibold">Smart Groups</Text>
-                    <Button
-                        size="small"
-                        appearance="subtle"
-                        icon={<Info20Regular />}
-                        onClick={onShowHelp}
-                        title="View example user data for AI prompts"
-                    />
+                    <Text weight="semibold">Select Smart Groups</Text>
                 </div>
-                <Button size="small" icon={<AddCircle20Regular />} onClick={onShowCreateDialog}>
-                    Create Smart Group
+                <Button 
+                    size="small" 
+                    appearance="subtle"
+                    icon={<Settings20Regular />} 
+                    onClick={() => history.push('/smartgroups')}
+                >
+                    Manage Smart Groups
                 </Button>
             </div>
 
             {smartGroups.length === 0 ? (
-                <Text size={200}>No smart groups created yet. Create one to use AI-powered user targeting.</Text>
+                <div style={{ textAlign: 'center', padding: tokens.spacingVerticalL }}>
+                    <Text size={200}>No smart groups available.</Text>
+                    <br />
+                    <Button
+                        size="small"
+                        appearance="primary"
+                        onClick={() => history.push('/smartgroups')}
+                        style={{ marginTop: tokens.spacingVerticalS }}
+                    >
+                        Create Smart Group
+                    </Button>
+                </div>
             ) : (
                 smartGroups.map(group => (
                     <div key={group.id} className={styles.smartGroupItem}>
@@ -98,28 +100,13 @@ export const SmartGroupsSection: React.FC<SmartGroupsSectionProps> = ({
                                 <Text size={200}>{group.description}</Text>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS }}>
+                        <div className={styles.memberInfo}>
                             <PeopleTeam20Regular />
                             <Text size={200}>
                                 {group.lastResolvedMemberCount != null 
-                                    ? `${group.lastResolvedMemberCount} members` 
+                                    ? `${group.lastResolvedMemberCount} member${group.lastResolvedMemberCount !== 1 ? 's' : ''}` 
                                     : 'Not resolved yet'}
                             </Text>
-                            <Button
-                                size="small"
-                                appearance="subtle"
-                                icon={<Edit20Regular />}
-                                onClick={() => onEdit(group)}
-                                title="Edit smart group"
-                            />
-                            <Button
-                                size="small"
-                                appearance="subtle"
-                                icon={<Delete20Regular />}
-                                onClick={() => onDelete(group.id)}
-                                disabled={deletingSmartGroupId === group.id}
-                                title="Delete smart group"
-                            />
                         </div>
                     </div>
                 ))

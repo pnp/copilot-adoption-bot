@@ -100,8 +100,20 @@ export interface SmartGroupDto {
 export interface SmartGroupMemberDto {
   userPrincipalName: string;
   displayName?: string;
+  givenName?: string;
+  surname?: string;
+  mail?: string;
   department?: string;
   jobTitle?: string;
+  officeLocation?: string;
+  city?: string;
+  country?: string;
+  state?: string;
+  companyName?: string;
+  managerUpn?: string;
+  managerDisplayName?: string;
+  employeeType?: string;
+  hireDate?: string;
   confidenceScore?: number;
 }
 

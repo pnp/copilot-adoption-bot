@@ -116,6 +116,7 @@ public class SendNudgeController : ControllerBase
             // Resolve smart groups and add their members
             if (hasSmartGroups)
             {
+                var failedSmartGroups = new List<string>();
                 foreach (var smartGroupId in request.SmartGroupIds!)
                 {
                     try
@@ -129,9 +130,17 @@ public class SendNudgeController : ControllerBase
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, $"Failed to resolve smart group {smartGroupId}");
-                        // Continue with other smart groups
+                        _logger.LogError(ex, $"Failed to resolve smart group {smartGroupId}: {ex.Message}");
+                        failedSmartGroups.Add(smartGroupId);
                     }
+                }
+
+                // If all smart groups failed and there are no direct recipients, return a more informative error
+                if (failedSmartGroups.Count > 0 && allRecipientUpns.Count == 0)
+                {
+                    return BadRequest($"Failed to resolve {failedSmartGroups.Count} smart group(s). " +
+                        "This may be because Copilot Connected mode is not properly configured or the groups have not been resolved yet. " +
+                        "Try resolving the smart groups first by viewing their members in the Smart Groups page.");
                 }
             }
 
