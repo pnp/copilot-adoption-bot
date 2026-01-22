@@ -51,8 +51,8 @@ public class GraphUserServiceIntegrationTests : AbstractTest
     [TestMethod]
     public async Task GetAllUsersWithMetadataAsync_ReturnsUsers()
     {
-        // Act
-        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers: 10);
+        // Act - Force refresh to load from Graph
+        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers: 10, forceRefresh: true);
 
         // Assert
         Assert.IsNotNull(users);
@@ -68,8 +68,8 @@ public class GraphUserServiceIntegrationTests : AbstractTest
     [TestMethod]
     public async Task GetAllUsersWithMetadataAsync_IncludesExpectedProperties()
     {
-        // Act
-        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers: 5);
+        // Act - Force refresh to load from Graph
+        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers: 5, forceRefresh: true);
 
         // Assert
         Assert.IsTrue(users.Count > 0, "Should return at least one user");
@@ -94,10 +94,13 @@ public class GraphUserServiceIntegrationTests : AbstractTest
     [TestMethod]
     public async Task GetUserWithMetadataAsync_ValidUser_ReturnsUser()
     {
-        // Arrange - First get a valid UPN from the tenant
-        var allUsers = await _service.GetAllUsersWithMetadataAsync(maxUsers: 1);
+        // Arrange - First get a valid UPN from the tenant (force refresh)
+        var allUsers = await _service.GetAllUsersWithMetadataAsync(maxUsers: 1, forceRefresh: true);
         Assert.IsTrue(allUsers.Count > 0, "Need at least one user in tenant");
         var testUpn = allUsers.First().UserPrincipalName;
+
+        // Clear cache and force fresh lookup from Graph
+        await _cacheManager.ClearCacheAsync();
 
         // Act
         var user = await _service.GetUserWithMetadataAsync(testUpn);
@@ -108,6 +111,7 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         Assert.IsFalse(string.IsNullOrEmpty(user.DisplayName));
 
         _logger.LogInformation($"Retrieved user: {user.DisplayName} ({user.UserPrincipalName})");
+        _logger.LogInformation($"Has Copilot License: {user.HasCopilotLicense}");
     }
 
     [TestMethod]
@@ -126,8 +130,8 @@ public class GraphUserServiceIntegrationTests : AbstractTest
     [TestMethod]
     public async Task GetUsersByDepartmentAsync_ValidDepartment_ReturnsUsers()
     {
-        // Arrange - First find a department that exists
-        var allUsers = await _service.GetAllUsersWithMetadataAsync(maxUsers: 50);
+        // Arrange - First find a department that exists (force refresh)
+        var allUsers = await _service.GetAllUsersWithMetadataAsync(maxUsers: 50, forceRefresh: true);
         var usersWithDepartments = allUsers.Where(u => !string.IsNullOrEmpty(u.Department)).ToList();
         
         if (usersWithDepartments.Count == 0)
@@ -151,8 +155,8 @@ public class GraphUserServiceIntegrationTests : AbstractTest
     [TestMethod]
     public async Task EnrichUsersWithManagersAsync_AddsManagerInfo()
     {
-        // Arrange
-        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers: 5);
+        // Arrange - Force refresh to load from Graph
+        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers: 5, forceRefresh: true);
         Assert.IsTrue(users.Count > 0, "Need at least one user");
 
         // Act
@@ -172,8 +176,8 @@ public class GraphUserServiceIntegrationTests : AbstractTest
     [TestMethod]
     public async Task EnrichedUserInfo_ToAISummary_GeneratesCorrectFormat()
     {
-        // Arrange
-        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers: 1);
+        // Arrange - Force refresh to load from Graph
+        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers: 1, forceRefresh: true);
         Assert.IsTrue(users.Count > 0, "Need at least one user");
         
         await _service.EnrichUsersWithManagersAsync(users);
@@ -196,8 +200,8 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         // Arrange
         var maxUsers = 5;
 
-        // Act
-        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers);
+        // Act - Force refresh to load from Graph
+        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers, forceRefresh: true);
 
         // Assert
         Assert.IsTrue(users.Count <= maxUsers, 
@@ -210,9 +214,9 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         // Arrange
         var maxUsers = 50; // Reasonable size for testing
 
-        // Act
+        // Act - Force refresh to load from Graph
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers);
+        var users = await _service.GetAllUsersWithMetadataAsync(maxUsers, forceRefresh: true);
         stopwatch.Stop();
 
         // Assert
@@ -221,5 +225,55 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         
         // Ensure paging worked if tenant has more users than limit
         Assert.IsTrue(users.Count <= maxUsers);
+    }
+
+    [TestMethod]
+    public async Task GetAllUsersDirectFromGraphAsync_ReturnsUsers()
+    {
+        // Act - Direct Graph query bypassing cache
+        var users = await _service.GetAllUsersDirectFromGraphAsync(maxUsers: 10);
+
+        // Assert
+        Assert.IsNotNull(users);
+        Assert.IsTrue(users.Count > 0, "Should return at least one user");
+        
+        var firstUser = users.First();
+        Assert.IsFalse(string.IsNullOrEmpty(firstUser.UserPrincipalName));
+        Assert.IsFalse(string.IsNullOrEmpty(firstUser.DisplayName));
+
+        _logger.LogInformation($"Retrieved {users.Count} users directly from Graph");
+    }
+
+    [TestMethod]
+    public async Task GetAllUsersDirectFromGraphAsync_IncludesCopilotLicenseInfo()
+    {
+        // Act - Direct Graph query that includes license enrichment
+        var users = await _service.GetAllUsersDirectFromGraphAsync(maxUsers: 10);
+
+        // Assert
+        Assert.IsNotNull(users);
+        Assert.IsTrue(users.Count > 0, "Should return at least one user");
+
+        // HasCopilotLicense property should be set (either true or false)
+        var licensedUsers = users.Count(u => u.HasCopilotLicense);
+        var unlicensedUsers = users.Count - licensedUsers;
+        
+        _logger.LogInformation($"Out of {users.Count} users:");
+        _logger.LogInformation($"  {licensedUsers} have Copilot licenses");
+        _logger.LogInformation($"  {unlicensedUsers} do not have Copilot licenses");
+
+        // Log details for first user with license (if any)
+        var licensedUser = users.FirstOrDefault(u => u.HasCopilotLicense);
+        if (licensedUser != null)
+        {
+            _logger.LogInformation($"Example licensed user: {licensedUser.DisplayName} ({licensedUser.UserPrincipalName})");
+        }
+
+        // Log details for first user without license (if any)
+        var unlicensedUser = users.FirstOrDefault(u => !u.HasCopilotLicense);
+        if (unlicensedUser != null)
+        {
+            _logger.LogInformation($"Example unlicensed user: {unlicensedUser.DisplayName} ({unlicensedUser.UserPrincipalName})");
+        }
     }
 }

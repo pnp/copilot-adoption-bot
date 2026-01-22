@@ -107,6 +107,12 @@ const useStyles = makeStyles({
         paddingBottom: tokens.spacingVerticalXS,
         borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
     },
+    truncatedText: {
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        maxWidth: '200px',
+    },
 });
 
 interface SmartGroupMembersDialogProps {
@@ -244,6 +250,7 @@ export const SmartGroupMembersDialog: React.FC<SmartGroupMembersDialogProps> = (
                                                     <TableHeaderCell>UPN</TableHeaderCell>
                                                     <TableHeaderCell>Department</TableHeaderCell>
                                                     <TableHeaderCell>Job Title</TableHeaderCell>
+                                                    <TableHeaderCell>Copilot License</TableHeaderCell>
                                                     <TableHeaderCell>Confidence</TableHeaderCell>
                                                 </TableRow>
                                             </TableHeader>
@@ -268,13 +275,24 @@ export const SmartGroupMembersDialog: React.FC<SmartGroupMembersDialogProps> = (
                                                                     </TableCellLayout>
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    <Text size={200}>{member.userPrincipalName}</Text>
+                                                                    <div className={styles.truncatedText} title={member.userPrincipalName}>
+                                                                        <Text size={200}>{member.userPrincipalName}</Text>
+                                                                    </div>
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <Text size={200}>{member.department || '-'}</Text>
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <Text size={200}>{member.jobTitle || '-'}</Text>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {member.hasCopilotLicense ? (
+                                                                        <Badge appearance="filled" color="success">
+                                                                            Licensed
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        <Badge appearance="tint" color="warning">No License</Badge>
+                                                                    )}
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     {member.confidenceScore ? (
@@ -288,7 +306,7 @@ export const SmartGroupMembersDialog: React.FC<SmartGroupMembersDialogProps> = (
                                                             </TableRow>
                                                             {isExpanded && (
                                                                 <TableRow className={styles.expandedRow}>
-                                                                    <TableCell colSpan={6}>
+                                                                    <TableCell colSpan={7}>
                                                                         <div className={styles.detailsContainer}>
                                                                             {/* Personal Information */}
                                                                             <div>
@@ -309,6 +327,16 @@ export const SmartGroupMembersDialog: React.FC<SmartGroupMembersDialogProps> = (
                                                                                     <div>
                                                                                         <div className={styles.detailLabel}>Employee Type</div>
                                                                                         <div className={styles.detailValue}>{member.employeeType || '-'}</div>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <div className={styles.detailLabel}>Copilot License</div>
+                                                                                        <div className={styles.detailValue}>
+                                                                                            {member.hasCopilotLicense ? (
+                                                                                                <Badge appearance="filled" color="success">Licensed</Badge>
+                                                                                            ) : (
+                                                                                                <Badge appearance="tint" color="warning">No License</Badge>
+                                                                                            )}
+                                                                                        </div>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>

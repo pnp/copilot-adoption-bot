@@ -115,6 +115,7 @@ export interface SmartGroupMemberDto {
   employeeType?: string;
   hireDate?: string;
   confidenceScore?: number;
+  hasCopilotLicense?: boolean;
   // Copilot usage statistics
   copilotLastActivityDate?: string;
   copilotChatLastActivityDate?: string;

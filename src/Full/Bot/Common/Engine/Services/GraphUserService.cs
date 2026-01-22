@@ -133,6 +133,9 @@ public class GraphUserService
             await pageIterator.IterateAsync();
 
             _logger.LogInformation($"Retrieved {users.Count} users with metadata from Graph");
+
+            // Enrich users with license information in parallel
+            await EnrichUsersWithLicenseInfoAsync(users);
         }
         catch (Exception ex)
         {
@@ -235,6 +238,23 @@ public class GraphUserService
                     // Manager not found or not accessible - continue without it
                 }
 
+                // Try to get license info
+                try
+                {
+                    const string copilotSkuId = "Microsoft_365_Copilot";
+                    var licenses = await _graphClient.Users[user.Id].LicenseDetails.GetAsync();
+                    
+                    if (licenses?.Value != null)
+                    {
+                        enrichedUser.HasCopilotLicense = licenses.Value.Any(license => 
+                            license.SkuPartNumber?.Equals(copilotSkuId, StringComparison.OrdinalIgnoreCase) == true);
+                    }
+                }
+                catch
+                {
+                    // License info not accessible - continue without it
+                }
+
                 return enrichedUser;
             }
 
@@ -273,6 +293,42 @@ public class GraphUserService
 
         await Task.WhenAll(tasks);
         _logger.LogInformation("Manager enrichment completed");
+    }
+
+    /// <summary>
+    /// Enrich users with Microsoft 365 Copilot license information in parallel.
+    /// </summary>
+    private async Task EnrichUsersWithLicenseInfoAsync(List<EnrichedUserInfo> users)
+    {
+        _logger.LogInformation($"Enriching {users.Count} users with license information...");
+        
+        const string copilotSkuId = "Microsoft_365_Copilot";
+        
+        var tasks = users.Select(async user =>
+        {
+            try
+            {
+                var licenses = await _graphClient.Users[user.Id]
+                    .LicenseDetails
+                    .GetAsync();
+
+                if (licenses?.Value != null)
+                {
+                    user.HasCopilotLicense = licenses.Value.Any(license => 
+                        license.SkuPartNumber?.Equals(copilotSkuId, StringComparison.OrdinalIgnoreCase) == true);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Could not retrieve license info for user {user.UserPrincipalName}: {ex.Message}");
+                // Continue without license info
+            }
+        });
+
+        await Task.WhenAll(tasks);
+        
+        var usersWithCopilot = users.Count(u => u.HasCopilotLicense);
+        _logger.LogInformation($"License enrichment completed. {usersWithCopilot} users have Copilot licenses");
     }
 
     private static EnrichedUserInfo MapToEnrichedUser(User user)

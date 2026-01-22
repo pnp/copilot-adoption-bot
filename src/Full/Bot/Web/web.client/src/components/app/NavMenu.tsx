@@ -1,4 +1,4 @@
-import { useHistory } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 import { TabValue, TabList, Tab, SelectTabData, SelectTabEvent } from '@fluentui/react-components';
 import { useState, useEffect } from 'react';
 
@@ -6,9 +6,10 @@ export function NavMenu() {
 
   const [selectedValue, setSelectedValue] = useState<TabValue>("home");
   const history = useHistory();
+  const location = useLocation();
 
   useEffect(() => {
-    const path = history.location.pathname;
+    const path = location.pathname;
     if (path === '/tabhome') {
       setSelectedValue('home');
     } else if (path === '/templates') {
@@ -22,7 +23,7 @@ export function NavMenu() {
     } else if (path === '/settings') {
       setSelectedValue('settings');
     }
-  }, [history.location.pathname]);
+  }, [location.pathname]);
 
   const onTabSelect = (_: SelectTabEvent, data: SelectTabData) => {
     setSelectedValue(data.value);

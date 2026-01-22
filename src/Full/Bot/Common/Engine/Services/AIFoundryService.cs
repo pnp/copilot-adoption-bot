@@ -83,6 +83,7 @@ You will receive:
 1. A description of the target user group
 2. A list of users with their metadata including:
    - Profile information (name, department, job title, location, etc.)
+   - Has Copilot License (Yes/No) - indicates if the user has a Microsoft 365 Copilot license assigned
    - Copilot Activity data showing the last activity date for various Microsoft 365 Copilot features (format: YYYY-MM-DD)
      - Overall: Last activity across any Copilot feature
      - Chat: Copilot Chat activity

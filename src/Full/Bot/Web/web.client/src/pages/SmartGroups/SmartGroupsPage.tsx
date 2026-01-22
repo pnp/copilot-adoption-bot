@@ -30,6 +30,7 @@ import {
     deleteSmartGroup,
     previewSmartGroup,
     getCopilotConnectedStatus,
+    resolveSmartGroupMembers,
 } from '../../api/ApiCalls';
 import { SmartGroupDto, SmartGroupMemberDto, CopilotConnectedStatusDto } from '../../apimodels/Models';
 import { CreateSmartGroupDialog } from '../SendNudge/components/CreateSmartGroupDialog';
@@ -151,6 +152,7 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
     // Members dialog state
     const [showMembersDialog, setShowMembersDialog] = useState(false);
     const [selectedGroupForMembers, setSelectedGroupForMembers] = useState<SmartGroupDto | null>(null);
+    const [resolvingGroupId, setResolvingGroupId] = useState<string | null>(null);
 
     useEffect(() => {
         loadCopilotConnectedStatus();
@@ -344,6 +346,41 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
         setShowMembersDialog(true);
     };
 
+    const handleResolveGroup = async (group: SmartGroupDto) => {
+        if (!loader) return;
+
+        try {
+            setResolvingGroupId(group.id);
+            setError(null);
+
+            // Call the resolve API with forceRefresh=true to get fresh data
+            const result = await resolveSmartGroupMembers(loader, group.id, true);
+
+            // Update the group in the list with the new member count and resolved date
+            const updatedGroups = smartGroups.map(g => {
+                if (g.id === group.id) {
+                    return {
+                        ...g,
+                        lastResolvedMemberCount: result.members.length,
+                        lastResolvedDate: result.resolvedAt
+                    };
+                }
+                return g;
+            });
+            setSmartGroups(updatedGroups);
+
+            setSuccess(`Smart group "${group.name}" resolved successfully with ${result.members.length} member${result.members.length !== 1 ? 's' : ''}!`);
+            
+            // Clear success message after 5 seconds
+            setTimeout(() => setSuccess(null), 5000);
+        } catch (err: any) {
+            setError(err.message || 'Failed to resolve smart group');
+            console.error('Error resolving smart group:', err);
+        } finally {
+            setResolvingGroupId(null);
+        }
+    };
+
     const formatDate = (dateString?: string) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
@@ -468,7 +505,15 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
                                                 </Text>
                                             </div>
                                         ) : (
-                                            <Text size={200}>Not resolved yet</Text>
+                                            <Button
+                                                size="small"
+                                                appearance="subtle"
+                                                icon={<ArrowSyncRegular />}
+                                                onClick={() => handleResolveGroup(group)}
+                                                disabled={resolvingGroupId === group.id}
+                                            >
+                                                {resolvingGroupId === group.id ? 'Resolving...' : 'Resolve Now'}
+                                            </Button>
                                         )}
                                     </TableCell>
                                     <TableCell>
@@ -563,6 +608,8 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
                     onClose={() => {
                         setShowMembersDialog(false);
                         setSelectedGroupForMembers(null);
+                        // Refresh the groups list to get updated member counts
+                        loadSmartGroups(true);
                     }}
                     groupId={selectedGroupForMembers.id}
                     groupName={selectedGroupForMembers.name}

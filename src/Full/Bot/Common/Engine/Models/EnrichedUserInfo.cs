@@ -28,6 +28,11 @@ public class EnrichedUserInfo
     /// </summary>
     public bool IsDeleted { get; set; }
 
+    /// <summary>
+    /// Indicates if the user has a Microsoft 365 Copilot license assigned.
+    /// </summary>
+    public bool HasCopilotLicense { get; set; }
+
     // Copilot usage statistics
     public DateTime? CopilotLastActivityDate { get; set; }
     public DateTime? CopilotChatLastActivityDate { get; set; }
@@ -69,6 +74,9 @@ public class EnrichedUserInfo
             parts.Add($"Manager: {ManagerDisplayName}");
         if (!string.IsNullOrEmpty(EmployeeType))
             parts.Add($"Employee Type: {EmployeeType}");
+
+        // Add Copilot license information
+        parts.Add($"Has Copilot License: {(HasCopilotLicense ? "Yes" : "No")}");
 
         // Add Copilot activity information
         var copilotActivities = new List<string>();

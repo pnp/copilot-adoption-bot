@@ -45,7 +45,7 @@ export const AISummaryHelpDialog: React.FC<AISummaryHelpDialogProps> = ({
                                 <div style={{ marginTop: tokens.spacingVerticalXS, whiteSpace: 'pre-wrap' }}>
                                     UPN: john.smith@contoso.com | Name: John Smith | Job Title: Sales Manager | Department: Sales | 
                                     Office: Seattle HQ | City: Seattle | State: Washington | Country: United States | 
-                                    Company: Contoso Corp | Manager: Jane Williams | Employee Type: Full-time | 
+                                    Company: Contoso Corp | Manager: Jane Williams | Employee Type: Full-time | Has Copilot License: Yes | 
                                     Copilot Activity: [Overall: 2024-01-15, Chat: 2024-01-14, Teams: 2024-01-15, Word: 2024-01-12, 
                                     Excel: 2024-01-10, PowerPoint: 2024-01-08, Outlook: 2024-01-15]
                                 </div>
@@ -56,7 +56,7 @@ export const AISummaryHelpDialog: React.FC<AISummaryHelpDialogProps> = ({
                                 <div style={{ marginTop: tokens.spacingVerticalXS, whiteSpace: 'pre-wrap' }}>
                                     UPN: sarah.johnson@contoso.com | Name: Sarah Johnson | Job Title: Software Engineer | Department: Engineering | 
                                     Office: New York Office | City: New York | State: New York | Country: United States | 
-                                    Company: Contoso Corp | Manager: Michael Chen | Employee Type: Full-time | 
+                                    Company: Contoso Corp | Manager: Michael Chen | Employee Type: Full-time | Has Copilot License: Yes | 
                                     Copilot Activity: [Overall: 2024-01-16, Chat: 2024-01-16, Teams: 2024-01-15]
                                 </div>
                             </div>
@@ -66,7 +66,7 @@ export const AISummaryHelpDialog: React.FC<AISummaryHelpDialogProps> = ({
                                 <div style={{ marginTop: tokens.spacingVerticalXS, whiteSpace: 'pre-wrap' }}>
                                     UPN: mike.davis@contoso.com | Name: Mike Davis | Job Title: Marketing Coordinator | Department: Marketing | 
                                     Office: Austin Branch | City: Austin | State: Texas | Country: United States | 
-                                    Company: Contoso Corp | Employee Type: Contractor
+                                    Company: Contoso Corp | Employee Type: Contractor | Has Copilot License: No
                                 </div>
                             </div>
                         </div>
@@ -85,19 +85,19 @@ export const AISummaryHelpDialog: React.FC<AISummaryHelpDialogProps> = ({
                                     <Text size={200}>"All employees in the Sales department based in the United States"</Text>
                                 </li>
                                 <li style={{ marginBottom: tokens.spacingVerticalXS }}>
-                                    <Text size={200}>"Software Engineers in the Engineering department who have used Copilot in the last 7 days"</Text>
+                                    <Text size={200}>"Software Engineers who have used Copilot in the last 7 days"</Text>
                                 </li>
                                 <li style={{ marginBottom: tokens.spacingVerticalXS }}>
-                                    <Text size={200}>"Full-time employees in Marketing who work in Texas or California"</Text>
+                                    <Text size={200}>"Users with a Copilot license who haven't used it in the last 30 days"</Text>
                                 </li>
                                 <li style={{ marginBottom: tokens.spacingVerticalXS }}>
-                                    <Text size={200}>"All employees who report to Jane Williams and are based in Seattle"</Text>
+                                    <Text size={200}>"Employees without a Copilot license in the Engineering department"</Text>
                                 </li>
                                 <li style={{ marginBottom: tokens.spacingVerticalXS }}>
-                                    <Text size={200}>"Users that haven't used Copilot at all"</Text>
+                                    <Text size={200}>"All licensed Copilot users who are heavy users of Teams Copilot"</Text>
                                 </li>
                                 <li>
-                                    <Text size={200}>"Heavy users of Copilot in Teams who use it frequently"</Text>
+                                    <Text size={200}>"Full-time employees with Copilot licenses who report to Jane Williams"</Text>
                                 </li>
                             </ul>
                         </div>
