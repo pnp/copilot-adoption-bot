@@ -15,12 +15,12 @@ public class StorageManagerIntegrationTests : AbstractTest
     public void Initialize()
     {
         _messageStorage = new MessageTemplateStorageManager(
-            _config.ConnectionStrings.Storage,
+            GetStorageAuthConfig(),
             GetLogger<MessageTemplateStorageManager>()
         );
 
         _smartGroupStorage = new SmartGroupStorageManager(
-            _config.ConnectionStrings.Storage,
+            GetStorageAuthConfig(),
             GetLogger<SmartGroupStorageManager>()
         );
     }

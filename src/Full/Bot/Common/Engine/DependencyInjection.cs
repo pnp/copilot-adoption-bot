@@ -111,7 +111,10 @@ public static class ServiceCollectionExtensions
         {
             var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AzureTableCacheStorage>>();
             var cacheConfig = sp.GetRequiredService<UserCacheConfig>();
-            return new AzureTableCacheStorage(config.ConnectionStrings.Storage, logger, cacheConfig);
+
+            // Use new StorageAuthConfig if configured, otherwise fallback to legacy ConnectionStrings.Storage
+            var storageAuthConfig = GetStorageAuthConfig(config);
+            return new AzureTableCacheStorage(storageAuthConfig, logger, cacheConfig);
         });
 
         // Register CopilotStatsService
@@ -145,14 +148,20 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SmartGroupStorageManager>(sp =>
         {
             var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SmartGroupStorageManager>>();
-            return new SmartGroupStorageManager(config.ConnectionStrings.Storage, logger);
+
+            // Use new StorageAuthConfig if configured, otherwise fallback to legacy ConnectionStrings.Storage
+            var storageAuthConfig = GetStorageAuthConfig(config);
+            return new SmartGroupStorageManager(storageAuthConfig, logger);
         });
 
         // Register SettingsStorageManager
         services.AddSingleton<SettingsStorageManager>(sp =>
         {
             var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SettingsStorageManager>>();
-            return new SettingsStorageManager(config.ConnectionStrings.Storage, logger);
+
+            // Use new StorageAuthConfig if configured, otherwise fallback to legacy ConnectionStrings.Storage
+            var storageAuthConfig = GetStorageAuthConfig(config);
+            return new SettingsStorageManager(storageAuthConfig, logger);
         });
 
         // Register AIFoundryService only if configured
@@ -177,5 +186,25 @@ public static class ServiceCollectionExtensions
         });
 
         return services;
+    }
+
+    /// <summary>
+    /// Helper method to get StorageAuthConfig with fallback to legacy configuration
+    /// </summary>
+    private static StorageAuthConfig GetStorageAuthConfig(AppConfig config)
+    {
+        // If StorageAuthConfig is properly configured, use it
+        if (config.StorageAuthConfig != null &&
+            (config.StorageAuthConfig.UseRBAC || !string.IsNullOrEmpty(config.StorageAuthConfig.ConnectionString)))
+        {
+            return config.StorageAuthConfig;
+        }
+
+        // Fallback to legacy ConnectionStrings.Storage
+        return new StorageAuthConfig
+        {
+            UseRBAC = false,
+            ConnectionString = config.ConnectionStrings.Storage
+        };
     }
 }

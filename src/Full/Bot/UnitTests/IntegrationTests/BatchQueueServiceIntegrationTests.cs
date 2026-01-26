@@ -13,7 +13,7 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
     public async Task Initialize()
     {
         _service = new BatchQueueService(
-            _config.ConnectionStrings.Storage,
+            GetStorageAuthConfig(),
             GetLogger<BatchQueueService>()
         );
         await _service.InitializeAsync();

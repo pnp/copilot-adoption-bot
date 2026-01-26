@@ -1,5 +1,8 @@
 ﻿
 
+
+
+using Common.Engine.Config;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -33,5 +36,26 @@ public abstract class AbstractTest
         {
             config.AddConsole();
         }).CreateLogger<T>();
+    }
+
+    /// <summary>
+    /// Helper method to get StorageAuthConfig with fallback to legacy configuration.
+    /// Use this in all integration tests to support both RBAC and connection string authentication.
+    /// </summary>
+    protected StorageAuthConfig GetStorageAuthConfig()
+    {
+        // If StorageAuthConfig is properly configured, use it
+        if (_config.StorageAuthConfig != null &&
+            (_config.StorageAuthConfig.UseRBAC || !string.IsNullOrEmpty(_config.StorageAuthConfig.ConnectionString)))
+        {
+            return _config.StorageAuthConfig;
+        }
+
+        // Fallback to legacy ConnectionStrings.Storage
+        return new StorageAuthConfig
+        {
+            UseRBAC = false,
+            ConnectionString = _config.ConnectionStrings.Storage
+        };
     }
 }

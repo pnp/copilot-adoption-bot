@@ -1,6 +1,7 @@
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Common.Engine.Config;
 using Common.Engine.Storage;
 using Microsoft.Extensions.Logging;
 
@@ -18,11 +19,24 @@ public class MessageTemplateStorageManager : TableStorageManager
     private const string LOGS_TABLE_NAME = "messagelogs";
     private const string BLOB_CONTAINER_NAME = "message-templates";
 
+    /// <summary>
+    /// Legacy constructor using connection string authentication
+    /// </summary>
     public MessageTemplateStorageManager(string storageConnectionString, ILogger logger) 
         : base(storageConnectionString)
     {
         _blobServiceClient = new BlobServiceClient(storageConnectionString);
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Constructor supporting both connection string and RBAC authentication
+    /// </summary>
+    public MessageTemplateStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
+        : base(storageAuthConfig)
+    {
+        _logger = logger;
+        _blobServiceClient = AzureStorageClientFactory.CreateBlobServiceClient(storageAuthConfig);
     }
 
     #region Template Management

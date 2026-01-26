@@ -42,7 +42,27 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
                 GetLogger<CopilotStatsService>(),
                 statsLoader);
 
-            _tableServiceClient = new TableServiceClient(_config.ConnectionStrings.Storage);
+            var storageAuthConfig = GetStorageAuthConfig();
+            if (storageAuthConfig.UseRBAC)
+            {
+                var tableEndpoint = new Uri($"https://{storageAuthConfig.StorageAccountName}.table.core.windows.net");
+                if (storageAuthConfig.RBACOverrideCredentials != null)
+                {
+                    var credential = new Azure.Identity.ClientSecretCredential(
+                        storageAuthConfig.RBACOverrideCredentials.TenantId,
+                        storageAuthConfig.RBACOverrideCredentials.ClientId,
+                        storageAuthConfig.RBACOverrideCredentials.ClientSecret);
+                    _tableServiceClient = new TableServiceClient(tableEndpoint, credential);
+                }
+                else
+                {
+                    _tableServiceClient = new TableServiceClient(tableEndpoint, new Azure.Identity.DefaultAzureCredential());
+                }
+            }
+            else
+            {
+                _tableServiceClient = new TableServiceClient(storageAuthConfig.ConnectionString);
+            }
         }
         catch (Exception ex)
         {

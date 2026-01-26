@@ -22,14 +22,20 @@ public static class MessageTemplateServiceExtensions
         services.AddSingleton<MessageTemplateStorageManager>(sp =>
         {
             var logger = sp.GetRequiredService<ILogger<MessageTemplateStorageManager>>();
-            return new MessageTemplateStorageManager(config.ConnectionStrings.Storage, logger);
+
+            // Use new StorageAuthConfig if configured, otherwise fallback to legacy ConnectionStrings.Storage
+            var storageAuthConfig = GetStorageAuthConfig(config);
+            return new MessageTemplateStorageManager(storageAuthConfig, logger);
         });
 
         // Register queue service for batch processing
         services.AddSingleton(sp =>
         {
             var logger = sp.GetRequiredService<ILogger<BatchQueueService>>();
-            return new BatchQueueService(config.ConnectionStrings.Storage, logger);
+
+            // Use new StorageAuthConfig if configured, otherwise fallback to legacy ConnectionStrings.Storage
+            var storageAuthConfig = GetStorageAuthConfig(config);
+            return new BatchQueueService(storageAuthConfig, logger);
         });
 
         // Register message sender service
@@ -47,5 +53,25 @@ public static class MessageTemplateServiceExtensions
         services.AddScoped<PendingCardLookupService>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Helper method to get StorageAuthConfig with fallback to legacy configuration
+    /// </summary>
+    private static StorageAuthConfig GetStorageAuthConfig(AppConfig config)
+    {
+        // If StorageAuthConfig is properly configured, use it
+        if (config.StorageAuthConfig != null &&
+            (config.StorageAuthConfig.UseRBAC || !string.IsNullOrEmpty(config.StorageAuthConfig.ConnectionString)))
+        {
+            return config.StorageAuthConfig;
+        }
+
+        // Fallback to legacy ConnectionStrings.Storage
+        return new StorageAuthConfig
+        {
+            UseRBAC = false,
+            ConnectionString = config.ConnectionStrings.Storage
+        };
     }
 }

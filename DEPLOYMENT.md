@@ -77,7 +77,7 @@ Storage Account
     └── message-templates (container for JSON payloads)
 ```
 
-**Note**: The `message-templates` blob container is automatically created by the application on first run.
+**Note**: The `message-templates` blob container is automatically created by the application on first run.`n`n### Storage Authentication Options`n`nThe application supports two authentication methods for Azure Storage:`n`n#### Option 1: Connection String (Legacy)`n- Uses storage account access keys`n- Configured via `ConnectionStrings:Storage``n- Less secure but simpler to set up`n- Example:`n  ```json`n  {`n    "ConnectionStrings": {`n      "Storage": "DefaultEndpointsProtocol=https;AccountName=...;AccountKey=..."`n    }`n  }`n  ```=`n`n#### Option 2: RBAC with Managed Identity (Recommended)`n- Uses Azure role-based access control`n- No storage keys in configuration`n- More secure and follows Azure best practices`n- Supports both Managed Identity and service principal authentication`n`n**Configuration:**`n```json`n{`n  "StorageAuthConfig": {`n    "UseRBAC": true,`n    "StorageAccountName": "yourstorageaccount"`n  }`n}`n```=`n`n**Required RBAC Role Assignments:**`n`nAssign these roles to your App Service Managed Identity or service principal:`n- `Storage Blob Data Contributor` - For blob storage access`n- `Storage Table Data Contributor` - For table storage access`n- `Storage Queue Data Contributor` - For queue storage access`n`n**Azure CLI Commands:**`n```bash`n# Get your App Service managed identity principal ID`nAPP_PRINCIPAL_ID=$(az webapp identity show --name myAppName --resource-group myResourceGroup --query principalId -o tsv)`n`n# Assign roles to the managed identity`nSTORAGE_ID=$(az storage account show --name mystorageaccount --resource-group myResourceGroup --query id -o tsv)`n`naz role assignment create --assignee $APP_PRINCIPAL_ID --role "Storage Blob Data Contributor" --scope $STORAGE_ID`naz role assignment create --assignee $APP_PRINCIPAL_ID --role "Storage Table Data Contributor" --scope $STORAGE_ID`naz role assignment create --assignee $APP_PRINCIPAL_ID --role "Storage Queue Data Contributor" --scope $STORAGE_ID`n```=`n`n**Override with Service Principal (Optional):**`n`nIf you need to use a specific service principal instead of Managed Identity:`n```json`n{`n  "StorageAuthConfig": {`n    "UseRBAC": true,`n    "StorageAccountName": "yourstorageaccount",`n    "RBACOverrideCredentials": {`n      "ClientId": "your-sp-client-id",`n      "ClientSecret": "your-sp-client-secret",`n      "TenantId": "your-tenant-id"`n    }`n  }`n}`n```=
 
 ### Azure AI Foundry Configuration (Optional)
 
@@ -348,17 +348,7 @@ For production deployments, store all secrets in Azure Key Vault.
      --secret-permissions get list
    ```
 
-5. **Reference secrets in Application Settings**:
-
-   In the Azure Portal, configure your App Service application settings:
-
-   ```
-   GraphConfig__ClientSecret=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/GraphClientSecret/)
-   ConnectionStrings__Storage=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/StorageConnectionString/)
-   MicrosoftAppPassword=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/BotAppPassword/)
-   APPLICATIONINSIGHTS_CONNECTION_STRING=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/ApplicationInsightsConnectionString/)
-   AIFoundryConfig__ApiKey=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/AIFoundryApiKey/)
-   ```
+5. **Configure Storage Authentication**:`n`n   **For RBAC (Recommended):**`n   ```bash`n   # Enable Managed Identity (if not already done)`n   az webapp identity assign --resource-group myResourceGroup --name myAppName`n   `n   # Get the principal ID`n   PRINCIPAL_ID=$(az webapp identity show --name myAppName --resource-group myResourceGroup --query principalId -o tsv)`n   `n   # Assign storage roles`n   STORAGE_ID=$(az storage account show --name mystorageaccount --resource-group myResourceGroup --query id -o tsv)`n   az role assignment create --assignee $PRINCIPAL_ID --role "Storage Blob Data Contributor" --scope $STORAGE_ID`n   az role assignment create --assignee $PRINCIPAL_ID --role "Storage Table Data Contributor" --scope $STORAGE_ID`n   az role assignment create --assignee $PRINCIPAL_ID --role "Storage Queue Data Contributor" --scope $STORAGE_ID`n   ```=`n`n   Configure App Service settings (no secrets needed):`n   ```=`n   StorageAuthConfig__UseRBAC=true`n   StorageAuthConfig__StorageAccountName=mystorageaccount`n   ```=`n`n   **For Connection String (Legacy):**`n   Store the connection string in Key Vault and reference it:`n   ```=`n   ConnectionStrings__Storage=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/StorageConnectionString/)`n   ```=`n`n6. **Reference other secrets in Application Settings**:`n`n   In the Azure Portal, configure your App Service application settings:`n`n   ```=`n   GraphConfig__ClientSecret=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/GraphClientSecret/)`n   MicrosoftAppPassword=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/BotAppPassword/)`n   APPLICATIONINSIGHTS_CONNECTION_STRING=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/ApplicationInsightsConnectionString/)`n   AIFoundryConfig__ApiKey=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/AIFoundryApiKey/)`n   ```=
 
 ---
 
@@ -425,3 +415,5 @@ If configured, view logs and telemetry in the Azure Portal:
 ### Common Issues
 
 See the [Troubleshooting section](README.md#troubleshooting) in the main README for additional guidance on authentication, Graph API, storage, and bot issues.
+
+

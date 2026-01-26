@@ -1,5 +1,7 @@
 ﻿using Azure;
 using Azure.Data.Tables;
+using Common.Engine.Config;
+using Common.Engine.Storage;
 using System.Collections.Concurrent;
 
 namespace Common.Engine;
@@ -9,9 +11,21 @@ public abstract class TableStorageManager
 {
     private readonly TableServiceClient _tableServiceClient;
     private ConcurrentDictionary<string, TableClient> _tableClientCache = new();
+
+    /// <summary>
+    /// Legacy constructor using connection string authentication
+    /// </summary>
     public TableStorageManager(string storageConnectionString)
     {
         _tableServiceClient = new TableServiceClient(storageConnectionString);
+    }
+
+    /// <summary>
+    /// Constructor supporting both connection string and RBAC authentication
+    /// </summary>
+    public TableStorageManager(StorageAuthConfig storageAuthConfig)
+    {
+        _tableServiceClient = AzureStorageClientFactory.CreateTableServiceClient(storageAuthConfig);
     }
 
     public async Task<TableClient> GetTableClient(string tableName)

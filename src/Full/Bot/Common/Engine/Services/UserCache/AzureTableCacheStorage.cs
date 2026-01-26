@@ -16,12 +16,29 @@ public class AzureTableCacheStorage : ICacheStorage
     private readonly string _userCacheTableName;
     private readonly string _syncMetadataTableName;
 
+    /// <summary>
+    /// Legacy constructor using connection string authentication
+    /// </summary>
     public AzureTableCacheStorage(
         string storageConnectionString,
         ILogger<AzureTableCacheStorage> logger,
         UserCacheConfig config)
     {
         _storageManager = new ConcreteTableStorageManager(storageConnectionString);
+        _logger = logger;
+        _userCacheTableName = config.UserCacheTableName;
+        _syncMetadataTableName = config.SyncMetadataTableName;
+    }
+
+    /// <summary>
+    /// Constructor supporting both connection string and RBAC authentication
+    /// </summary>
+    public AzureTableCacheStorage(
+        StorageAuthConfig storageAuthConfig,
+        ILogger<AzureTableCacheStorage> logger,
+        UserCacheConfig config)
+    {
+        _storageManager = new ConcreteTableStorageManager(storageAuthConfig);
         _logger = logger;
         _userCacheTableName = config.UserCacheTableName;
         _syncMetadataTableName = config.SyncMetadataTableName;

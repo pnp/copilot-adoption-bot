@@ -18,13 +18,13 @@ public class MessageTemplateServiceIntegrationTests : AbstractTest
     {
         // Initialize storage manager
         _storageManager = new MessageTemplateStorageManager(
-            _config.ConnectionStrings.Storage,
+            GetStorageAuthConfig(),
             GetLogger<MessageTemplateStorageManager>()
         );
 
         // Initialize queue service
         _queueService = new BatchQueueService(
-            _config.ConnectionStrings.Storage,
+            GetStorageAuthConfig(),
             GetLogger<BatchQueueService>()
         );
         await _queueService.InitializeAsync();

@@ -145,8 +145,21 @@ dotnet user-secrets set "WebAuthConfig:ClientSecret" "your-web-app-registration-
 dotnet user-secrets set "WebAuthConfig:TenantId" "your-tenant-id"
 dotnet user-secrets set "WebAuthConfig:Authority" "https://login.microsoftonline.com/organizations"
 
-# Storage Connection (Required)
+# Storage Connection (Required) - Option 1: Connection String (Legacy)
 dotnet user-secrets set "ConnectionStrings:Storage" "DefaultEndpointsProtocol=https;AccountName=yourstorageaccount;AccountKey=your-storage-key;EndpointSuffix=core.windows.net"
+
+# Storage Connection (Required) - Option 2: RBAC with Default Credentials (Recommended)
+# Uses Managed Identity, Azure CLI, or other DefaultAzureCredential sources
+dotnet user-secrets set "StorageAuthConfig:UseRBAC" "true"
+dotnet user-secrets set "StorageAuthConfig:StorageAccountName" "yourstorageaccount"
+
+# Storage Connection (Required) - Option 3: RBAC with Override Credentials
+# Use specific service principal credentials instead of default credentials
+dotnet user-secrets set "StorageAuthConfig:UseRBAC" "true"
+dotnet user-secrets set "StorageAuthConfig:StorageAccountName" "yourstorageaccount"
+dotnet user-secrets set "StorageAuthConfig:RBACOverrideCredentials:ClientId" "your-service-principal-client-id"
+dotnet user-secrets set "StorageAuthConfig:RBACOverrideCredentials:ClientSecret" "your-service-principal-client-secret"
+dotnet user-secrets set "StorageAuthConfig:RBACOverrideCredentials:TenantId" "your-tenant-id"
 
 # Bot Configuration (Required)
 dotnet user-secrets set "MicrosoftAppId" "your-bot-app-id"
@@ -184,7 +197,114 @@ dotnet user-secrets set "TestUPN" "your-test-user@yourtenant.onmicrosoft.com"
   - Uses same structure as GraphConfig
   - Required for user authentication to the web portal
 
-- **ConnectionStrings.Storage**: Azure Storage connection string for table and blob storage
+- **Storage Configuration**: Azure Storage authentication for table and blob storage. Choose one of three options:
+  
+  **Option 1 (Legacy): Connection String**
+  - `ConnectionStrings:Storage`: Full connection string with account key
+  - Less secure as it includes storage account keys
+  - Example: `DefaultEndpointsProtocol=https;AccountName=yourstorageaccount;AccountKey=...`
+  
+  **Option 2 (Recommended): RBAC with Default Credentials**
+  - `StorageAuthConfig:UseRBAC`: Set to `true`
+  - `StorageAuthConfig:StorageAccountName`: Your storage account name (e.g., `yourstorageaccount`)
+  - Uses DefaultAzureCredential (Managed Identity in Azure, Azure CLI locally)
+  - More secure - no keys in configuration
+  - Requires Azure RBAC role assignments:
+    - `Storage Blob Data Contributor` (for blob storage)
+    - `Storage Table Data Contributor` (for table storage)
+    - `Storage Queue Data Contributor` (for queue storage)
+  
+  **Option 3: RBAC with Override Credentials**
+  - `StorageAuthConfig:UseRBAC`: Set to `true`
+  - `StorageAuthConfig:StorageAccountName`: Your storage account name
+  - `StorageAuthConfig:RBACOverrideCredentials:ClientId`: Service principal client ID
+  - `StorageAuthConfig:RBACOverrideCredentials:ClientSecret`: Service principal secret
+  - `StorageAuthConfig:RBACOverrideCredentials:TenantId`: Azure AD tenant ID
+  - Uses specific service principal instead of default credentials
+  - Useful when you need explicit control over the identity used
+
+
+#### Assigning RBAC Roles to Storage Account (For Option 2 & 3)
+
+If using RBAC authentication (recommended), you must assign the required roles to the identity that will access the storage account.
+
+**Prerequisites:**
+- [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli) installed
+- Logged in to Azure CLI: `az login`
+- Owner or User Access Administrator role on the storage account or subscription
+
+**For Local Development (Azure CLI Identity):**
+
+When developing locally with Option 2 (RBAC with Default Credentials), the application uses your Azure CLI identity. Assign roles to your user account:
+
+```bash
+# Get your current user's Object ID
+USER_ID=$(az ad signed-in-user show --query id -o tsv)
+
+# Get the storage account resource ID
+STORAGE_ID=$(az storage account show \
+  --name yourstorageaccount \
+  --resource-group yourResourceGroup \
+  --query id -o tsv)
+
+# Assign required roles
+az role assignment create \
+  --assignee $USER_ID \
+  --role "Storage Blob Data Contributor" \
+  --scope $STORAGE_ID
+
+az role assignment create \
+  --assignee $USER_ID \
+  --role "Storage Table Data Contributor" \
+  --scope $STORAGE_ID
+
+az role assignment create \
+  --assignee $USER_ID \
+  --role "Storage Queue Data Contributor" \
+  --scope $STORAGE_ID
+```
+
+**For Service Principal (Option 3):**
+
+If using Option 3 (RBAC with Override Credentials), assign roles to your service principal:
+
+```bash
+# Get the storage account resource ID
+STORAGE_ID=$(az storage account show \
+  --name yourstorageaccount \
+  --resource-group yourResourceGroup \
+  --query id -o tsv)
+
+# Assign roles to service principal (replace with your Client ID)
+az role assignment create \
+  --assignee your-service-principal-client-id \
+  --role "Storage Blob Data Contributor" \
+  --scope $STORAGE_ID
+
+az role assignment create \
+  --assignee your-service-principal-client-id \
+  --role "Storage Table Data Contributor" \
+  --scope $STORAGE_ID
+
+az role assignment create \
+  --assignee your-service-principal-client-id \
+  --role "Storage Queue Data Contributor" \
+  --scope $STORAGE_ID
+```
+
+**For Production (Azure Managed Identity):**
+
+See the [Deployment Guide](../DEPLOYMENT.md) for instructions on assigning roles to App Service Managed Identity.
+
+**Verify Role Assignments:**
+
+```bash
+# List all role assignments for the storage account
+az role assignment list --scope $STORAGE_ID --output table
+```
+
+> **Note**: RBAC role assignments can take up to 5 minutes to propagate. If you encounter access denied errors immediately after assignment, wait a few minutes and try again.
+
 
 - **MicrosoftAppId**: Bot application ID (same as GraphConfig.ClientId)
 
@@ -307,3 +427,5 @@ dotnet Web.Server.dll
 - **Deployment**: Deploy to Azure using [../DEPLOYMENT.md](../DEPLOYMENT.md)
 - **Security**: Review security best practices in [SECURITY.md](SECURITY.md)
 - **Troubleshooting**: Get help with [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+
+

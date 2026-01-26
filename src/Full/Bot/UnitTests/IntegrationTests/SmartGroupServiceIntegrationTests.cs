@@ -24,7 +24,7 @@ public class SmartGroupServiceIntegrationTests : AbstractTest
     {
         // Initialize storage manager
         _storageManager = new SmartGroupStorageManager(
-            _config.ConnectionStrings.Storage,
+            GetStorageAuthConfig(),
             GetLogger<SmartGroupStorageManager>()
         );
 

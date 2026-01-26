@@ -232,13 +232,17 @@ Common issues and solutions for the Copilot Adoption Bot.
 
 **Solutions:**
 
-1. **Verify Connection String:**
+1. **Verify Storage Configuration:**
    ```bash
-   # Check connection string format
+   # Check storage configuration
    dotnet user-secrets list | grep Storage
    
-   # Should be:
+   # For Connection String (Legacy):
    # ConnectionStrings:Storage = DefaultEndpointsProtocol=https;AccountName=...
+   
+   # For RBAC:
+   # StorageAuthConfig:UseRBAC = true
+   # StorageAuthConfig:StorageAccountName = yourstorageaccount
    ```
 
 2. **Check Storage Account:**
@@ -254,8 +258,22 @@ Common issues and solutions for the Copilot Adoption Bot.
 4. **Test Connectivity:**
    ```bash
    # Use Azure Storage Explorer
-   # Try to connect with same connection string
+   # Try to connect with same connection string or RBAC credentials
    ```
+
+5. **RBAC Authentication Issues (when UseRBAC = true):**
+   - Verify RBAC role assignments on the storage account:
+     - `Storage Blob Data Contributor`
+     - `Storage Table Data Contributor`
+     - `Storage Queue Data Contributor`
+   - Check identity being used:
+     - Local dev: Azure CLI (`az account show`)
+     - Azure: Managed Identity or service principal
+   - If using override credentials, verify ClientId, ClientSecret, and TenantId are correct
+   - Test RBAC permissions:
+     ```bash
+     az storage blob list --account-name yourstorageaccount --container-name message-templates --auth-mode login
+     ```
 
 ### Error: "Blob container not found"
 
@@ -583,3 +601,5 @@ If you're still experiencing issues after trying these solutions:
    - Steps to reproduce
    - Configuration (without secrets)
    - Logs (sanitized)
+
+

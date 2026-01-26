@@ -49,6 +49,7 @@ This directory contains comprehensive integration tests for the Common.Engine pr
 
 These tests require actual Azure resources and valid configuration. Add the following to your user secrets:
 
+**Option 1 - Legacy (Connection String):**
 ```json
 {
   "ConnectionStrings": {
@@ -62,7 +63,22 @@ These tests require actual Azure resources and valid configuration. Add the foll
 }
 ```
 
-To configure user secrets:
+**Option 2 - RBAC (Recommended):**
+```json
+{
+  "StorageAuthConfig": {
+    "UseRBAC": true,
+    "StorageAccountName": "<your-storage-account>"
+  },
+  "GraphConfig": {
+    "TenantId": "<your-tenant-id>",
+    "ClientId": "<your-client-id>",
+    "ClientSecret": "<your-client-secret>"
+  }
+}
+```
+
+To configure user secrets (Option 1 - Connection String):
 ```bash
 cd UnitTests
 dotnet user-secrets set "ConnectionStrings:Storage" "your-connection-string"
@@ -71,12 +87,31 @@ dotnet user-secrets set "GraphConfig:ClientId" "your-client-id"
 dotnet user-secrets set "GraphConfig:ClientSecret" "your-client-secret"
 ```
 
+To configure user secrets (Option 2 - RBAC):
+```bash
+cd UnitTests
+dotnet user-secrets set "StorageAuthConfig:UseRBAC" "true"
+dotnet user-secrets set "StorageAuthConfig:StorageAccountName" "your-storage-account"
+dotnet user-secrets set "GraphConfig:TenantId" "your-tenant-id"
+dotnet user-secrets set "GraphConfig:ClientId" "your-client-id"
+dotnet user-secrets set "GraphConfig:ClientSecret" "your-client-secret"
+```
+
+**Note:** When using RBAC (Option 2), you must assign the following roles to your Azure CLI identity or service principal:
+- `Storage Blob Data Contributor`
+- `Storage Table Data Contributor`
+- `Storage Queue Data Contributor`
+
+See the main [SETUP.md](../../docs/SETUP.md) for detailed instructions on assigning RBAC roles.
+
 ### Azure Resources Required
 
 1. **Azure Storage Account**
    - Used for Table Storage (templates, batches, logs, smart groups)
    - Used for Queue Storage (batch message processing)
    - Used for Blob Storage (template JSON storage)
+   - Can be accessed via connection string (legacy) or RBAC (recommended)
+
 
 2. **Microsoft Graph API Access**
    - Application permissions required:

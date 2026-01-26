@@ -58,7 +58,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
                 _cacheConfig,
                 _config.GraphConfig);
             var dataLoader = new GraphUserDataLoader(_graphClient, GetLogger<GraphUserDataLoader>(), copilotStatsLoader, _cacheConfig);
-            _storage = new AzureTableCacheStorage(_config.ConnectionStrings.Storage, GetLogger<AzureTableCacheStorage>(), _cacheConfig);
+            _storage = new AzureTableCacheStorage(GetStorageAuthConfig(), GetLogger<AzureTableCacheStorage>(), _cacheConfig);
             
             _cacheManager = new UserCacheManager(dataLoader, _storage, _cacheConfig, GetLogger<UserCacheManager>());
         }
@@ -271,7 +271,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
             customConfig,
             _config.GraphConfig);
         var dataLoader = new GraphUserDataLoader(_graphClient, GetLogger<GraphUserDataLoader>(), copilotStatsLoader1, customConfig);
-        var storage = new AzureTableCacheStorage(_config.ConnectionStrings.Storage, GetLogger<AzureTableCacheStorage>(), customConfig);
+        var storage = new AzureTableCacheStorage(GetStorageAuthConfig(), GetLogger<AzureTableCacheStorage>(), customConfig);
         var customCacheManager = new UserCacheManager(dataLoader, storage, customConfig, GetLogger<UserCacheManager>());
 
         try
@@ -289,7 +289,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         finally
         {
             // Cleanup - always delete custom test tables
-            var customStorage = new AzureTableCacheStorage(_config.ConnectionStrings.Storage, GetLogger<AzureTableCacheStorage>(), customConfig);
+            var customStorage = new AzureTableCacheStorage(GetStorageAuthConfig(), GetLogger<AzureTableCacheStorage>(), customConfig);
             await customStorage.DeleteTablesAsync();
         }
     }
@@ -324,7 +324,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
             cache1Config,
             _config.GraphConfig);
         var dataLoader1 = new GraphUserDataLoader(_graphClient, GetLogger<GraphUserDataLoader>(), copilotStatsLoader1, cache1Config);
-        var storage1 = new AzureTableCacheStorage(_config.ConnectionStrings.Storage, GetLogger<AzureTableCacheStorage>(), cache1Config);
+        var storage1 = new AzureTableCacheStorage(GetStorageAuthConfig(), GetLogger<AzureTableCacheStorage>(), cache1Config);
         var cache1 = new UserCacheManager(dataLoader1, storage1, cache1Config, GetLogger<UserCacheManager>());
 
         var copilotStatsLoader2 = new GraphCopilotStatsLoader(
@@ -332,7 +332,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
             cache2Config,
             _config.GraphConfig);
         var dataLoader2 = new GraphUserDataLoader(_graphClient, GetLogger<GraphUserDataLoader>(), copilotStatsLoader2, cache2Config);
-        var storage2 = new AzureTableCacheStorage(_config.ConnectionStrings.Storage, GetLogger<AzureTableCacheStorage>(), cache2Config);
+        var storage2 = new AzureTableCacheStorage(GetStorageAuthConfig(), GetLogger<AzureTableCacheStorage>(), cache2Config);
         var cache2 = new UserCacheManager(dataLoader2, storage2, cache2Config, GetLogger<UserCacheManager>());
 
         try
@@ -363,8 +363,8 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         finally
         {
             // Cleanup both caches - always delete isolation test tables
-            var cleanupStorage1 = new AzureTableCacheStorage(_config.ConnectionStrings.Storage, GetLogger<AzureTableCacheStorage>(), cache1Config);
-            var cleanupStorage2 = new AzureTableCacheStorage(_config.ConnectionStrings.Storage, GetLogger<AzureTableCacheStorage>(), cache2Config);
+            var cleanupStorage1 = new AzureTableCacheStorage(GetStorageAuthConfig(), GetLogger<AzureTableCacheStorage>(), cache1Config);
+            var cleanupStorage2 = new AzureTableCacheStorage(GetStorageAuthConfig(), GetLogger<AzureTableCacheStorage>(), cache2Config);
             await cleanupStorage1.DeleteTablesAsync();
             await cleanupStorage2.DeleteTablesAsync();
         }

@@ -27,6 +27,9 @@ public class AppConfig : PropertyBoundConfig
 
     [ConfigSection()]
     public AppConnectionStrings ConnectionStrings { get; set; } = null!;
+
+    [ConfigSection()]
+    public StorageAuthConfig StorageAuthConfig { get; set; } = null!;
 }
 
 public class AppConnectionStrings : PropertyBoundConfig
@@ -37,6 +40,6 @@ public class AppConnectionStrings : PropertyBoundConfig
 
     public AppConnectionStrings(IConfigurationSection config) : base(config) { }
 
-    [ConfigValue]
+    [ConfigValue(true)]
     public string Storage { get; set; } = null!;
 }
