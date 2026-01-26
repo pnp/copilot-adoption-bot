@@ -121,10 +121,11 @@ public class UserCacheManager : IUserCacheManager
             return;
         }
 
-        _logger.LogInformation("Fetching Copilot usage statistics...");
+        _logger.LogInformation("Fetching Copilot usage statistics and license information...");
 
         try
         {
+            // Update Copilot stats
             var stats = await _dataLoader.GetCopilotStatsAsync();
             
             if (stats.Count == 0)
@@ -138,14 +139,27 @@ public class UserCacheManager : IUserCacheManager
                 _logger.LogInformation($"Updated Copilot stats in storage for {updateCount} users");
             }
 
+            // Update license information
+            var licenseInfo = await _dataLoader.GetLicenseInfoAsync();
+            
+            if (licenseInfo.Count > 0)
+            {
+                var licenseUpdateCount = await _storage.UpdateUsersWithLicenseInfoAsync(licenseInfo);
+                _logger.LogInformation($"Updated license info in storage for {licenseUpdateCount} users");
+            }
+            else
+            {
+                _logger.LogWarning("No license info retrieved");
+            }
+
             metadata.LastCopilotStatsUpdate = DateTime.UtcNow;
             await _storage.UpdateSyncMetadataAsync(metadata);
 
-            _logger.LogInformation("Copilot stats update completed successfully");
+            _logger.LogInformation("Copilot stats and license update completed successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating Copilot stats");
+            _logger.LogError(ex, "Error updating Copilot stats and license info");
             throw;
         }
     }

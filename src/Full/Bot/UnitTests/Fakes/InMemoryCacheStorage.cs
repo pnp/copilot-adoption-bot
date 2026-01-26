@@ -84,6 +84,22 @@ public class InMemoryCacheStorage : ICacheStorage
         return Task.FromResult(updateCount);
     }
 
+    public Task<int> UpdateUsersWithLicenseInfoAsync(Dictionary<string, bool> licenseInfo)
+    {
+        var updateCount = 0;
+
+        foreach (var (upn, hasCopilotLicense) in licenseInfo)
+        {
+            if (_userCache.TryGetValue(upn, out var user) && !user.IsDeleted)
+            {
+                user.HasCopilotLicense = hasCopilotLicense;
+                updateCount++;
+            }
+        }
+
+        return Task.FromResult(updateCount);
+    }
+
     public Task<CacheSyncMetadata> GetSyncMetadataAsync()
     {
         return Task.FromResult(_metadata);

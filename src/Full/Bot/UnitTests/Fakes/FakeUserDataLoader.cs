@@ -46,6 +46,12 @@ public class FakeUserDataLoader : IUserDataLoader
         return Task.FromResult(_stats);
     }
 
+    public Task<Dictionary<string, bool>> GetLicenseInfoAsync()
+    {
+        // Return empty dictionary by default for tests
+        return Task.FromResult(new Dictionary<string, bool>());
+    }
+
     private static List<EnrichedUserInfo> CreateDefaultTestUsers()
     {
         return

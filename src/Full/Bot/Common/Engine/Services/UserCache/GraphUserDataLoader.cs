@@ -174,6 +174,83 @@ public class GraphUserDataLoader : IUserDataLoader
         return stats;
     }
 
+    public async Task<Dictionary<string, bool>> GetLicenseInfoAsync()
+    {
+        _logger.LogInformation("Fetching license information from Microsoft Graph...");
+
+        var licenseInfo = new Dictionary<string, bool>();
+        const string copilotSkuId = "Microsoft_365_Copilot";
+
+        try
+        {
+            // Get all users first
+            var usersResult = await _graphClient.Users.GetAsync(requestConfiguration =>
+            {
+                requestConfiguration.QueryParameters.Select = new[] { "id", "userPrincipalName" };
+                requestConfiguration.QueryParameters.Filter = "accountEnabled eq true and userType eq 'Member'";
+                requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
+            });
+
+            if (usersResult?.Value == null)
+            {
+                _logger.LogWarning("No users found when fetching license info");
+                return licenseInfo;
+            }
+
+            var users = new List<User>(usersResult.Value);
+
+            // Handle pagination
+            var pageIterator = PageIterator<User, UserCollectionResponse>.CreatePageIterator(
+                _graphClient,
+                usersResult,
+                user =>
+                {
+                    users.Add(user);
+                    return true;
+                });
+
+            await pageIterator.IterateAsync();
+
+            _logger.LogInformation($"Checking license info for {users.Count} users...");
+
+            // Fetch license info for each user in parallel
+            var tasks = users.Select(async user =>
+            {
+                try
+                {
+                    var licenses = await _graphClient.Users[user.Id].LicenseDetails.GetAsync();
+                    
+                    var hasCopilot = licenses?.Value?.Any(license => 
+                        license.SkuPartNumber?.Equals(copilotSkuId, StringComparison.OrdinalIgnoreCase) == true) ?? false;
+
+                    lock (licenseInfo)
+                    {
+                        if (!string.IsNullOrEmpty(user.UserPrincipalName))
+                        {
+                            licenseInfo[user.UserPrincipalName] = hasCopilot;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug($"Could not retrieve license info for user {user.UserPrincipalName}: {ex.Message}");
+                    // Continue without license info for this user
+                }
+            });
+
+            await Task.WhenAll(tasks);
+
+            var usersWithCopilot = licenseInfo.Count(kvp => kvp.Value);
+            _logger.LogInformation($"License info retrieved for {licenseInfo.Count} users. {usersWithCopilot} have Copilot licenses");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching license information");
+        }
+
+        return licenseInfo;
+    }
+
     private static EnrichedUserInfo MapToEnrichedUser(User user)
     {
         var isDeleted = user.AdditionalData?.ContainsKey("@removed") == true;

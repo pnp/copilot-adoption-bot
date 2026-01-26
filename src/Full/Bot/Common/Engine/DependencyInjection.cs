@@ -125,12 +125,20 @@ public static class ServiceCollectionExtensions
         // Register UserCacheManager
         services.AddSingleton<IUserCacheManager, UserCacheManager>();
 
-        // Register GraphUserService for enriched user metadata
-        services.AddSingleton<GraphUserService>(sp =>
+        // Register GraphUserService for direct Graph API access (without cache)
+        services.AddSingleton<IExternalUserService, GraphUserService>(sp =>
         {
             var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GraphUserService>>();
+            return new GraphUserService(config.GraphConfig, logger);
+        });
+
+        // Register CachedUserService for cache-first user data access
+        services.AddSingleton<CachedUserService>(sp =>
+        {
             var cacheManager = sp.GetRequiredService<IUserCacheManager>();
-            return new GraphUserService(config.GraphConfig, logger, cacheManager);
+            var externalUserService = sp.GetRequiredService<IExternalUserService>();
+            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CachedUserService>>();
+            return new CachedUserService(cacheManager, externalUserService, logger);
         });
 
         // Register SmartGroupStorageManager
@@ -162,10 +170,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SmartGroupService>(sp =>
         {
             var storageManager = sp.GetRequiredService<SmartGroupStorageManager>();
-            var graphUserService = sp.GetRequiredService<GraphUserService>();
+            var userService = sp.GetRequiredService<CachedUserService>();
             var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SmartGroupService>>();
             var aiFoundryService = sp.GetService<AIFoundryService>(); // Optional - may be null
-            return new SmartGroupService(storageManager, graphUserService, logger, aiFoundryService);
+            return new SmartGroupService(storageManager, userService, logger, aiFoundryService);
         });
 
         return services;

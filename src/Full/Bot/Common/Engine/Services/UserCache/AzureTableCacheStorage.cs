@@ -87,6 +87,7 @@ public class AzureTableCacheStorage : ICacheStorage
             EmployeeHireDate = user.HireDate?.DateTime,
             LastSyncedDate = DateTime.UtcNow,
             IsDeleted = user.IsDeleted,
+            HasCopilotLicense = user.HasCopilotLicense,
             ManagerUpn = user.ManagerUpn,
             ManagerDisplayName = user.ManagerDisplayName
         };
@@ -120,6 +121,7 @@ public class AzureTableCacheStorage : ICacheStorage
                 EmployeeHireDate = user.HireDate?.DateTime,
                 LastSyncedDate = DateTime.UtcNow,
                 IsDeleted = user.IsDeleted,
+                HasCopilotLicense = user.HasCopilotLicense,
                 ManagerUpn = user.ManagerUpn,
                 ManagerDisplayName = user.ManagerDisplayName
             };
@@ -195,6 +197,44 @@ public class AzureTableCacheStorage : ICacheStorage
         }
 
         _logger.LogInformation($"Updated Copilot stats for {updateCount} of {stats.Count} users");
+        return updateCount;
+    }
+
+    public async Task<int> UpdateUsersWithLicenseInfoAsync(Dictionary<string, bool> licenseInfo)
+    {
+        var tableClient = await _storageManager.GetTableClient(_userCacheTableName);
+        var updateCount = 0;
+
+        foreach (var (upn, hasCopilotLicense) in licenseInfo)
+        {
+            try
+            {
+                var response = await tableClient.GetEntityAsync<UserCacheTableEntity>(
+                    UserCacheTableEntity.PartitionKeyVal,
+                    upn);
+
+                if (response.Value != null && !response.Value.IsDeleted)
+                {
+                    var user = response.Value;
+                    
+                    // Update license info
+                    user.HasCopilotLicense = hasCopilotLicense;
+
+                    await tableClient.UpdateEntityAsync(user, user.ETag, TableUpdateMode.Replace);
+                    updateCount++;
+                }
+            }
+            catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+            {
+                _logger.LogDebug($"User {upn} not found in cache, skipping license info update");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"Failed to update license info for user {upn}");
+            }
+        }
+
+        _logger.LogInformation($"Updated license info for {updateCount} of {licenseInfo.Count} users");
         return updateCount;
     }
 
@@ -275,6 +315,7 @@ public class AzureTableCacheStorage : ICacheStorage
             ManagerUpn = entity.ManagerUpn,
             ManagerDisplayName = entity.ManagerDisplayName,
             IsDeleted = entity.IsDeleted,
+            HasCopilotLicense = entity.HasCopilotLicense,
             CopilotLastActivityDate = entity.CopilotLastActivityDate,
             CopilotChatLastActivityDate = entity.CopilotChatLastActivityDate,
             TeamsCopilotLastActivityDate = entity.TeamscopilotLastActivityDate,

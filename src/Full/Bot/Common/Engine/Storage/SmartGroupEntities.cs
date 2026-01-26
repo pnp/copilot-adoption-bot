@@ -152,6 +152,9 @@ public class SmartGroupMemberCacheEntity : ITableEntity
     /// </summary>
     public double? ConfidenceScore { get; set; }
 
+    // License information
+    public bool HasCopilotLicense { get; set; }
+
     // Copilot usage statistics
     public DateTime? CopilotLastActivityDate { get; set; }
     public DateTime? CopilotChatLastActivityDate { get; set; }

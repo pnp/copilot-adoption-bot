@@ -10,15 +10,16 @@ using UnitTests.Fakes;
 namespace UnitTests.IntegrationTests;
 
 /// <summary>
-/// Integration tests for GraphUserService.
+/// Integration tests for CachedUserService (cache-first user loading).
 /// NOTE: These tests require actual Microsoft Graph connectivity and will query real data.
 /// Ensure your test configuration has valid Azure AD credentials.
 /// </summary>
 [TestClass]
 public class GraphUserServiceIntegrationTests : AbstractTest
 {
-    private GraphUserService _service = null!;
+    private CachedUserService _service = null!;
     private IUserCacheManager _cacheManager = null!;
+    private IExternalUserService _externalUserService = null!;
 
     [TestInitialize]
     public void Initialize()
@@ -41,10 +42,15 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         var storage = new InMemoryCacheStorage();
         _cacheManager = new UserCacheManager(dataLoader, storage, cacheConfig, GetLogger<UserCacheManager>());
 
-        _service = new GraphUserService(
+        _externalUserService = new GraphUserService(
             _config.GraphConfig,
-            GetLogger<GraphUserService>(),
-            _cacheManager
+            GetLogger<GraphUserService>()
+        );
+
+        _service = new CachedUserService(
+            _cacheManager,
+            _externalUserService,
+            GetLogger<CachedUserService>()
         );
     }
 

@@ -33,7 +33,7 @@ public interface IUserCacheManager
     Task SyncUsersAsync();
 
     /// <summary>
-    /// Update Copilot usage statistics for all cached users.
+    /// Update Copilot usage statistics and license information for all cached users.
     /// </summary>
     Task UpdateCopilotStatsAsync();
 

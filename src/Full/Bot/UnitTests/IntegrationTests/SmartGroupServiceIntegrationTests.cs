@@ -15,7 +15,8 @@ public class SmartGroupServiceIntegrationTests : AbstractTest
 {
     private SmartGroupService _service = null!;
     private SmartGroupStorageManager _storageManager = null!;
-    private GraphUserService _graphUserService = null!;
+    private CachedUserService _userService = null!;
+    private IExternalUserService _externalUserService = null!;
     private IUserCacheManager _cacheManager = null!;
 
     [TestInitialize]
@@ -46,17 +47,23 @@ public class SmartGroupServiceIntegrationTests : AbstractTest
         var storage = new InMemoryCacheStorage();
         _cacheManager = new UserCacheManager(dataLoader, storage, cacheConfig, GetLogger<UserCacheManager>());
 
-        // Initialize Graph service
-        _graphUserService = new GraphUserService(
+        // Initialize external user service (direct API access)
+        _externalUserService = new GraphUserService(
             _config.GraphConfig,
-            GetLogger<GraphUserService>(),
-            _cacheManager
+            GetLogger<GraphUserService>()
+        );
+
+        // Initialize CachedUserService (cache-first logic)
+        _userService = new CachedUserService(
+            _cacheManager,
+            _externalUserService,
+            GetLogger<CachedUserService>()
         );
 
         // Initialize service without AI for basic tests
         _service = new SmartGroupService(
             _storageManager,
-            _graphUserService,
+            _userService,
             GetLogger<SmartGroupService>(),
             null // No AI service for basic tests
         );

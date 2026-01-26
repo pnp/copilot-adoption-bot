@@ -42,6 +42,9 @@ public class SmartGroupMemberDto
     public DateTimeOffset? HireDate { get; set; }
     public double? ConfidenceScore { get; set; }
     
+    // License information
+    public bool HasCopilotLicense { get; set; }
+    
     // Copilot usage statistics
     public DateTime? CopilotLastActivityDate { get; set; }
     public DateTime? CopilotChatLastActivityDate { get; set; }
@@ -74,17 +77,17 @@ public class SmartGroupService
 {
     private readonly SmartGroupStorageManager _storageManager;
     private readonly AIFoundryService? _aiFoundryService;
-    private readonly GraphUserService _graphUserService;
+    private readonly CachedUserService _userService;
     private readonly ILogger<SmartGroupService> _logger;
 
     public SmartGroupService(
         SmartGroupStorageManager storageManager,
-        GraphUserService graphUserService,
+        CachedUserService userService,
         ILogger<SmartGroupService> logger,
         AIFoundryService? aiFoundryService = null)
     {
         _storageManager = storageManager;
-        _graphUserService = graphUserService;
+        _userService = userService;
         _aiFoundryService = aiFoundryService;
         _logger = logger;
     }
@@ -185,7 +188,7 @@ public class SmartGroupService
         _logger.LogInformation($"Resolving smart group {groupId} using AI...");
 
         // Get all users with metadata from Graph
-        var users = await _graphUserService.GetAllUsersWithMetadataAsync();
+        var users = await _userService.GetAllUsersWithMetadataAsync();
         
         // Call AI to match users
         var matches = await _aiFoundryService.ResolveSmartGroupMembersAsync(group.Description, users);
@@ -213,6 +216,7 @@ public class SmartGroupService
                 EmployeeType = user?.EmployeeType,
                 HireDate = user?.HireDate,
                 ConfidenceScore = m.ConfidenceScore,
+                HasCopilotLicense = user?.HasCopilotLicense ?? false,
                 // Copilot usage statistics
                 CopilotLastActivityDate = user?.CopilotLastActivityDate,
                 CopilotChatLastActivityDate = user?.CopilotChatLastActivityDate,
@@ -256,7 +260,7 @@ public class SmartGroupService
         _logger.LogInformation($"Previewing smart group resolution for: {description}");
 
         // Get users with metadata from Graph
-        var users = await _graphUserService.GetAllUsersWithMetadataAsync(maxUsers);
+        var users = await _userService.GetAllUsersWithMetadataAsync(maxUsers);
         
         // Call AI to match users
         var matches = await _aiFoundryService.ResolveSmartGroupMembersAsync(description, users);
@@ -283,6 +287,7 @@ public class SmartGroupService
                 EmployeeType = user?.EmployeeType,
                 HireDate = user?.HireDate,
                 ConfidenceScore = m.ConfidenceScore,
+                HasCopilotLicense = user?.HasCopilotLicense ?? false,
                 // Copilot usage statistics
                 CopilotLastActivityDate = user?.CopilotLastActivityDate,
                 CopilotChatLastActivityDate = user?.CopilotChatLastActivityDate,
@@ -372,6 +377,7 @@ public class SmartGroupService
             EmployeeType = entity.EmployeeType,
             HireDate = entity.HireDate,
             ConfidenceScore = entity.ConfidenceScore,
+            HasCopilotLicense = entity.HasCopilotLicense,
             // Copilot usage statistics
             CopilotLastActivityDate = entity.CopilotLastActivityDate,
             CopilotChatLastActivityDate = entity.CopilotChatLastActivityDate,

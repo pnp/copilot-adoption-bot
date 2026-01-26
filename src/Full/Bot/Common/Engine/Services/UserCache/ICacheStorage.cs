@@ -54,6 +54,13 @@ public interface ICacheStorage
     Task<int> UpdateUsersWithCopilotStatsAsync(Dictionary<string, CopilotUserStats> stats);
 
     /// <summary>
+    /// Update users with license information.
+    /// </summary>
+    /// <param name="licenseInfo">Dictionary mapping UPN to whether user has Copilot license.</param>
+    /// <returns>Number of users updated.</returns>
+    Task<int> UpdateUsersWithLicenseInfoAsync(Dictionary<string, bool> licenseInfo);
+
+    /// <summary>
     /// Get cache synchronization metadata.
     /// </summary>
     Task<CacheSyncMetadata> GetSyncMetadataAsync();

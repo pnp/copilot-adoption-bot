@@ -59,6 +59,9 @@ public class UserCacheTableEntity : ITableEntity
     public DateTime? OneNoteCopilotLastActivityDate { get; set; }
     public DateTime? LoopCopilotLastActivityDate { get; set; }
 
+    // License information
+    public bool HasCopilotLicense { get; set; }
+
     /// <summary>
     /// Indicates if this record represents a deleted user (from delta query)
     /// </summary>

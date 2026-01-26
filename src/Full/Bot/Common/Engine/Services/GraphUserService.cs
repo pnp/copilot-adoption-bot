@@ -9,15 +9,14 @@ using Microsoft.Graph.Models;
 namespace Common.Engine.Services;
 
 /// <summary>
-/// Service for loading users from Microsoft Graph with extended metadata.
+/// Service for loading users directly from Microsoft Graph API with extended metadata.
+/// Does not handle caching - use UserService for cache-first logic.
 /// Used for AI-driven smart group resolution.
-/// Requires a cache manager implementation for efficient data retrieval.
 /// </summary>
-public class GraphUserService
+public class GraphUserService : IExternalUserService
 {
     private readonly GraphServiceClient _graphClient;
     private readonly ILogger<GraphUserService> _logger;
-    private readonly IUserCacheManager _cacheManager;
 
     // Properties to request for enriched user data
     private static readonly string[] UserSelectProperties =
@@ -40,15 +39,13 @@ public class GraphUserService
     ];
 
     /// <summary>
-    /// Constructor with cache manager for optimized user data retrieval.
+    /// Constructor for loading users directly from Microsoft Graph.
     /// </summary>
     public GraphUserService(
         AzureADAuthConfig config,
-        ILogger<GraphUserService> logger,
-        IUserCacheManager cacheManager)
+        ILogger<GraphUserService> logger)
     {
         _logger = logger;
-        _cacheManager = cacheManager;
 
         var clientSecretCredential = new ClientSecretCredential(
             config.TenantId,
@@ -60,39 +57,27 @@ public class GraphUserService
     }
 
     /// <summary>
-    /// Get all users from the tenant with extended metadata.
-    /// Uses cache manager for optimized retrieval.
+    /// Get all users directly from Graph API with extended metadata.
     /// </summary>
     /// <param name="maxUsers">Maximum number of users to retrieve (default 999)</param>
-    /// <param name="forceRefresh">Force a refresh from Graph API instead of using cache</param>
-    public async Task<List<EnrichedUserInfo>> GetAllUsersWithMetadataAsync(int maxUsers = 999, bool forceRefresh = false)
+    public async Task<List<EnrichedUserInfo>> GetAllUsersAsync(int maxUsers = 999)
     {
         try
         {
-            _logger.LogInformation("Fetching users from cache...");
-            var cachedUsers = await _cacheManager.GetAllCachedUsersAsync(forceRefresh);
-            
-            if (maxUsers < int.MaxValue)
-            {
-                cachedUsers = cachedUsers.Take(maxUsers).ToList();
-            }
-            
-            _logger.LogInformation($"Retrieved {cachedUsers.Count} users from cache");
-            return cachedUsers;
+            _logger.LogInformation("Fetching users with extended metadata from Graph...");
+            return await GetAllUsersDirectFromGraphAsync(maxUsers);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving from cache");
+            _logger.LogError(ex, "Error retrieving users from Graph");
             throw;
         }
     }
 
     /// <summary>
-    /// Get all users directly from Graph API (bypasses cache).
-    /// Use this sparingly as it's less efficient than cached retrieval.
+    /// Internal method to get all users directly from Graph API.
     /// </summary>
-    /// <param name="maxUsers">Maximum number of users to retrieve (default 999)</param>
-    public async Task<List<EnrichedUserInfo>> GetAllUsersDirectFromGraphAsync(int maxUsers = 999)
+    private async Task<List<EnrichedUserInfo>> GetAllUsersDirectFromGraphAsync(int maxUsers = 999)
     {
         var users = new List<EnrichedUserInfo>();
 
@@ -182,22 +167,13 @@ public class GraphUserService
     }
 
     /// <summary>
-    /// Get a single user with extended metadata.
-    /// Uses cache manager for optimized retrieval.
+    /// Get a single user with extended metadata directly from Graph API.
     /// </summary>
-    public async Task<EnrichedUserInfo?> GetUserWithMetadataAsync(string upn)
+    public async Task<EnrichedUserInfo?> GetUserAsync(string upn)
     {
         try
         {
-            var cachedUser = await _cacheManager.GetCachedUserAsync(upn);
-            if (cachedUser != null)
-            {
-                _logger.LogDebug($"Retrieved user {upn} from cache");
-                return cachedUser;
-            }
-            
-            // User not in cache, fetch from Graph API
-            _logger.LogDebug($"User {upn} not in cache, fetching from Graph API");
+            _logger.LogDebug($"Fetching user {upn} from Graph API");
             return await GetUserDirectFromGraphAsync(upn);
         }
         catch (Exception ex)
@@ -208,7 +184,7 @@ public class GraphUserService
     }
 
     /// <summary>
-    /// Get a single user directly from Graph API (bypasses cache).
+    /// Internal method to get a single user directly from Graph API.
     /// </summary>
     private async Task<EnrichedUserInfo?> GetUserDirectFromGraphAsync(string upn)
     {
@@ -298,7 +274,7 @@ public class GraphUserService
     /// <summary>
     /// Enrich users with Microsoft 365 Copilot license information in parallel.
     /// </summary>
-    private async Task EnrichUsersWithLicenseInfoAsync(List<EnrichedUserInfo> users)
+    public async Task EnrichUsersWithLicenseInfoAsync(List<EnrichedUserInfo> users)
     {
         _logger.LogInformation($"Enriching {users.Count} users with license information...");
         

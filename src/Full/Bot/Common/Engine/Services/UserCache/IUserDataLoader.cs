@@ -50,4 +50,10 @@ public interface IUserDataLoader
     /// </summary>
     /// <returns>Dictionary of UPN to Copilot stats.</returns>
     Task<Dictionary<string, CopilotUserStats>> GetCopilotStatsAsync();
+
+    /// <summary>
+    /// Get license information for users.
+    /// </summary>
+    /// <returns>Dictionary of UPN to whether user has Copilot license.</returns>
+    Task<Dictionary<string, bool>> GetLicenseInfoAsync();
 }
