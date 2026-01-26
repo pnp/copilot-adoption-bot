@@ -22,7 +22,11 @@ public class CopilotStatsServiceTests : AbstractTest
     [TestInitialize]
     public void Initialize()
     {
-        _testTableName = $"copilotunittest{DateTime.UtcNow:yyyyMMddHHmmss}";
+        // Use highly unique table names with milliseconds and random component
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+        var random = new Random().Next(1000, 9999);
+        _testTableName = $"copilotunittest{timestamp}{random}";
+        
         
         var testStats = new List<CopilotUsageRecord>
         {
@@ -107,7 +111,7 @@ public class CopilotStatsServiceTests : AbstractTest
     {
         // Arrange
         var tableClient = _tableServiceClient!.GetTableClient(_testTableName);
-        await tableClient.CreateIfNotExistsAsync();
+        await CreateTableWithRetryAsync(tableClient);
 
         var testUser = new UserCacheTableEntity
         {
@@ -140,7 +144,7 @@ public class CopilotStatsServiceTests : AbstractTest
     {
         // Arrange
         var tableClient = _tableServiceClient!.GetTableClient(_testTableName);
-        await tableClient.CreateIfNotExistsAsync();
+        await CreateTableWithRetryAsync(tableClient);
 
         var result = await _service!.GetCopilotUsageStatsAsync();
 
@@ -164,7 +168,7 @@ public class CopilotStatsServiceTests : AbstractTest
     {
         // Arrange
         var tableClient = _tableServiceClient!.GetTableClient(_testTableName);
-        await tableClient.CreateIfNotExistsAsync();
+        await CreateTableWithRetryAsync(tableClient);
 
         var testUser = new UserCacheTableEntity
         {
@@ -197,7 +201,7 @@ public class CopilotStatsServiceTests : AbstractTest
     {
         // Arrange
         var tableClient = _tableServiceClient!.GetTableClient(_testTableName);
-        await tableClient.CreateIfNotExistsAsync();
+        await CreateTableWithRetryAsync(tableClient);
 
         var emptyLoader = new FakeCopilotStatsLoader(new List<CopilotUsageRecord>());
         var service = new CopilotStatsService(
@@ -219,7 +223,7 @@ public class CopilotStatsServiceTests : AbstractTest
     {
         // Arrange
         var tableClient = _tableServiceClient!.GetTableClient(_testTableName);
-        await tableClient.CreateIfNotExistsAsync();
+        await CreateTableWithRetryAsync(tableClient);
 
         var users = new[]
         {
