@@ -322,6 +322,45 @@ Common issues and solutions for the Copilot Adoption Bot.
      --connection-string "your-connection-string"
    ```
 
+
+### Error: "The specified table is being deleted. Try operation later"
+
+**Symptoms:**
+- Status 409 (Conflict)
+- ErrorCode: TableBeingDeleted
+- Occurs during table creation or access
+- Common in integration tests with table cleanup
+
+**Causes:**
+- Azure Table Storage deletion is not instantaneous
+- Previous test or operation deleted the table
+- New operation attempts to create table before deletion completes
+- Race condition between table deletion and creation
+
+**Solutions:**
+
+1. **Automatic Retry (Built-in):**
+   - The application includes automatic retry logic with exponential backoff
+   - Will retry up to 5 times with increasing delays (1s, 2s, 4s, 8s, 16s)
+   - Most operations will succeed after brief delay
+
+2. **For Integration Tests:**
+   - Use unique table name prefixes per test run
+   - Example: `test{timestamp}usercache`
+   - Implemented in test initialization:
+     ```csharp
+     _testTablePrefix = $"test{DateTime.UtcNow:yyyyMMddHHmmss}";
+     ```
+
+3. **Manual Workaround:**
+   - If error persists, wait 30-60 seconds before retrying
+   - Azure typically completes table deletion within this timeframe
+
+4. **Production Environments:**
+   - Avoid deleting and recreating tables frequently
+   - Use table clearing operations instead of delete/create
+   - Plan maintenance windows for table schema changes
+
 ## Deployment Issues
 
 ### Deployment Fails

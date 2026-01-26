@@ -33,13 +33,35 @@ public abstract class TableStorageManager
         if (_tableClientCache.TryGetValue(tableName, out var tableClient))
             return tableClient;
 
-        try
+        // Retry logic for table creation with exponential backoff
+        // This handles the case where a table is being deleted and we need to wait
+        int maxRetries = 5;
+        int retryDelayMs = 1000; // Start with 1 second
+        
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            await _tableServiceClient.CreateTableIfNotExistsAsync(tableName);
-        }
-        catch (RequestFailedException ex) when (ex.ErrorCode == "TableAlreadyExists")
-        {
-            // Supposedly CreateTableIfNotExistsAsync should silently fail if already exists, but this doesn't seem to happen
+            try
+            {
+                await _tableServiceClient.CreateTableIfNotExistsAsync(tableName);
+                break; // Success, exit retry loop
+            }
+            catch (RequestFailedException ex) when (ex.ErrorCode == "TableAlreadyExists")
+            {
+                // Supposedly CreateTableIfNotExistsAsync should silently fail if already exists, but this doesn't seem to happen
+                break; // Exit retry loop
+            }
+            catch (RequestFailedException ex) when (ex.ErrorCode == "TableBeingDeleted")
+            {
+                if (attempt == maxRetries)
+                {
+                    // Final attempt failed, rethrow
+                    throw;
+                }
+                
+                // Wait with exponential backoff before retrying
+                await Task.Delay(retryDelayMs);
+                retryDelayMs *= 2; // Double the delay for next attempt
+            }
         }
 
         tableClient = _tableServiceClient.GetTableClient(tableName);
