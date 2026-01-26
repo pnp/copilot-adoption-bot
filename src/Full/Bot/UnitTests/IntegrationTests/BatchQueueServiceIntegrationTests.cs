@@ -1,5 +1,6 @@
 using Common.Engine.Services;
 using Common.Engine.Storage;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace UnitTests.IntegrationTests;
@@ -8,15 +9,39 @@ namespace UnitTests.IntegrationTests;
 public class BatchQueueServiceIntegrationTests : AbstractTest
 {
     private BatchQueueService _service = null!;
+    private string _testQueueName = string.Empty;
 
     [TestInitialize]
     public async Task Initialize()
     {
+        // Use unique queue name with milliseconds and random component to prevent test interference
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+        var random = new Random().Next(1000, 9999);
+        _testQueueName = $"batchtest{timestamp}{random}";
+        
         _service = new BatchQueueService(
             GetStorageAuthConfig(),
-            GetLogger<BatchQueueService>()
+            GetLogger<BatchQueueService>(),
+            _testQueueName
         );
         await _service.InitializeAsync();
+    }
+
+    [TestCleanup]
+    public async Task Cleanup()
+    {
+        if (_service != null)
+        {
+            try
+            {
+                await _service.DeleteQueueAsync();
+                _logger.LogInformation($"Deleted test queue: {_testQueueName}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Error during queue cleanup: {ex.Message}");
+            }
+        }
     }
 
     [TestMethod]

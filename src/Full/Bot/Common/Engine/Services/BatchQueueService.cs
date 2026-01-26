@@ -15,23 +15,26 @@ public class BatchQueueService
 {
     private readonly QueueClient _queueClient;
     private readonly ILogger<BatchQueueService> _logger;
-    private const string QUEUE_NAME = "batch-messages";
+    private readonly string _queueName;
+    private const string DEFAULT_QUEUE_NAME = "batch-messages";
 
     /// <summary>
     /// Legacy constructor using connection string authentication
     /// </summary>
-    public BatchQueueService(string storageConnectionString, ILogger<BatchQueueService> logger)
+    public BatchQueueService(string storageConnectionString, ILogger<BatchQueueService> logger, string? queueName = null)
     {
         _logger = logger;
-        _queueClient = new QueueClient(storageConnectionString, QUEUE_NAME);
+        _queueName = queueName ?? DEFAULT_QUEUE_NAME;
+        _queueClient = new QueueClient(storageConnectionString, _queueName);
     }
 
     /// <summary>
     /// Constructor supporting both connection string and RBAC authentication
     /// </summary>
-    public BatchQueueService(StorageAuthConfig storageAuthConfig, ILogger<BatchQueueService> logger)
+    public BatchQueueService(StorageAuthConfig storageAuthConfig, ILogger<BatchQueueService> logger, string? queueName = null)
     {
         _logger = logger;
+        _queueName = queueName ?? DEFAULT_QUEUE_NAME;
 
         if (storageAuthConfig.UseRBAC)
         {
@@ -50,13 +53,13 @@ public class BatchQueueService
                     storageAuthConfig.RBACOverrideCredentials.ClientId,
                     storageAuthConfig.RBACOverrideCredentials.ClientSecret);
                 var queueServiceClient = new QueueServiceClient(queueServiceEndpoint, credential);
-                _queueClient = queueServiceClient.GetQueueClient(QUEUE_NAME);
+                _queueClient = queueServiceClient.GetQueueClient(_queueName);
             }
             else
             {
                 // Use DefaultAzureCredential (Managed Identity, Azure CLI, etc.)
                 var queueServiceClient = new QueueServiceClient(queueServiceEndpoint, new DefaultAzureCredential());
-                _queueClient = queueServiceClient.GetQueueClient(QUEUE_NAME);
+                _queueClient = queueServiceClient.GetQueueClient(_queueName);
             }
         }
         else
@@ -65,7 +68,7 @@ public class BatchQueueService
             {
                 throw new InvalidOperationException("ConnectionString is required when UseRBAC is false");
             }
-            _queueClient = new QueueClient(storageAuthConfig.ConnectionString, QUEUE_NAME);
+            _queueClient = new QueueClient(storageAuthConfig.ConnectionString, _queueName);
         }
     }
 
@@ -75,7 +78,7 @@ public class BatchQueueService
     public async Task InitializeAsync()
     {
         await _queueClient.CreateIfNotExistsAsync();
-        _logger.LogInformation($"Queue '{QUEUE_NAME}' initialized");
+        _logger.LogInformation($"Queue '{_queueName}' initialized");
     }
 
     /// <summary>
@@ -133,5 +136,14 @@ public class BatchQueueService
     {
         var properties = await _queueClient.GetPropertiesAsync();
         return properties.Value.ApproximateMessagesCount;
+    }
+
+    /// <summary>
+    /// Delete the entire queue. Used primarily for test cleanup.
+    /// </summary>
+    public async Task DeleteQueueAsync()
+    {
+        await _queueClient.DeleteIfExistsAsync();
+        _logger.LogInformation($"Queue '{_queueName}' deleted");
     }
 }

@@ -366,6 +366,48 @@ Common issues and solutions for the Copilot Adoption Bot.
    - Use table clearing operations instead of delete/create
    - Plan maintenance windows for table schema changes
 
+
+### Error: Integration tests getting wrong messages from queue
+
+**Symptoms:**
+- Test assertions fail with wrong GUID values
+- Expected message IDs don't match actual values
+- Tests pass locally but fail in CI/CD
+- Example: `Assert.AreEqual failed. Expected:<guid1>. Actual:<guid2>`
+
+**Causes:**
+- Multiple tests sharing the same Azure Storage Queue
+- Parallel test execution causing message interference
+- Leftover messages from previous test runs
+- Insufficient test isolation
+
+**Solutions:**
+
+1. **Unique Queue Names (Implemented):**
+   - Tests now use unique queue names per execution
+   - Format: `batchtest{yyyyMMddHHmmssfff}{random}`
+   - Example implementation:
+     ```csharp
+     var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+     var random = new Random().Next(1000, 9999);
+     _testQueueName = $"batchtest{timestamp}{random}";
+     
+     _service = new BatchQueueService(
+         GetStorageAuthConfig(),
+         GetLogger<BatchQueueService>(),
+         _testQueueName
+     );
+     ```
+
+2. **Test Cleanup:**
+   - Tests automatically delete their queues after completion
+   - Uses `DeleteQueueAsync()` in `[TestCleanup]`
+   - Prevents message accumulation between test runs
+
+3. **Queue Name Parameter:**
+   - `BatchQueueService` now accepts optional `queueName` parameter
+   - Defaults to `"batch-messages"` for production use
+   - Tests provide unique names for isolation
 ## Deployment Issues
 
 ### Deployment Fails
