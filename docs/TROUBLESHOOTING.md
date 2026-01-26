@@ -341,20 +341,25 @@ Common issues and solutions for the Copilot Adoption Bot.
 
 1. **Automatic Retry (Built-in):**
    - The application includes automatic retry logic with exponential backoff
-   - Will retry up to 5 times with increasing delays (1s, 2s, 4s, 8s, 16s)
+   - Will retry up to 10 times with increasing delays starting at 2 seconds
+   - Maximum total wait time: approximately 34 minutes (suitable for cloud environments)
    - Most operations will succeed after brief delay
 
 2. **For Integration Tests:**
-   - Use unique table name prefixes per test run
-   - Example: `test{timestamp}usercache`
+   - Tests use highly unique table name prefixes with milliseconds and random components
+   - Example: `test{yyyyMMddHHmmssfff}{random}`
    - Implemented in test initialization:
      ```csharp
-     _testTablePrefix = $"test{DateTime.UtcNow:yyyyMMddHHmmss}";
+     var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+     var random = new Random().Next(1000, 9999);
+     _testTablePrefix = $"test{timestamp}{random}";
      ```
+   - This prevents naming collisions even in parallel test execution
 
 3. **Manual Workaround:**
    - If error persists, wait 30-60 seconds before retrying
    - Azure typically completes table deletion within this timeframe
+   - In cloud CI/CD environments (GitHub Actions, Azure DevOps), longer delays may be needed
 
 4. **Production Environments:**
    - Avoid deleting and recreating tables frequently

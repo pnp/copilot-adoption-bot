@@ -24,7 +24,10 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
     [TestInitialize]
     public void Initialize()
     {
-        _testTableName = $"copilotteststats{DateTime.UtcNow:yyyyMMddHHmmss}";
+        // Include milliseconds and random component to ensure uniqueness in parallel test execution
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+        var random = new Random().Next(1000, 9999);
+        _testTableName = $"copilotteststats{timestamp}{random}";
 
         try
         {

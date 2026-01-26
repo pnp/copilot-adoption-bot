@@ -26,7 +26,10 @@ public class UserCacheManagerIntegrationTests : AbstractTest
     public void Initialize()
     {
         // Use unique table names for each test run to avoid conflicts
-        _testTablePrefix = $"test{DateTime.UtcNow:yyyyMMddHHmmss}";
+        // Include milliseconds and random component to ensure uniqueness even in parallel test execution
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+        var random = new Random().Next(1000, 9999);
+        _testTablePrefix = $"test{timestamp}{random}";
         
         _cacheConfig = new UserCacheConfig
         {
@@ -259,7 +262,9 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         }
 
         // Arrange - Create cache manager with custom table names
-        var customPrefix = $"custom{DateTime.UtcNow:yyyyMMddHHmmss}";
+        var customTimestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+        var customRandom = new Random().Next(1000, 9999);
+        var customPrefix = $"custom{customTimestamp}{customRandom}";
         var customConfig = new UserCacheConfig
         {
             UserCacheTableName = $"{customPrefix}users",
@@ -304,8 +309,15 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         }
 
         // Arrange - Create two cache managers with different table names
-        var cache1Prefix = $"iso1{DateTime.UtcNow:yyyyMMddHHmmss}";
-        var cache2Prefix = $"iso2{DateTime.UtcNow:yyyyMMddHHmmss}";
+        var timestamp1 = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+        var random1 = new Random().Next(1000, 9999);
+        var cache1Prefix = $"iso1{timestamp1}{random1}";
+        
+        // Ensure unique timestamp for second cache
+        await Task.Delay(10);
+        var timestamp2 = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+        var random2 = new Random().Next(1000, 9999);
+        var cache2Prefix = $"iso2{timestamp2}{random2}";
 
         var cache1Config = new UserCacheConfig
         {

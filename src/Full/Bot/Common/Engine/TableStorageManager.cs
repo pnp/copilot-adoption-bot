@@ -35,8 +35,9 @@ public abstract class TableStorageManager
 
         // Retry logic for table creation with exponential backoff
         // This handles the case where a table is being deleted and we need to wait
-        int maxRetries = 5;
-        int retryDelayMs = 1000; // Start with 1 second
+        // Cloud environments may need longer delays than local development
+        int maxRetries = 10;
+        int retryDelayMs = 2000; // Start with 2 seconds for cloud environments
         
         for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
@@ -54,8 +55,10 @@ public abstract class TableStorageManager
             {
                 if (attempt == maxRetries)
                 {
-                    // Final attempt failed, rethrow
-                    throw;
+                    // Final attempt failed, rethrow with more context
+                    throw new InvalidOperationException(
+                        $"Table '{tableName}' is being deleted and did not become available after {maxRetries} retry attempts over {(retryDelayMs * (Math.Pow(2, maxRetries) - 1)) / 1000} seconds. " +
+                        "This may indicate a naming collision or insufficient wait time for table deletion to complete.", ex);
                 }
                 
                 // Wait with exponential backoff before retrying
