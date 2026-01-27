@@ -1,4 +1,4 @@
-import { MessageTemplateDto, MessageLogDto, CreateTemplateRequest, UpdateTemplateRequest, MessageBatchDto, CreateBatchAndSendRequest, UpdateLogStatusRequest, ParseFileResponse, MessageStatusStatsDto, UserCoverageStatsDto, QueueStatusDto, CopilotConnectedStatusDto, SmartGroupDto, SmartGroupResolutionResult, CreateSmartGroupRequest, UpdateSmartGroupRequest, PreviewSmartGroupRequest, PreviewSmartGroupResponse, SmartGroupUpnsResponse, AppSettingsDto, UpdateSettingsRequest, CopilotStatsUpdateResponse, CacheOperationResponse } from "../apimodels/Models";
+import { MessageTemplateDto, MessageLogDto, CreateTemplateRequest, UpdateTemplateRequest, MessageBatchDto, CreateBatchAndSendRequest, UpdateLogStatusRequest, ParseFileResponse, MessageStatusStatsDto, UserCoverageStatsDto, QueueStatusDto, CopilotConnectedStatusDto, SmartGroupDto, SmartGroupResolutionResult, CreateSmartGroupRequest, UpdateSmartGroupRequest, PreviewSmartGroupRequest, PreviewSmartGroupResponse, SmartGroupUpnsResponse, AppSettingsDto, UpdateSettingsRequest, CopilotStatsUpdateResponse, CacheOperationResponse, StorageConfigDto } from "../apimodels/Models";
 import { BaseAxiosApiLoader } from "./AxiosApiLoader";
 
 
@@ -79,6 +79,10 @@ export const getUserCoverageStats = async (loader: BaseAxiosApiLoader): Promise<
 // Diagnostics API calls
 export const getQueueStatus = async (loader: BaseAxiosApiLoader): Promise<QueueStatusDto> => {
   return loader.loadFromApi('api/Diagnostics/QueueStatus', 'GET');
+}
+
+export const getStorageConfig = async (loader: BaseAxiosApiLoader): Promise<StorageConfigDto> => {
+  return loader.loadFromApi('api/Diagnostics/StorageConfig', 'GET');
 }
 
 // Smart Group API calls (Copilot Connected Mode)

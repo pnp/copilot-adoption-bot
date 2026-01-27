@@ -181,6 +181,19 @@ export interface CacheOperationResponse {
   error?: string;
 }
 
+// Storage Configuration Models
+
+export interface StorageConfigDto {
+  useRBAC: boolean;
+  storageAccountName?: string;
+  hasConnectionString: boolean;
+  hasOverrideCredentials: boolean;
+  overrideTenantId?: string;
+  overrideClientId?: string;
+  effectiveAuthMethod: string;
+  configurationSource: string;
+}
+
 // ID Token Claims for MSAL authentication
 export interface IdTokenClaims {
   given_name?: string;

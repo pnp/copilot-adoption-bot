@@ -28,8 +28,8 @@ public class AppConfig : PropertyBoundConfig
     [ConfigSection()]
     public AppConnectionStrings ConnectionStrings { get; set; } = null!;
 
-    [ConfigSection()]
-    public StorageAuthConfig StorageAuthConfig { get; set; } = null!;
+    [ConfigSection(Optional = true)]
+    public StorageAuthConfig? StorageAuthConfig { get; set; }
 }
 
 public class AppConnectionStrings : PropertyBoundConfig

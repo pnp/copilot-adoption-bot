@@ -21,8 +21,8 @@ import {
     Delete20Regular,
 } from '@fluentui/react-icons';
 import { BaseAxiosApiLoader } from '../../api/AxiosApiLoader';
-import { getSettings, updateSettings, resetSettingsToDefaults, getCopilotConnectedStatus, clearUserCache, syncUserCache, getCachedUsers, updateCopilotStats, clearCopilotStats } from '../../api/ApiCalls';
-import { AppSettingsDto, CopilotConnectedStatusDto } from '../../apimodels/Models';
+import { getSettings, updateSettings, resetSettingsToDefaults, getCopilotConnectedStatus, clearUserCache, syncUserCache, getCachedUsers, updateCopilotStats, clearCopilotStats, getStorageConfig } from '../../api/ApiCalls';
+import { AppSettingsDto, CopilotConnectedStatusDto, StorageConfigDto } from '../../apimodels/Models';
 
 const useStyles = makeStyles({
     container: {
@@ -94,6 +94,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ loader }) => {
 
     const [settings, setSettings] = useState<AppSettingsDto | null>(null);
     const [copilotStatus, setCopilotStatus] = useState<CopilotConnectedStatusDto | null>(null);
+    const [storageConfig, setStorageConfig] = useState<StorageConfigDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [cacheOperationInProgress, setCacheOperationInProgress] = useState(false);
@@ -118,13 +119,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ loader }) => {
             setLoading(true);
             setError(null);
 
-            const [settingsData, copilotData] = await Promise.all([
+            const [settingsData, copilotData, storageData] = await Promise.all([
                 getSettings(loader),
                 getCopilotConnectedStatus(loader),
+                getStorageConfig(loader),
             ]);
 
             setSettings(settingsData);
             setCopilotStatus(copilotData);
+            setStorageConfig(storageData);
             
             // Initialize form with current value or default prompt if no custom value
             setFollowUpChatPrompt(settingsData.followUpChatSystemPrompt || settingsData.defaultFollowUpChatSystemPrompt);
@@ -358,6 +361,116 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ loader }) => {
 
             {error && <div className={styles.error}>{error}</div>}
             {success && <div className={styles.success}>{success}</div>}
+
+            {/* Storage Configuration Card */}
+            <Card className={styles.card}>
+                <CardHeader 
+                    header={<Text weight="semibold">Storage Configuration</Text>}
+                    description={
+                        <Text size={200}>
+                            Current Azure Storage authentication configuration used by the application.
+                        </Text>
+                    }
+                />
+
+                {storageConfig && (
+                    <div>
+                        <div style={{ marginBottom: tokens.spacingVerticalM }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS, marginBottom: tokens.spacingVerticalS }}>
+                                <Text size={300}><strong>Authentication Method:</strong></Text>
+                                <Badge 
+                                    appearance="filled" 
+                                    color={storageConfig.useRBAC ? 'success' : 'informative'}
+                                >
+                                    {storageConfig.effectiveAuthMethod}
+                                </Badge>
+                            </div>
+
+                            <div className={styles.metaInfo}>
+                                <div style={{ marginBottom: tokens.spacingVerticalXS }}>
+                                    <Text size={200}>
+                                        <strong>Configuration Source:</strong> {storageConfig.configurationSource}
+                                    </Text>
+                                </div>
+
+                                {storageConfig.useRBAC && storageConfig.storageAccountName && (
+                                    <div style={{ marginBottom: tokens.spacingVerticalXS }}>
+                                        <Text size={200}>
+                                            <strong>Storage Account:</strong> {storageConfig.storageAccountName}
+                                        </Text>
+                                    </div>
+                                )}
+
+                                {storageConfig.useRBAC && (
+                                    <>
+                                        <div style={{ marginBottom: tokens.spacingVerticalXS }}>
+                                            <Text size={200}>
+                                                <strong>Using RBAC:</strong> Yes
+                                            </Text>
+                                        </div>
+                                        {storageConfig.hasOverrideCredentials && (
+                                            <>
+                                                <div style={{ marginBottom: tokens.spacingVerticalXS }}>
+                                                    <Text size={200}>
+                                                        <strong>Service Principal:</strong> Configured
+                                                    </Text>
+                                                </div>
+                                                {storageConfig.overrideTenantId && (
+                                                    <div style={{ marginBottom: tokens.spacingVerticalXS }}>
+                                                        <Text size={200}>
+                                                            <strong>Tenant ID:</strong> {storageConfig.overrideTenantId}
+                                                        </Text>
+                                                    </div>
+                                                )}
+                                                {storageConfig.overrideClientId && (
+                                                    <div style={{ marginBottom: tokens.spacingVerticalXS }}>
+                                                        <Text size={200}>
+                                                            <strong>Client ID:</strong> {storageConfig.overrideClientId}
+                                                        </Text>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                        {!storageConfig.hasOverrideCredentials && (
+                                            <div style={{ marginBottom: tokens.spacingVerticalXS }}>
+                                                <Text size={200}>
+                                                    <strong>Using:</strong> DefaultAzureCredential (Managed Identity, Azure CLI, etc.)
+                                                </Text>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {!storageConfig.useRBAC && (
+                                    <div style={{ marginBottom: tokens.spacingVerticalXS }}>
+                                        <Text size={200}>
+                                            <strong>Connection String:</strong> {storageConfig.hasConnectionString ? 'Configured' : 'Not Configured'}
+                                        </Text>
+                                    </div>
+                                )}
+                            </div>
+
+                            {!storageConfig.useRBAC && !storageConfig.hasConnectionString && (
+                                <MessageBar intent="error" style={{ marginTop: tokens.spacingVerticalM }}>
+                                    <MessageBarBody>
+                                        <MessageBarTitle>Storage Not Configured</MessageBarTitle>
+                                        No storage connection string or RBAC configuration found. Storage operations will fail.
+                                    </MessageBarBody>
+                                </MessageBar>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {!storageConfig && (
+                    <MessageBar intent="warning">
+                        <MessageBarBody>
+                            <MessageBarTitle>Configuration Not Available</MessageBarTitle>
+                            Unable to load storage configuration. Check application logs.
+                        </MessageBarBody>
+                    </MessageBar>
+                )}
+            </Card>
 
             {/* User Cache Management Card */}
             <Card className={styles.card}>
