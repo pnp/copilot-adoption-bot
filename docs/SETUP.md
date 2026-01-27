@@ -21,7 +21,7 @@ This guide covers setting up the Copilot Adoption Bot for local development and 
 
 ### Azure Resources
 
-For complete Azure resource requirements and deployment options, see the [Deployment Guide](../DEPLOYMENT.md).
+For complete Azure resource requirements and deployment options, see the [Deployment Guide](DEPLOYMENT.md).
 
 ## Teams Bot Setup
 
@@ -88,7 +88,7 @@ This ensures the bot receives an updated token with the new permissions.
 
 Once your application is deployed to Azure App Service, you need to configure the bot's messaging endpoint so Teams knows where to send messages.
 
-1. Deploy your application to Azure App Service (see [Deployment Guide](../DEPLOYMENT.md))
+1. Deploy your application to Azure App Service (see [Deployment Guide](DEPLOYMENT.md))
 2. Note your App Service URL (e.g., `https://your-app-name.azurewebsites.net`)
 3. Go back to the [Teams Developer Portal](https://dev.teams.microsoft.com/)
 4. Navigate to **Tools** ? **Bot management**
@@ -294,7 +294,7 @@ az role assignment create \
 
 **For Production (Azure Managed Identity):**
 
-See the [Deployment Guide](../DEPLOYMENT.md) for instructions on assigning roles to App Service Managed Identity.
+See the [Deployment Guide](DEPLOYMENT.md) for instructions on assigning roles to App Service Managed Identity.
 
 **Verify Role Assignments:**
 
@@ -350,7 +350,7 @@ For production deployments to Azure App Service:
    ```
 3. **Managed Identity**: Use system-assigned or user-assigned managed identities to access Azure resources without storing credentials
 
-See the [Deployment Guide](../DEPLOYMENT.md) for detailed production deployment instructions.
+See the [Deployment Guide](DEPLOYMENT.md) for detailed production deployment instructions.
 
 ## Installation
 
@@ -422,9 +422,10 @@ dotnet Web.Server.dll
 
 ## Next Steps
 
+- **Configuration**: See [CONFIGURATION.md](CONFIGURATION.md) for all configuration options
 - **Usage Guide**: See [USAGE.md](USAGE.md) for how to use the application
 - **Features**: Learn about all features in [FEATURES.md](FEATURES.md)
-- **Deployment**: Deploy to Azure using [../DEPLOYMENT.md](../DEPLOYMENT.md)
+- **Deployment**: Deploy to Azure using [DEPLOYMENT.md](DEPLOYMENT.md)
 - **Security**: Review security best practices in [SECURITY.md](SECURITY.md)
 - **Troubleshooting**: Get help with [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 

@@ -19,19 +19,6 @@ public class MessageTemplateStorageManager : TableStorageManager
     private const string LOGS_TABLE_NAME = "messagelogs";
     private const string BLOB_CONTAINER_NAME = "message-templates";
 
-    /// <summary>
-    /// Legacy constructor using connection string authentication
-    /// </summary>
-    public MessageTemplateStorageManager(string storageConnectionString, ILogger logger) 
-        : base(storageConnectionString)
-    {
-        _blobServiceClient = new BlobServiceClient(storageConnectionString);
-        _logger = logger;
-    }
-
-    /// <summary>
-    /// Constructor supporting both connection string and RBAC authentication
-    /// </summary>
     public MessageTemplateStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
         : base(storageAuthConfig)
     {

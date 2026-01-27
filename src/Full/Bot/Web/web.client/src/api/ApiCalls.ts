@@ -1,10 +1,6 @@
-import { ServiceConfiguration, MessageTemplateDto, MessageLogDto, CreateTemplateRequest, UpdateTemplateRequest, MessageBatchDto, CreateBatchAndSendRequest, UpdateLogStatusRequest, ParseFileResponse, MessageStatusStatsDto, UserCoverageStatsDto, QueueStatusDto, CopilotConnectedStatusDto, SmartGroupDto, SmartGroupResolutionResult, CreateSmartGroupRequest, UpdateSmartGroupRequest, PreviewSmartGroupRequest, PreviewSmartGroupResponse, SmartGroupUpnsResponse, AppSettingsDto, UpdateSettingsRequest, CopilotStatsUpdateResponse, CacheOperationResponse } from "../apimodels/Models";
+import { MessageTemplateDto, MessageLogDto, CreateTemplateRequest, UpdateTemplateRequest, MessageBatchDto, CreateBatchAndSendRequest, UpdateLogStatusRequest, ParseFileResponse, MessageStatusStatsDto, UserCoverageStatsDto, QueueStatusDto, CopilotConnectedStatusDto, SmartGroupDto, SmartGroupResolutionResult, CreateSmartGroupRequest, UpdateSmartGroupRequest, PreviewSmartGroupRequest, PreviewSmartGroupResponse, SmartGroupUpnsResponse, AppSettingsDto, UpdateSettingsRequest, CopilotStatsUpdateResponse, CacheOperationResponse } from "../apimodels/Models";
 import { BaseAxiosApiLoader } from "./AxiosApiLoader";
 
-
-export const getClientConfig = async (loader: BaseAxiosApiLoader): Promise<ServiceConfiguration> => {
-  return loader.loadFromApi('api/AppInfo/GetClientConfig', 'POST');
-}
 
 // Message Template API calls
 export const getAllTemplates = async (loader: BaseAxiosApiLoader): Promise<MessageTemplateDto[]> => {

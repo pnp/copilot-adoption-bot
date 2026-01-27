@@ -70,10 +70,12 @@ Traditional training emails get ignored. Long training sessions are forgotten. *
 
 | Document | Description |
 |----------|-------------|
-| **[Setup Guide](docs/SETUP.md)** | Installation, configuration, and running the app |
+| **[Setup Guide](docs/SETUP.md)** | Teams bot setup and Graph permissions |
+| **[Development Guide](docs/DEVELOPMENT.md)** | Local development environment and tunneling |
+| **[Configuration Reference](docs/CONFIGURATION.md)** | Complete configuration options reference |
 | **[Usage Guide](docs/USAGE.md)** | How to create templates and send messages |
 | **[Features Guide](docs/FEATURES.md)** | Detailed feature documentation |
-| **[Deployment Guide](DEPLOYMENT.md)** | Azure deployment and CI/CD pipelines |
+| **[Deployment Guide](docs/DEPLOYMENT.md)** | Azure deployment and CI/CD pipelines |
 | **[Security Guide](docs/SECURITY.md)** | Security best practices |
 | **[Troubleshooting](docs/TROUBLESHOOTING.md)** | Common issues and solutions |
 
@@ -142,7 +144,7 @@ az webapp deploy --resource-group myResourceGroup --name myAppName --src-path ./
 - GitHub Actions (`.github/workflows/azure-deploy.yml`)
 - Azure DevOps (`.azure-pipelines/azure-deploy.yml`)
 
-See the **[Deployment Guide](DEPLOYMENT.md)** for complete instructions.
+See the **[Deployment Guide](docs/DEPLOYMENT.md)** for complete instructions.
 
 ---
 

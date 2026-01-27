@@ -1,19 +1,18 @@
 import React from 'react';
 import 'chartjs-adapter-date-fns'
-import { ServiceConfiguration, MessageStatusStatsDto, UserCoverageStatsDto, CopilotConnectedStatusDto } from '../../apimodels/Models';
+import { MessageStatusStatsDto, UserCoverageStatsDto, CopilotConnectedStatusDto } from '../../apimodels/Models';
 import { Badge, Button, Caption1, Card, CardHeader, Spinner, Text } from '@fluentui/react-components';
 import { ChartContainer } from '../../components/app/ChartContainer';
 import { MoreHorizontal20Regular, Sparkle20Regular, PlugDisconnected20Regular } from "@fluentui/react-icons";
 import { BaseAxiosApiLoader } from '../../api/AxiosApiLoader';
 import { useStyles } from '../../utils/styles';
-import { getClientConfig, getMessageStatusStats, getUserCoverageStats, getCopilotConnectedStatus } from '../../api/ApiCalls';
+import { getMessageStatusStats, getUserCoverageStats, getCopilotConnectedStatus } from '../../api/ApiCalls';
 import { MessageStatusChart } from './MessageStatusChart';
 import { UserCoverageChart } from './UserCoverageChart';
 
 
 export const Dashboard: React.FC<{ loader?: BaseAxiosApiLoader }> = (props) => {
 
-    const [serviceConfig, setServiceConfig] = React.useState<ServiceConfiguration | null>(null);
     const [messageStats, setMessageStats] = React.useState<MessageStatusStatsDto | null>(null);
     const [userStats, setUserStats] = React.useState<UserCoverageStatsDto | null>(null);
     const [copilotStatus, setCopilotStatus] = React.useState<CopilotConnectedStatusDto | null>(null);
@@ -23,13 +22,6 @@ export const Dashboard: React.FC<{ loader?: BaseAxiosApiLoader }> = (props) => {
 
     React.useEffect(() => {
         if (props.loader) {
-            getClientConfig(props.loader).then((d) => {
-                setServiceConfig(d);
-            }).catch((e: Error) => {
-                console.error("Error: ", e);
-                setError(e.toString());
-            });
-
             // Load statistics
             loadStatistics();
         }
@@ -93,10 +85,8 @@ export const Dashboard: React.FC<{ loader?: BaseAxiosApiLoader }> = (props) => {
 
                     {error ? <p className='error'>{error}</p>
                         :
-                        <>
-                            {serviceConfig ?
-                                <div>
-                                    <ChartContainer>
+                        <div>
+                            <ChartContainer>
                                         <div className='nav'>
                                             <ul>
                                                 <li>
@@ -167,9 +157,7 @@ export const Dashboard: React.FC<{ loader?: BaseAxiosApiLoader }> = (props) => {
                                             </ul>
                                         </div>
                                     </ChartContainer>
-                                </div> : <Spinner />
-                            }
-                        </>
+                                </div>
                     }
 
                 </div >

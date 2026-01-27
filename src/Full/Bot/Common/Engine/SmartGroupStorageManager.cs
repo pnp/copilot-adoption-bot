@@ -14,18 +14,6 @@ public class SmartGroupStorageManager : TableStorageManager
     private const string SMART_GROUPS_TABLE_NAME = "smartgroups";
     private const string SMART_GROUP_MEMBERS_TABLE_NAME = "smartgroupmembers";
 
-    /// <summary>
-    /// Legacy constructor using connection string authentication
-    /// </summary>
-    public SmartGroupStorageManager(string storageConnectionString, ILogger logger) 
-        : base(storageConnectionString)
-    {
-        _logger = logger;
-    }
-
-    /// <summary>
-    /// Constructor supporting both connection string and RBAC authentication
-    /// </summary>
     public SmartGroupStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
         : base(storageAuthConfig)
     {

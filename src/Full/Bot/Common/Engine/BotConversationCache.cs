@@ -15,7 +15,7 @@ public class BotConversationCache : TableStorageManager
     private readonly GraphServiceClient _graphServiceClient;
     private ConcurrentDictionary<string, CachedUserAndConversationData> _userIdConversationCache = new();
 
-    public BotConversationCache(GraphServiceClient graphServiceClient, AppConfig appConfig) : base(appConfig.ConnectionStrings.Storage)
+    public BotConversationCache(GraphServiceClient graphServiceClient, AppConfig appConfig) : base(appConfig.StorageAuthConfig)
     {
         _graphServiceClient = graphServiceClient;
         // Dev only: make sure the Azure Storage emulator is running or this will fail

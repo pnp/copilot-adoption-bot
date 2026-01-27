@@ -8,7 +8,7 @@ import { ErrorWithCode } from '@microsoft/teamsfx';
 import { useTeamsUserCredential } from '@microsoft/teamsfx-react';
 
 import { BaseAxiosApiLoader, MsalAxiosApiLoader, TeamsSsoAxiosApiLoader } from './api/AxiosApiLoader';
-import { getClientConfig } from './api/ApiCalls';
+import { getQueueStatus } from './api/ApiCalls';
 import { getRootUrl } from './utils/DataUtils';
 import { teamsDarkTheme, teamsHighContrastTheme, teamsLightTheme, Theme } from '@fluentui/react-components';
 
@@ -120,7 +120,7 @@ export const AuthContainer: React.FC<PropsWithChildren<AuthContainerProps>> = (p
         if (apiLoader) {
             setLoading(true);
             console.debug("Testing API connection...");
-            getClientConfig(apiLoader)
+            getQueueStatus(apiLoader)
                 .then((response) => {
                     console.log("API test response: ", response);
                     setError(undefined);

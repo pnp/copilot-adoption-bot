@@ -506,5 +506,5 @@ _logger.LogWarning(
 ## Next Steps
 
 - **Setup**: Configure security features in [SETUP.md](SETUP.md)
-- **Deployment**: Deploy securely using [../DEPLOYMENT.md](../DEPLOYMENT.md)
+- **Deployment**: Deploy securely using [DEPLOYMENT.md](DEPLOYMENT.md)
 - **Troubleshooting**: Security-related issues in [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

@@ -27,19 +27,7 @@ Your role:
 
 Keep responses brief and suitable for a Teams chat. Use markdown formatting sparingly.";
 
-    /// <summary>
-    /// Legacy constructor using connection string authentication
-    /// </summary>
-    public SettingsStorageManager(string storageConnectionString, ILogger logger) 
-        : base(storageConnectionString)
-    {
-        _logger = logger;
-    }
-
-    /// <summary>
-    /// Constructor supporting both connection string and RBAC authentication
-    /// </summary>
-    public SettingsStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
+public SettingsStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
         : base(storageAuthConfig)
     {
         _logger = logger;
