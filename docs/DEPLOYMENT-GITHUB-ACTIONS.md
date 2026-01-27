@@ -109,56 +109,9 @@ Note the `id` (object ID) from the output.
 
 Federated credentials allow GitHub Actions to authenticate without storing secrets.
 
-> **Important**: The workflow uses a GitHub Environment called `Production` for deployments. You **must** create the environment federated credential (Step 3.2) for deployments to work. The branch credential alone is not sufficient.
+### 3.1 Create Federated Credential for Main Branch (Required)
 
-### 3.1 Create GitHub Environment First
-
-Before creating federated credentials, create the GitHub Environment:
-
-1. Go to your GitHub repository → **Settings** → **Environments**
-2. Click **New environment**
-3. Name it exactly `Production` (case-sensitive)
-4. Click **Configure environment**
-5. Optionally add protection rules (reviewers, wait timer, etc.)
-
-### 3.2 Create Federated Credential for Production Environment (Required)
-
-This credential is **required** because the workflow's deploy job uses `environment: 'Production'`.
-
-**Option A: Using Azure Portal**
-
-1. Go to **Microsoft Entra ID** → **App registrations** → Your app
-2. Navigate to **Certificates & secrets** → **Federated credentials**
-3. Click **+ Add credential**
-4. Select **GitHub Actions deploying Azure resources**
-5. Configure:
-   - **Organization**: Your GitHub organization or username
-   - **Repository**: `copilot-adoption-bot` (or your repo name)
-   - **Entity type**: Environment
-   - **Environment**: `Production`
-   - **Name**: `github-actions-production`
-6. Click **Add**
-
-**Option B: Using Azure CLI**
-
-```bash
-# Create federated credential for Production environment
-az ad app federated-credential create \
-  --id <app-id> \
-  --parameters '{
-    "name": "github-actions-production",
-    "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:YOUR_ORG/copilot-adoption-bot:environment:Production",
-    "description": "GitHub Actions Production environment deployment",
-    "audiences": ["api://AzureADTokenExchange"]
-  }'
-```
-
-> **Note**: Replace `YOUR_ORG/copilot-adoption-bot` with your actual GitHub organization/username and repository name. The subject must match exactly, including case.
-
-### 3.3 (Optional) Create Federated Credential for Main Branch
-
-This allows the build job to authenticate (useful if you add Azure-related build steps):
+This credential is **required** for the workflow to authenticate with Azure during deployments.
 
 **Option A: Using Azure Portal**
 
@@ -189,7 +142,9 @@ az ad app federated-credential create \
   }'
 ```
 
-### 3.4 (Optional) Create Federated Credential for Pull Requests
+> **Note**: Replace `YOUR_ORG/copilot-adoption-bot` with your actual GitHub organization/username and repository name. The subject must match exactly, including case.
+
+### 3.2 (Optional) Create Federated Credential for Pull Requests
 
 If you want to run deployments from pull requests:
 
@@ -253,6 +208,8 @@ az keyvault set-policy \
 
 Go to your GitHub repository → **Settings** → **Secrets and variables** → **Actions** → **Secrets** tab.
 
+> **Important**: Add these as **Repository secrets**, not Environment secrets. The workflow does not use GitHub Environments.
+
 Add the following secrets:
 
 | Secret Name | Description | How to Get It |
@@ -299,15 +256,6 @@ Add the following variables:
 |---------------|-------------|---------|
 | `AZURE_WEBAPP_NAME` | Your Azure App Service name | `copilot-adoption-bot-app` |
 
-### 5.3 Verify GitHub Environment
-
-The `Production` environment should already exist from Step 3.1. To add protection rules:
-
-1. Go to **Settings** → **Environments** → **Production**
-2. Configure protection rules:
-   - **Required reviewers**: Add team members who must approve deployments
-   - **Wait timer**: Optional delay before deployment
-   - **Deployment branches**: Limit to `main` branch only
 
 ---
 
@@ -428,8 +376,8 @@ Recommended branch protection rules for `main`:
 
 **Solution**: Ensure your federated credential subject matches exactly:
 - For branch: `repo:ORG/REPO:ref:refs/heads/BRANCH`
-- For environment: `repo:ORG/REPO:environment:ENV_NAME`
-- Check organization/repository name is correct
+- For pull requests: `repo:ORG/REPO:pull_request`
+- Check organization/repository name is correct (case-sensitive)
 
 ### Deployment Fails with 403
 
