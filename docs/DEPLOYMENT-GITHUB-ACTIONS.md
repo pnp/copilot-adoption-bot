@@ -260,6 +260,30 @@ Add the following secrets:
 | `AZURE_CLIENT_ID` | Application (client) ID | From Step 2.1 output |
 | `AZURE_TENANT_ID` | Azure AD tenant ID | `az account show --query tenantId -o tsv` |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `az account show --query id -o tsv` |
+| `TESTS_APPSETTINGS_JSON` | (Optional) Full appsettings.json for unit tests | See below |
+
+### 5.1.1 Configure TESTS_APPSETTINGS_JSON for Unit Tests
+
+The `TESTS_APPSETTINGS_JSON` secret enables the workflow to run integration tests against real Azure resources. If not configured, tests are skipped with a warning.
+
+**To configure:**
+
+1. See the [Configuration Guide](CONFIGURATION.md) for the full appsettings.json structure and all available options
+2. Use [appsettings.example.json](../src/Full/Bot/UnitTests/appsettings.example.json) as a starting template
+3. At minimum, you need `ConnectionStrings:Storage` and `GraphConfig` settings for tests to run
+
+**To add the secret:**
+
+1. Create your JSON configuration based on the example template
+2. Go to **Settings** → **Secrets and variables** → **Actions** → **Secrets** tab
+3. Click **New repository secret**
+4. Name: `TESTS_APPSETTINGS_JSON`
+5. Value: Paste the entire JSON (minified or formatted - both work)
+6. Click **Add secret**
+
+> **Tip**: You can minify the JSON before pasting. The workflow writes it to `appsettings.json` in the test project directory.
+
+> **Security Note**: Use a dedicated test Azure Storage account and consider using a service principal with minimal Graph API permissions for testing.
 
 ### 5.2 Add Repository Variables
 
