@@ -30,8 +30,19 @@ public class Program
         if (config.AppInsightsConnectionString != null)
         {
             builder.Services.AddApplicationInsightsTelemetry((appInsightConfig) =>
-                    appInsightConfig.ConnectionString = config.AppInsightsConnectionString
-                );
+            {
+                appInsightConfig.ConnectionString = config.AppInsightsConnectionString;
+                appInsightConfig.EnableAdaptiveSampling = false; // Disable sampling to ensure all logs are sent
+                appInsightConfig.EnableDependencyTrackingTelemetryModule = true;
+                appInsightConfig.EnableQuickPulseMetricStream = true;
+            });
+        }
+        else
+        {
+            // Log a warning if Application Insights is not configured
+            var loggerFactory = LoggerFactory.Create(logBuilder => logBuilder.AddConsole());
+            var startupLogger = loggerFactory.CreateLogger<Program>();
+            startupLogger.LogWarning("Application Insights connection string not configured. Telemetry will not be sent.");
         }
 
 

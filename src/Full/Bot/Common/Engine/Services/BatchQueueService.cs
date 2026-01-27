@@ -103,7 +103,11 @@ public class BatchQueueService
     public async Task<int> GetQueueLengthAsync()
     {
         var properties = await _queueClient.GetPropertiesAsync();
-        return properties.Value.ApproximateMessagesCount;
+        var count = properties.Value.ApproximateMessagesCount;
+        
+        _logger.LogDebug("Queue '{QueueName}' has approximately {MessageCount} messages", _queueName, count);
+        
+        return count;
     }
 
     /// <summary>

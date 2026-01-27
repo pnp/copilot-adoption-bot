@@ -303,26 +303,55 @@ public class MessageTemplateStorageManager : TableStorageManager
     /// </summary>
     public async Task<List<MessageLogTableEntity>> LogBatchMessages(string messageBatchId, List<string> recipientUpns)
     {
+        _logger.LogInformation("Creating {RecipientCount} message log entries in storage for batch {BatchId}", 
+            recipientUpns.Count, messageBatchId);
+        
         var tableClient = await GetTableClient(LOGS_TABLE_NAME);
         var logEntities = new List<MessageLogTableEntity>();
 
+        var successCount = 0;
+        var failureCount = 0;
+
         foreach (var recipientUpn in recipientUpns)
         {
-            var logEntity = new MessageLogTableEntity
+            try
             {
-                RowKey = Guid.NewGuid().ToString(),
-                MessageBatchId = messageBatchId,
-                SentDate = DateTime.UtcNow,
-                RecipientUpn = recipientUpn,
-                Status = "Pending",
-                LastError = null
-            };
+                var logEntity = new MessageLogTableEntity
+                {
+                    RowKey = Guid.NewGuid().ToString(),
+                    MessageBatchId = messageBatchId,
+                    SentDate = DateTime.UtcNow,
+                    RecipientUpn = recipientUpn,
+                    Status = "Pending",
+                    LastError = null
+                };
 
-            await tableClient.AddEntityAsync(logEntity);
-            logEntities.Add(logEntity);
+                await tableClient.AddEntityAsync(logEntity);
+                logEntities.Add(logEntity);
+                successCount++;
+                
+                _logger.LogDebug("Created message log entry {LogId} for recipient {RecipientUpn} in batch {BatchId}", 
+                    logEntity.RowKey, recipientUpn, messageBatchId);
+            }
+            catch (Exception ex)
+            {
+                failureCount++;
+                _logger.LogError(ex, "Failed to create message log entry for recipient {RecipientUpn} in batch {BatchId}", 
+                    recipientUpn, messageBatchId);
+            }
         }
 
-        _logger.LogInformation($"Created {logEntities.Count} message logs for batch {messageBatchId}");
+        if (failureCount > 0)
+        {
+            _logger.LogWarning("Created {SuccessCount}/{TotalCount} message logs for batch {BatchId}. {FailureCount} failed", 
+                successCount, recipientUpns.Count, messageBatchId, failureCount);
+        }
+        else
+        {
+            _logger.LogInformation("Successfully created all {LogCount} message log entries for batch {BatchId}", 
+                logEntities.Count, messageBatchId);
+        }
+
         return logEntities;
     }
 

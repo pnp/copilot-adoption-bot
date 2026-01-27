@@ -92,14 +92,24 @@ public class MessageTemplateService
 
     public async Task<List<MessageLogDto>> LogBatchMessages(string messageBatchId, List<string> recipientUpns)
     {
+        _logger.LogInformation("Creating message logs for batch {BatchId} with {RecipientCount} recipients", 
+            messageBatchId, recipientUpns.Count);
+        
         var entities = await _storageManager.LogBatchMessages(messageBatchId, recipientUpns);
+        
+        _logger.LogInformation("Created {LogCount} message log entries for batch {BatchId}", 
+            entities.Count, messageBatchId);
         
         // Get batch to retrieve template ID
         var batch = await _storageManager.GetBatch(messageBatchId);
         if (batch == null)
         {
+            _logger.LogError("Batch {BatchId} not found when trying to enqueue messages", messageBatchId);
             throw new InvalidOperationException($"Batch {messageBatchId} not found");
         }
+
+        _logger.LogDebug("Retrieved batch {BatchId} with template {TemplateId} for enqueueing", 
+            messageBatchId, batch.TemplateId);
 
         // Enqueue messages for asynchronous processing
         var queueMessages = entities.Select(entity => new BatchQueueMessage
@@ -110,7 +120,13 @@ public class MessageTemplateService
             TemplateId = batch.TemplateId
         }).ToList();
 
+        _logger.LogInformation("Enqueueing {MessageCount} messages for batch {BatchId} to queue", 
+            queueMessages.Count, messageBatchId);
+
         await _queueService.EnqueueBatchMessagesAsync(queueMessages);
+        
+        _logger.LogInformation("Successfully completed batch message logging and enqueueing for batch {BatchId}", 
+            messageBatchId);
         
         return entities.Select(MapLogToDto).ToList();
     }
