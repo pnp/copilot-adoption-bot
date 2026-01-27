@@ -2,6 +2,7 @@ using Azure;
 using Common.Engine.Config;
 using Microsoft.Bot.Schema;
 using Microsoft.Graph;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 using Common.Engine.Models;
@@ -13,11 +14,13 @@ public class BotConversationCache : TableStorageManager
 {
     const string TABLE_NAME = "ConversationCache";
     private readonly GraphServiceClient _graphServiceClient;
+    private readonly ILogger<BotConversationCache> _logger;
     private ConcurrentDictionary<string, CachedUserAndConversationData> _userIdConversationCache = new();
 
-    public BotConversationCache(GraphServiceClient graphServiceClient, AppConfig appConfig) : base(appConfig.StorageAuthConfig ?? throw new ArgumentNullException(nameof(appConfig.StorageAuthConfig)))
+    public BotConversationCache(GraphServiceClient graphServiceClient, AppConfig appConfig, ILogger<BotConversationCache> logger) : base(appConfig.StorageAuthConfig ?? throw new ArgumentNullException(nameof(appConfig.StorageAuthConfig)), logger)
     {
         _graphServiceClient = graphServiceClient;
+        _logger = logger;
         // Dev only: make sure the Azure Storage emulator is running or this will fail
     }
 
@@ -25,13 +28,17 @@ public class BotConversationCache : TableStorageManager
     {
         if (_userIdConversationCache.Count > 0) return;
 
+        _logger.LogInformation("Populating conversation cache from table storage");
         var client = await base.GetTableClient(TABLE_NAME);
         var queryResultsFilter = client.Query<CachedUserAndConversationData>(filter: $"PartitionKey eq '{CachedUserAndConversationData.PartitionKeyVal}'");
+        
+        int count = 0;
         foreach (var qEntity in queryResultsFilter)
         {
             _userIdConversationCache.AddOrUpdate(qEntity.RowKey, qEntity, (key, newValue) => qEntity);
-            Console.WriteLine($"{qEntity.RowKey}: {qEntity}");
+            count++;
         }
+        _logger.LogInformation("Populated conversation cache with {Count} entries", count);
     }
 
     public async Task RemoveFromCache(string aadObjectId)

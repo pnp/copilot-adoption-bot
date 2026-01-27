@@ -20,10 +20,10 @@ public class MessageTemplateStorageManager : TableStorageManager
     private const string BLOB_CONTAINER_NAME = "message-templates";
 
     public MessageTemplateStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
-        : base(storageAuthConfig)
+        : base(storageAuthConfig, logger)
     {
         _logger = logger;
-        _blobServiceClient = AzureStorageClientFactory.CreateBlobServiceClient(storageAuthConfig);
+        _blobServiceClient = AzureStorageClientFactory.CreateBlobServiceClient(storageAuthConfig, logger);
     }
 
     #region Template Management

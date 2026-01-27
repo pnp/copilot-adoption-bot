@@ -77,7 +77,8 @@ public class Program
 
         // Clear out the bot cache for dev testing. That way we get 1st time user experience every time.
         var graph = app.Services.GetRequiredService<Microsoft.Graph.GraphServiceClient>();
-        var botCache = new BotConversationCache(graph, config);
+        var logger = app.Services.GetRequiredService<ILogger<BotConversationCache>>();
+        var botCache = new BotConversationCache(graph, config, logger);
         var allUsers = await botCache.GetCachedUsers();
         foreach (var user in allUsers)
         {

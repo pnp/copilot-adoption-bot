@@ -15,7 +15,7 @@ public class SmartGroupStorageManager : TableStorageManager
     private const string SMART_GROUP_MEMBERS_TABLE_NAME = "smartgroupmembers";
 
     public SmartGroupStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
-        : base(storageAuthConfig)
+        : base(storageAuthConfig, logger)
     {
         _logger = logger;
     }

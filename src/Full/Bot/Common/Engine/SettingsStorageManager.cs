@@ -28,10 +28,10 @@ Your role:
 Keep responses brief and suitable for a Teams chat. Use markdown formatting sparingly.";
 
 public SettingsStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
-        : base(storageAuthConfig)
-    {
-        _logger = logger;
-    }
+    : base(storageAuthConfig, logger)
+{
+    _logger = logger;
+}
 
     /// <summary>
     /// Get current application settings

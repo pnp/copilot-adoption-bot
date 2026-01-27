@@ -2,6 +2,7 @@ using Azure;
 using Azure.Data.Tables;
 using Common.Engine;
 using Common.Engine.Config;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 namespace Common.Engine.Storage;
@@ -11,8 +12,8 @@ namespace Common.Engine.Storage;
 /// </summary>
 public class ConcreteTableStorageManager : TableStorageManager
 {
-    public ConcreteTableStorageManager(StorageAuthConfig storageAuthConfig)
-        : base(storageAuthConfig)
+    public ConcreteTableStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
+        : base(storageAuthConfig, logger)
     {
     }
 }

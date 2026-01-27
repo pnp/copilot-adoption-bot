@@ -21,7 +21,7 @@ public class AzureTableCacheStorage : ICacheStorage
         ILogger<AzureTableCacheStorage> logger,
         UserCacheConfig config)
     {
-        _storageManager = new ConcreteTableStorageManager(storageAuthConfig);
+        _storageManager = new ConcreteTableStorageManager(storageAuthConfig, logger);
         _logger = logger;
         _userCacheTableName = config.UserCacheTableName;
         _syncMetadataTableName = config.SyncMetadataTableName;

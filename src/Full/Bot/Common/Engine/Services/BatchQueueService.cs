@@ -36,40 +36,8 @@ public class BatchQueueService
         _logger = logger;
         _queueName = queueName ?? DEFAULT_QUEUE_NAME;
 
-        if (storageAuthConfig.UseRBAC)
-        {
-            if (string.IsNullOrEmpty(storageAuthConfig.StorageAccountName))
-            {
-                throw new InvalidOperationException("StorageAccountName is required when UseRBAC is true");
-            }
-
-            var queueServiceEndpoint = new Uri($"https://{storageAuthConfig.StorageAccountName}.queue.core.windows.net");
-
-            // Use override credentials if provided, otherwise use DefaultAzureCredential
-            if (storageAuthConfig.RBACOverrideCredentials != null)
-            {
-                var credential = new ClientSecretCredential(
-                    storageAuthConfig.RBACOverrideCredentials.TenantId,
-                    storageAuthConfig.RBACOverrideCredentials.ClientId,
-                    storageAuthConfig.RBACOverrideCredentials.ClientSecret);
-                var queueServiceClient = new QueueServiceClient(queueServiceEndpoint, credential);
-                _queueClient = queueServiceClient.GetQueueClient(_queueName);
-            }
-            else
-            {
-                // Use DefaultAzureCredential (Managed Identity, Azure CLI, etc.)
-                var queueServiceClient = new QueueServiceClient(queueServiceEndpoint, new DefaultAzureCredential());
-                _queueClient = queueServiceClient.GetQueueClient(_queueName);
-            }
-        }
-        else
-        {
-            if (string.IsNullOrEmpty(storageAuthConfig.ConnectionString))
-            {
-                throw new InvalidOperationException("ConnectionString is required when UseRBAC is false");
-            }
-            _queueClient = new QueueClient(storageAuthConfig.ConnectionString, _queueName);
-        }
+        var queueServiceClient = AzureStorageClientFactory.CreateQueueServiceClient(storageAuthConfig, logger);
+        _queueClient = queueServiceClient.GetQueueClient(_queueName);
     }
 
     /// <summary>
