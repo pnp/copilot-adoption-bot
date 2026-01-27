@@ -260,6 +260,10 @@ Add the following secrets:
 | `AZURE_CLIENT_ID` | Application (client) ID | From Step 2.1 output |
 | `AZURE_TENANT_ID` | Azure AD tenant ID | `az account show --query tenantId -o tsv` |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `az account show --query id -o tsv` |
+| `VITE_MSAL_CLIENT_ID` | Client ID for frontend MSAL auth | Same as `MicrosoftAppId` (bot app registration) |
+| `VITE_MSAL_AUTHORITY` | Azure AD authority URL | `https://login.microsoftonline.com/<your-tenant-id>` |
+| `VITE_MSAL_SCOPES` | API scopes for access token | `api://<your-client-id>/access_as_user` |
+| `VITE_TEAMSFX_START_LOGIN_PAGE_URL` | (Optional) Login redirect URL for Teams SSO | `https://<your-app-name>.azurewebsites.net/auth-start.html` |
 | `TESTS_APPSETTINGS_JSON` | (Optional) Full appsettings.json for unit tests | See below |
 
 ### 5.1.1 Configure TESTS_APPSETTINGS_JSON for Unit Tests
@@ -324,9 +328,13 @@ The workflow expects these secrets and variables (configured in Step 5):
 
 **Secrets** (Settings → Secrets and variables → Actions → Secrets):
 ```
-AZURE_CLIENT_ID          # App registration client ID from Step 2
-AZURE_TENANT_ID          # Your Azure AD tenant ID
-AZURE_SUBSCRIPTION_ID    # Your Azure subscription ID
+AZURE_CLIENT_ID                  # App registration client ID from Step 2
+AZURE_TENANT_ID                  # Your Azure AD tenant ID
+AZURE_SUBSCRIPTION_ID            # Your Azure subscription ID
+VITE_MSAL_CLIENT_ID              # Client ID for frontend auth (same as MicrosoftAppId)
+VITE_MSAL_AUTHORITY              # Azure AD authority (https://login.microsoftonline.com/<tenant-id>)
+VITE_MSAL_SCOPES                 # API scopes (api://<client-id>/access_as_user)
+VITE_TEAMSFX_START_LOGIN_PAGE_URL # (Optional) Login redirect URL for Teams SSO
 ```
 
 **Variables** (Settings → Secrets and variables → Actions → Variables):
