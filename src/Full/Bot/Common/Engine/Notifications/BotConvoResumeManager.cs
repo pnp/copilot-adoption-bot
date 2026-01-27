@@ -157,6 +157,7 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
         {
             // Calling this will trigger a "conversationUpdate" activity to the bot, assuming the correct callback URL is configured
             // You need to have either NGROK or a public endpoint for this to work
+            // IMPORTANT: Also make sure the bot endpoint is configured correctly in the Azure Bot registration
             // When the callback is received, the bot should cache the conversation ID for this user, and then send whatever card or message is needed
             var chat = await graphServiceClient.Users[userid].Teamwork.InstalledApps[installedApp.Id].Chat.GetAsync();
         }
