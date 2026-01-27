@@ -39,12 +39,17 @@ jobs:
 
       - name: Create .env.local for frontend
         working-directory: ${{ env.WORKING_DIRECTORY }}/Web/web.client
+        env:
+          VITE_MSAL_CLIENT_ID: ${{ secrets.VITE_MSAL_CLIENT_ID }}
+          VITE_MSAL_AUTHORITY: ${{ secrets.VITE_MSAL_AUTHORITY }}
+          VITE_MSAL_SCOPES: ${{ secrets.VITE_MSAL_SCOPES }}
+          VITE_TEAMSFX_START_LOGIN_PAGE_URL: ${{ secrets.VITE_TEAMSFX_START_LOGIN_PAGE_URL }}
         run: |
           cat > .env.local << EOF
-          VITE_MSAL_CLIENT_ID=${{ secrets.VITE_MSAL_CLIENT_ID }}
-          VITE_MSAL_AUTHORITY=${{ secrets.VITE_MSAL_AUTHORITY }}
-          VITE_MSAL_SCOPES=${{ secrets.VITE_MSAL_SCOPES }}
-          VITE_TEAMSFX_START_LOGIN_PAGE_URL=${{ secrets.VITE_TEAMSFX_START_LOGIN_PAGE_URL }}
+          VITE_MSAL_CLIENT_ID=$VITE_MSAL_CLIENT_ID
+          VITE_MSAL_AUTHORITY=$VITE_MSAL_AUTHORITY
+          VITE_MSAL_SCOPES=$VITE_MSAL_SCOPES
+          VITE_TEAMSFX_START_LOGIN_PAGE_URL=$VITE_TEAMSFX_START_LOGIN_PAGE_URL
           EOF
 
       - name: Install Node dependencies
@@ -99,10 +104,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-azure.outputs.webapp-url }}
 
     steps:
       - name: Download artifact from build job
