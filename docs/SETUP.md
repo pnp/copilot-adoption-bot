@@ -8,6 +8,7 @@ This guide covers setting up the Copilot Adoption Bot for local development and 
 - [Teams Bot Setup](#teams-bot-setup)
 - [Configuration](#configuration)
 - [Installation](#installation)
+- [Teams App Deployment](#teams-app-deployment)
 - [Running the Application](#running-the-application)
 
 ## Prerequisites
@@ -354,40 +355,83 @@ See the [Deployment Guide](DEPLOYMENT.md) for detailed production deployment ins
 
 ## Installation
 
-### 1. Clone the Repository
+For detailed installation and deployment instructions, see the appropriate deployment guide:
 
-```bash
-git clone https://github.com/pnp/copilot-adoption-bot.git
-cd copilot-adoption-bot/src/Full/Bot
+- **[Manual Deployment](DEPLOYMENT-MANUAL.md)** - Step-by-step guide for manual Azure deployment
+- **[GitHub Actions Deployment](DEPLOYMENT-GITHUB-ACTIONS.md)** - CI/CD deployment using GitHub Actions
+- **[Azure DevOps Deployment](DEPLOYMENT-AZURE-DEVOPS.md)** - CI/CD deployment using Azure DevOps
+- **[Deployment Overview](DEPLOYMENT.md)** - General deployment information and Azure resource requirements
+
+## Teams App Deployment
+
+After deploying the backend application, you must build and deploy the Teams app package to enable users to interact with the bot in Microsoft Teams.
+
+### 1. Create the Manifest File
+
+1. Navigate to the Teams app template directory:
+   ```
+   src/Full/Teams Apps/User/
+   ```
+
+2. Copy `manifest-template.json` to `manifest.json`:
+   ```bash
+   copy "manifest-template.json" "manifest.json"
+   ```
+
+3. Open `manifest.json` and update the following placeholders:
+   - **`<<BOT_APP_ID>>`** (Required): Replace with your Bot ID (the `MicrosoftAppId` from the Teams Bot Setup section)
+   - Review and update any other placeholders as needed for your organization (e.g., developer information, app URLs)
+
+### 2. Create the Teams App Package
+
+Create a ZIP file containing the following files at the **root level** (not in a subfolder):
+- `manifest.json`
+- `color.png`
+- `outline.png`
+
+You can create the ZIP using PowerShell:
+```powershell
+Compress-Archive -Path "manifest.json", "color.png", "outline.png" -DestinationPath "CopilotAdoptionBot.zip" -Force
 ```
 
-### 2. Restore Backend Dependencies
+Or using File Explorer:
+1. Select all three files (`manifest.json`, `color.png`, `outline.png`)
+2. Right-click and select **Compress to ZIP file**
+3. Rename the ZIP file (e.g., `CopilotAdoptionBot.zip`)
 
+> **Important**: Ensure the files are at the root of the ZIP archive, not inside a folder.
+
+### 3. Upload to Teams Admin Center
+
+1. Go to the [Microsoft Teams Admin Center](https://admin.teams.microsoft.com/)
+2. Navigate to **Teams apps** → **Manage apps**
+3. Click **+ Upload new app** → **Upload**
+4. Select your ZIP file and upload it
+5. Once uploaded, the app will appear in the app list
+6. Note the **App ID** shown in the app details - this is your `AppCatalogTeamAppId`
+
+For more information on managing custom apps, see [Microsoft's documentation on custom app policies and settings](https://learn.microsoft.com/en-us/microsoftteams/teams-custom-app-policies-and-settings).
+
+### 4. Configure the App Catalog ID
+
+Add the Teams App Catalog ID to your application configuration:
+
+**For local development (User Secrets):**
 ```bash
-dotnet restore
+dotnet user-secrets set "AppCatalogTeamAppId" "your-teams-app-catalog-id"
 ```
 
-### 3. Install Frontend Dependencies
+**For production (Azure App Service):**
+Add `AppCatalogTeamAppId` to your Application Settings with the value from step 3.
 
-```bash
-cd Web/web.client
-npm install
-cd ../../..
-```
+### 5. Configure App Availability (Optional)
 
-### 4. Build the Solution
+By default, custom apps may need to be explicitly allowed for users. In the Teams Admin Center:
 
-```bash
-dotnet build
-```
-
-### 5. Build the Frontend
-
-```bash
-cd Web/web.client
-npm run build
-cd ../../..
-```
+1. Go to **Teams apps** → **Permission policies**
+2. Either modify the **Global (Org-wide default)** policy or create a new policy
+3. Under **Custom apps**, ensure your app is allowed
+4. Assign the policy to the appropriate users or groups
 
 ## Running the Application
 
