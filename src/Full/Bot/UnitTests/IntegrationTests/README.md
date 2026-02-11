@@ -49,8 +49,11 @@ This directory contains comprehensive integration tests for the Common.Engine pr
 
 These tests require actual Azure resources and valid configuration. Add the following to your user secrets:
 
+**Option 1: Using Connection String (Simple)**
+
 ```json
 {
+  "EnableRBAC": false,
   "ConnectionStrings": {
     "Storage": "DefaultEndpointsProtocol=https;AccountName=<your-storage-account>;AccountKey=<your-key>"
   },
@@ -62,10 +65,62 @@ These tests require actual Azure resources and valid configuration. Add the foll
 }
 ```
 
+**Option 2: Using RBAC (Recommended for Production)**
+
+```json
+{
+  "EnableRBAC": true,
+  "StorageAccountName": "<your-storage-account>",
+  "ConnectionStrings": {
+    "Storage": null
+  },
+  "GraphConfig": {
+    "TenantId": "<your-tenant-id>",
+    "ClientId": "<your-client-id>",
+    "ClientSecret": "<your-client-secret>"
+  }
+}
+```
+
+**Option 3: Using RBAC with Service Principal**
+
+```json
+{
+  "EnableRBAC": true,
+  "StorageAccountName": "<your-storage-account>",
+  "StorageAuthConfig": {
+    "ClientId": "<service-principal-client-id>",
+    "ClientSecret": "<service-principal-secret>",
+    "TenantId": "<your-tenant-id>"
+  },
+  "GraphConfig": {
+    "TenantId": "<your-tenant-id>",
+    "ClientId": "<your-client-id>",
+    "ClientSecret": "<your-client-secret>"
+  }
+}
+```
+
+For RBAC authentication, ensure your Visual Studio account has these Azure roles on the storage account:
+- Storage Blob Data Contributor
+- Storage Queue Data Contributor
+- Storage Table Data Contributor
+
+See [Storage RBAC Setup Guide](../../docs/STORAGE-RBAC-SETUP.md) for detailed instructions.
+
 To configure user secrets:
 ```bash
 cd UnitTests
+
+# For connection string authentication
 dotnet user-secrets set "ConnectionStrings:Storage" "your-connection-string"
+dotnet user-secrets set "EnableRBAC" "false"
+
+# For RBAC authentication
+dotnet user-secrets set "EnableRBAC" "true"
+dotnet user-secrets set "StorageAccountName" "your-storage-account"
+
+# Common settings
 dotnet user-secrets set "GraphConfig:TenantId" "your-tenant-id"
 dotnet user-secrets set "GraphConfig:ClientId" "your-client-id"
 dotnet user-secrets set "GraphConfig:ClientSecret" "your-client-secret"

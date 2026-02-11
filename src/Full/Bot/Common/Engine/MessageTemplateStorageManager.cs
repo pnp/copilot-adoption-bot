@@ -1,3 +1,4 @@
+using Azure.Core;
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -18,10 +19,23 @@ public class MessageTemplateStorageManager : TableStorageManager
     private const string LOGS_TABLE_NAME = "messagelogs";
     private const string BLOB_CONTAINER_NAME = "message-templates";
 
+    /// <summary>
+    /// Constructor for connection string authentication
+    /// </summary>
     public MessageTemplateStorageManager(string storageConnectionString, ILogger logger) 
         : base(storageConnectionString)
     {
         _blobServiceClient = new BlobServiceClient(storageConnectionString);
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Constructor for RBAC authentication
+    /// </summary>
+    public MessageTemplateStorageManager(Uri tableServiceUri, Uri blobServiceUri, TokenCredential credential, ILogger logger)
+        : base(tableServiceUri, credential)
+    {
+        _blobServiceClient = new BlobServiceClient(blobServiceUri, credential);
         _logger = logger;
     }
 

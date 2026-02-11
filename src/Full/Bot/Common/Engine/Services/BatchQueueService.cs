@@ -1,3 +1,4 @@
+using Azure.Core;
 using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
 using Common.Engine.Storage;
@@ -15,10 +16,26 @@ public class BatchQueueService
     private readonly ILogger<BatchQueueService> _logger;
     private const string QUEUE_NAME = "batch-messages";
 
+    /// <summary>
+    /// Constructor for connection string authentication
+    /// </summary>
     public BatchQueueService(string storageConnectionString, ILogger<BatchQueueService> logger)
     {
         _logger = logger;
         _queueClient = new QueueClient(storageConnectionString, QUEUE_NAME);
+    }
+
+    /// <summary>
+    /// Constructor for RBAC authentication
+    /// </summary>
+    public BatchQueueService(Uri queueServiceUri, TokenCredential credential, ILogger<BatchQueueService> logger)
+    {
+        _logger = logger;
+        var queueUriBuilder = new UriBuilder(queueServiceUri)
+        {
+            Path = QUEUE_NAME
+        };
+        _queueClient = new QueueClient(queueUriBuilder.Uri, credential);
     }
 
     /// <summary>

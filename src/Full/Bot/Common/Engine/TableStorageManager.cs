@@ -1,4 +1,5 @@
 ﻿using Azure;
+using Azure.Core;
 using Azure.Data.Tables;
 using System.Collections.Concurrent;
 
@@ -9,9 +10,21 @@ public abstract class TableStorageManager
 {
     private readonly TableServiceClient _tableServiceClient;
     private ConcurrentDictionary<string, TableClient> _tableClientCache = new();
+
+    /// <summary>
+    /// Constructor for connection string authentication
+    /// </summary>
     public TableStorageManager(string storageConnectionString)
     {
         _tableServiceClient = new TableServiceClient(storageConnectionString);
+    }
+
+    /// <summary>
+    /// Constructor for RBAC authentication
+    /// </summary>
+    public TableStorageManager(Uri tableServiceUri, TokenCredential credential)
+    {
+        _tableServiceClient = new TableServiceClient(tableServiceUri, credential);
     }
 
     public async Task<TableClient> GetTableClient(string tableName)

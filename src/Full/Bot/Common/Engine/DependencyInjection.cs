@@ -111,7 +111,19 @@ public static class ServiceCollectionExtensions
         {
             var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AzureTableCacheStorage>>();
             var cacheConfig = sp.GetRequiredService<UserCacheConfig>();
-            return new AzureTableCacheStorage(config.ConnectionStrings.Storage, logger, cacheConfig);
+            var credFactory = sp.GetRequiredService<Storage.StorageCredentialFactory>();
+
+            if (credFactory.IsRBACEnabled)
+            {
+                var credential = credFactory.GetCredential()!;
+                var accountName = credFactory.GetStorageAccountName();
+                var tableUri = new Uri($"https://{accountName}.table.core.windows.net");
+                return new AzureTableCacheStorage(tableUri, credential, logger, cacheConfig);
+            }
+            else
+            {
+                return new AzureTableCacheStorage(config.ConnectionStrings.Storage, logger, cacheConfig);
+            }
         });
 
         // Register CopilotStatsService
@@ -137,14 +149,38 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SmartGroupStorageManager>(sp =>
         {
             var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SmartGroupStorageManager>>();
-            return new SmartGroupStorageManager(config.ConnectionStrings.Storage, logger);
+            var credFactory = sp.GetRequiredService<Storage.StorageCredentialFactory>();
+
+            if (credFactory.IsRBACEnabled)
+            {
+                var credential = credFactory.GetCredential()!;
+                var accountName = credFactory.GetStorageAccountName();
+                var tableUri = new Uri($"https://{accountName}.table.core.windows.net");
+                return new SmartGroupStorageManager(tableUri, credential, logger);
+            }
+            else
+            {
+                return new SmartGroupStorageManager(config.ConnectionStrings.Storage, logger);
+            }
         });
 
         // Register SettingsStorageManager
         services.AddSingleton<SettingsStorageManager>(sp =>
         {
             var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SettingsStorageManager>>();
-            return new SettingsStorageManager(config.ConnectionStrings.Storage, logger);
+            var credFactory = sp.GetRequiredService<Storage.StorageCredentialFactory>();
+
+            if (credFactory.IsRBACEnabled)
+            {
+                var credential = credFactory.GetCredential()!;
+                var accountName = credFactory.GetStorageAccountName();
+                var tableUri = new Uri($"https://{accountName}.table.core.windows.net");
+                return new SettingsStorageManager(tableUri, credential, logger);
+            }
+            else
+            {
+                return new SettingsStorageManager(config.ConnectionStrings.Storage, logger);
+            }
         });
 
         // Register AIFoundryService only if configured

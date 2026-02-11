@@ -1,4 +1,5 @@
 using Azure;
+using Azure.Core;
 using Common.Engine.Config;
 using Microsoft.Bot.Schema;
 using Microsoft.Graph;
@@ -15,10 +16,23 @@ public class BotConversationCache : TableStorageManager
     private readonly GraphServiceClient _graphServiceClient;
     private ConcurrentDictionary<string, CachedUserAndConversationData> _userIdConversationCache = new();
 
-    public BotConversationCache(GraphServiceClient graphServiceClient, AppConfig appConfig) : base(appConfig.ConnectionStrings.Storage)
+    /// <summary>
+    /// Constructor for connection string authentication
+    /// </summary>
+    public BotConversationCache(GraphServiceClient graphServiceClient, AppConfig appConfig) 
+        : base(appConfig.ConnectionStrings.Storage)
     {
         _graphServiceClient = graphServiceClient;
         // Dev only: make sure the Azure Storage emulator is running or this will fail
+    }
+
+    /// <summary>
+    /// Constructor for RBAC authentication
+    /// </summary>
+    public BotConversationCache(GraphServiceClient graphServiceClient, Uri tableServiceUri, TokenCredential credential)
+        : base(tableServiceUri, credential)
+    {
+        _graphServiceClient = graphServiceClient;
     }
 
     public async Task PopulateMemCacheIfEmpty()

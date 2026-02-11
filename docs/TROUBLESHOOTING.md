@@ -277,32 +277,86 @@ Common issues and solutions for the Copilot Adoption Bot.
    ```
 
 3. **Permissions:**
+   - **If using RBAC**: Verify managed identity has "Storage Blob Data Contributor" role
+   - **If using connection string**: Verify connection string has blob access
    - Ensure storage account has blob service enabled
-   - Verify connection string has blob access
 
 ### Table Storage Errors
 
 **Symptoms:**
 - Cannot save templates
 - User cache errors
+- "This request is not authorized" errors
 
 **Solutions:**
 
-1. **Verify Table Service:**
+1. **For RBAC Authentication:**
+   - Verify managed identity has "Storage Table Data Contributor" role
+   - Check role assignments in Azure Portal: Storage Account ? Access Control (IAM)
+   - Wait 5-10 minutes after assigning roles
+   - Restart application after role assignment
+
+2. **For Connection String Authentication:**
+   - Verify connection string is valid and has table access
+   - Test table access:
+     ```bash
+     az storage table list \
+       --connection-string "your-connection-string"
+     ```
+
+3. **Verify Table Service:**
    - Go to Azure Portal ? Storage Account
    - Ensure Table service is enabled
 
-2. **Check Table Names:**
+4. **Check Configuration:**
+   - Verify `EnableRBAC` setting matches your authentication method
+   - If `EnableRBAC: true`, ensure `StorageAccountName` is set
+   - If `EnableRBAC: false`, ensure `ConnectionStrings:Storage` is set
+
+5. **Check Table Names:**
    - MessageTemplates
    - MessageLogs
    - UserCache
    - SyncMetadata
 
-3. **Test Table Access:**
-   ```bash
-   az storage table list \
-     --connection-string "your-connection-string"
-   ```
+### Storage Authentication Issues
+
+**Symptoms:**
+- "DefaultAzureCredential failed to retrieve a token"
+- "StorageAccountName must be configured"
+- "This request is not authorized to perform this operation"
+
+**Solutions:**
+
+1. **RBAC Configuration Issues:**
+   
+   **In Azure:**
+   - Enable Managed Identity on App Service: Portal ? Identity ? System assigned = On
+   - Verify all three storage roles are assigned:
+     - Storage Blob Data Contributor
+     - Storage Queue Data Contributor
+     - Storage Table Data Contributor
+   - Check application settings: `EnableRBAC=true`, `StorageAccountName=your-account`
+   - Restart App Service after configuration changes
+
+   **Locally:**
+   - Sign in to Visual Studio with your Azure account
+   - Verify your account has storage roles assigned
+   - Close and reopen Visual Studio
+   - Set `EnableRBAC: true` and `StorageAccountName` in user secrets
+
+2. **Connection String Issues:**
+   - Verify connection string format is correct
+   - Test connection string with Azure Storage Explorer
+   - Set `EnableRBAC: false` in configuration
+   - For local development with Azurite: `"Storage": "UseDevelopmentStorage=true"`
+
+3. **Configuration Validation:**
+   - Review application logs for "Using RBAC authentication" or "Using connection string authentication"
+   - Verify configuration is loaded correctly
+   - Check for typos in setting names (`EnableRBAC`, `StorageAccountName`)
+
+**Quick Reference:** See [Storage RBAC Quick Reference](RBAC-QUICK-REFERENCE.md) for detailed troubleshooting
 
 ## Deployment Issues
 

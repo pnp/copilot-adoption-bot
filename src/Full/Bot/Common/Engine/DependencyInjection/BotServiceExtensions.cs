@@ -1,3 +1,5 @@
+using Common.Engine.Config;
+using Common.Engine.Storage;
 using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +25,24 @@ public static class BotServiceExtensions
         services.AddSingleton<BotFrameworkAuthentication, ConfigurationBotFrameworkAuthentication>();
 
         // Bot conversation cache and management
-        services.AddSingleton<BotConversationCache>();
+        services.AddSingleton<BotConversationCache>(sp =>
+        {
+            var graphClient = sp.GetRequiredService<Microsoft.Graph.GraphServiceClient>();
+            var credFactory = sp.GetRequiredService<StorageCredentialFactory>();
+            var config = sp.GetRequiredService<AppConfig>();
+
+            if (credFactory.IsRBACEnabled)
+            {
+                var credential = credFactory.GetCredential()!;
+                var accountName = credFactory.GetStorageAccountName();
+                var tableUri = new Uri($"https://{accountName}.table.core.windows.net");
+                return new BotConversationCache(graphClient, tableUri, credential);
+            }
+            else
+            {
+                return new BotConversationCache(graphClient, config);
+            }
+        });
 
         return services;
     }

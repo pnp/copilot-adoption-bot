@@ -1,3 +1,4 @@
+using Azure.Core;
 using Azure.Data.Tables;
 using Common.Engine.Config;
 using Common.Engine.Models;
@@ -16,12 +17,30 @@ public class AzureTableCacheStorage : ICacheStorage
     private readonly string _userCacheTableName;
     private readonly string _syncMetadataTableName;
 
+    /// <summary>
+    /// Constructor for connection string authentication
+    /// </summary>
     public AzureTableCacheStorage(
         string storageConnectionString,
         ILogger<AzureTableCacheStorage> logger,
         UserCacheConfig config)
     {
         _storageManager = new ConcreteTableStorageManager(storageConnectionString);
+        _logger = logger;
+        _userCacheTableName = config.UserCacheTableName;
+        _syncMetadataTableName = config.SyncMetadataTableName;
+    }
+
+    /// <summary>
+    /// Constructor for RBAC authentication
+    /// </summary>
+    public AzureTableCacheStorage(
+        Uri tableServiceUri,
+        TokenCredential credential,
+        ILogger<AzureTableCacheStorage> logger,
+        UserCacheConfig config)
+    {
+        _storageManager = new ConcreteTableStorageManager(tableServiceUri, credential);
         _logger = logger;
         _userCacheTableName = config.UserCacheTableName;
         _syncMetadataTableName = config.SyncMetadataTableName;

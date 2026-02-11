@@ -1,3 +1,4 @@
+using Azure.Core;
 using Azure.Data.Tables;
 using Common.Engine.Storage;
 using Microsoft.Extensions.Logging;
@@ -26,8 +27,20 @@ Your role:
 
 Keep responses brief and suitable for a Teams chat. Use markdown formatting sparingly.";
 
+    /// <summary>
+    /// Constructor for connection string authentication
+    /// </summary>
     public SettingsStorageManager(string storageConnectionString, ILogger logger) 
         : base(storageConnectionString)
+    {
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Constructor for RBAC authentication
+    /// </summary>
+    public SettingsStorageManager(Uri tableServiceUri, TokenCredential credential, ILogger logger)
+        : base(tableServiceUri, credential)
     {
         _logger = logger;
     }

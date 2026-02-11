@@ -145,8 +145,14 @@ dotnet user-secrets set "WebAuthConfig:ClientSecret" "your-web-app-registration-
 dotnet user-secrets set "WebAuthConfig:TenantId" "your-tenant-id"
 dotnet user-secrets set "WebAuthConfig:Authority" "https://login.microsoftonline.com/organizations"
 
-# Storage Connection (Required)
+# Storage Connection (Required - Option 1: Connection String)
+dotnet user-secrets set "EnableRBAC" "false"
 dotnet user-secrets set "ConnectionStrings:Storage" "DefaultEndpointsProtocol=https;AccountName=yourstorageaccount;AccountKey=your-storage-key;EndpointSuffix=core.windows.net"
+
+# Storage Connection (Required - Option 2: RBAC - Recommended for Production)
+dotnet user-secrets set "EnableRBAC" "true"
+dotnet user-secrets set "StorageAccountName" "yourstorageaccount"
+# Note: For RBAC, ensure you're signed in to Visual Studio and have Storage roles assigned
 
 # Bot Configuration (Required)
 dotnet user-secrets set "MicrosoftAppId" "your-bot-app-id"
@@ -184,7 +190,14 @@ dotnet user-secrets set "TestUPN" "your-test-user@yourtenant.onmicrosoft.com"
   - Uses same structure as GraphConfig
   - Required for user authentication to the web portal
 
-- **ConnectionStrings.Storage**: Azure Storage connection string for table and blob storage
+- **Storage Configuration**: Azure Storage configuration
+  - **Option 1 - Connection String** (simpler for local development):
+    - `EnableRBAC`: Set to `false`
+    - `ConnectionStrings.Storage`: Azure Storage connection string
+  - **Option 2 - RBAC** (recommended for production):
+    - `EnableRBAC`: Set to `true` (default)
+    - `StorageAccountName`: Name of your Azure Storage account
+    - Requires storage roles assigned (see [Storage RBAC Setup Guide](STORAGE-RBAC-SETUP.md))
 
 - **MicrosoftAppId**: Bot application ID (same as GraphConfig.ClientId)
 

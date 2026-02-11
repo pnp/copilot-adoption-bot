@@ -79,6 +79,33 @@ Storage Account
 
 **Note**: The `message-templates` blob container is automatically created by the application on first run.
 
+#### Storage Authentication
+
+The application supports three authentication methods:
+
+**Option 1: RBAC with Managed Identity (Recommended for Production)**
+- Uses Azure Managed Identity
+- No credentials to manage
+- Configure: `EnableRBAC: true` and `StorageAccountName: your-account`
+- Requires these roles on the Storage Account:
+  - Storage Blob Data Contributor
+  - Storage Queue Data Contributor  
+  - Storage Table Data Contributor
+- See [Storage RBAC Setup Guide](docs/STORAGE-RBAC-SETUP.md) for detailed instructions
+
+**Option 2: RBAC with Service Principal**
+- Uses a specific service principal
+- Useful when Managed Identity isn't available
+- Configure: `EnableRBAC: true`, `StorageAccountName`, and `StorageAuthConfig` with service principal credentials
+- Store credentials in Azure Key Vault
+- Requires same storage roles as Option 1
+
+**Option 3: Connection String**
+- Uses storage account keys
+- Configure: `EnableRBAC: false` and `ConnectionStrings:Storage: your-connection-string`
+- Simpler for local development with Azurite emulator
+- Not recommended for production
+
 ### Azure AI Foundry Configuration (Optional)
 
 For AI-powered bot conversations, you need an Azure AI Foundry (formerly Azure OpenAI) deployment:
@@ -319,16 +346,19 @@ For production deployments, store all secrets in Azure Key Vault.
 
 2. **Add secrets to Key Vault**:
 
-   ```bash
-   # Required secrets
-   az keyvault secret set --vault-name my-office-nudge-kv --name GraphClientSecret --value "<your-client-secret>"
-   az keyvault secret set --vault-name my-office-nudge-kv --name StorageConnectionString --value "<your-connection-string>"
-   az keyvault secret set --vault-name my-office-nudge-kv --name BotAppPassword --value "<your-bot-password>"
+```bash
+# Required secrets
+az keyvault secret set --vault-name my-office-nudge-kv --name GraphClientSecret --value "<your-client-secret>"
+az keyvault secret set --vault-name my-office-nudge-kv --name BotAppPassword --value "<your-bot-password>"
    
-   # Optional secrets
-   az keyvault secret set --vault-name my-office-nudge-kv --name ApplicationInsightsConnectionString --value "<your-appinsights-connection-string>"
-   az keyvault secret set --vault-name my-office-nudge-kv --name AIFoundryApiKey --value "<your-ai-foundry-api-key>"
-   ```
+# Storage secrets (if using connection string authentication)
+# Note: Not needed if using RBAC authentication
+az keyvault secret set --vault-name my-office-nudge-kv --name StorageConnectionString --value "<your-connection-string>"
+   
+# Optional secrets
+az keyvault secret set --vault-name my-office-nudge-kv --name ApplicationInsightsConnectionString --value "<your-appinsights-connection-string>"
+az keyvault secret set --vault-name my-office-nudge-kv --name AIFoundryApiKey --value "<your-ai-foundry-api-key>"
+```
 
 3. **Enable Managed Identity on your App Service**:
 
@@ -348,13 +378,49 @@ For production deployments, store all secrets in Azure Key Vault.
      --secret-permissions get list
    ```
 
-5. **Reference secrets in Application Settings**:
+5. **If using Storage RBAC, grant storage roles** (recommended):
+
+   ```bash
+   # Get Storage Account Resource ID
+   STORAGE_ID=$(az storage account show \
+     --name mystorageaccount \
+     --resource-group myResourceGroup \
+     --query id -o tsv)
+   
+   # Assign storage roles to managed identity
+   az role assignment create \
+     --assignee <principal-id> \
+     --role "Storage Blob Data Contributor" \
+     --scope $STORAGE_ID
+   
+   az role assignment create \
+     --assignee <principal-id> \
+     --role "Storage Queue Data Contributor" \
+     --scope $STORAGE_ID
+   
+   az role assignment create \
+     --assignee <principal-id> \
+     --role "Storage Table Data Contributor" \
+     --scope $STORAGE_ID
+   ```
+
+6. **Reference secrets in Application Settings**:
 
    In the Azure Portal, configure your App Service application settings:
 
+   **For RBAC Storage (recommended):**
    ```
+   EnableRBAC=true
+   StorageAccountName=mystorageaccount
    GraphConfig__ClientSecret=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/GraphClientSecret/)
+   MicrosoftAppPassword=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/BotAppPassword/)
+   ```
+
+   **For Connection String Storage:**
+   ```
+   EnableRBAC=false
    ConnectionStrings__Storage=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/StorageConnectionString/)
+   GraphConfig__ClientSecret=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/GraphClientSecret/)
    MicrosoftAppPassword=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/BotAppPassword/)
    APPLICATIONINSIGHTS_CONNECTION_STRING=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/ApplicationInsightsConnectionString/)
    AIFoundryConfig__ApiKey=@Microsoft.KeyVault(SecretUri=https://my-office-nudge-kv.vault.azure.net/secrets/AIFoundryApiKey/)
