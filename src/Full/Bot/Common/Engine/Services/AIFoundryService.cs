@@ -1,6 +1,7 @@
 using System.ClientModel;
 using System.Text.Json;
 using Azure.AI.OpenAI;
+using Azure.Identity;
 using Common.Engine.Config;
 using Common.Engine.Models;
 using Microsoft.Extensions.Logging;
@@ -44,11 +45,49 @@ public class AIFoundryService
         _logger = logger;
         _settingsManager = settingsManager;
 
-        var azureClient = new AzureOpenAIClient(
-            new Uri(config.Endpoint),
-            new ApiKeyCredential(config.ApiKey));
+        AzureOpenAIClient azureClient;
+        if (config.UseRBAC)
+        {
+            _logger.LogDebug("Creating AzureOpenAIClient using RBAC authentication for endpoint {Endpoint}", config.Endpoint);
+            var credential = GetCredential(config);
+            azureClient = new AzureOpenAIClient(new Uri(config.Endpoint), credential);
+            _logger.LogInformation("Successfully created AzureOpenAIClient using RBAC for {Endpoint}", config.Endpoint);
+        }
+        else
+        {
+            if (string.IsNullOrEmpty(config.ApiKey))
+            {
+                _logger.LogError("ApiKey is required when UseRBAC is false but was not provided");
+                throw new InvalidOperationException("AIFoundryConfig.ApiKey is required when UseRBAC is false");
+            }
+
+            _logger.LogDebug("Creating AzureOpenAIClient using API key authentication");
+            azureClient = new AzureOpenAIClient(
+                new Uri(config.Endpoint),
+                new ApiKeyCredential(config.ApiKey));
+        }
 
         _chatClient = azureClient.GetChatClient(config.DeploymentName);
+    }
+
+    /// <summary>
+    /// Gets the appropriate Azure credential based on the configuration.
+    /// Uses RBACOverrideCredentials if provided, otherwise uses DefaultAzureCredential.
+    /// </summary>
+    private Azure.Core.TokenCredential GetCredential(AIFoundryConfig config)
+    {
+        if (config.RBACOverrideCredentials != null)
+        {
+            _logger.LogDebug("Using ClientSecretCredential with override credentials for tenant {TenantId}",
+                config.RBACOverrideCredentials.TenantId);
+            return new ClientSecretCredential(
+                config.RBACOverrideCredentials.TenantId,
+                config.RBACOverrideCredentials.ClientId,
+                config.RBACOverrideCredentials.ClientSecret);
+        }
+
+        _logger.LogDebug("Using DefaultAzureCredential (Managed Identity, Azure CLI, Environment Variables, etc.)");
+        return new DefaultAzureCredential();
     }
 
     /// <summary>
