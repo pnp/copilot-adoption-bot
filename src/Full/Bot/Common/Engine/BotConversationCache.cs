@@ -119,7 +119,8 @@ public class BotConversationCache : TableStorageManager
 
     public CachedUserAndConversationData? GetCachedUser(string aadObjectId)
     {
-        return _userIdConversationCache.Values.Where(u => u.RowKey == aadObjectId).SingleOrDefault();
+        // Use direct dictionary lookup (O(1)) instead of a linear scan over Values.
+        return _userIdConversationCache.TryGetValue(aadObjectId, out var u) ? u : null;
     }
 
     public bool ContainsUserId(string aadId)

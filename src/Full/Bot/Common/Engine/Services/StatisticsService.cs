@@ -31,21 +31,13 @@ public class StatisticsService
         {
             var logs = await _storageManager.GetAllMessageLogs();
 
-            // Count both "Sent" and "Success" as sent messages
-            var sentCount = logs.Count(l => l.Status.Equals("Sent", StringComparison.OrdinalIgnoreCase) || 
-                                            l.Status.Equals("Success", StringComparison.OrdinalIgnoreCase));
-            var failedCount = logs.Count(l => l.Status.Equals("Failed", StringComparison.OrdinalIgnoreCase));
-            var pendingCount = logs.Count(l => l.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase));
+            var stats = StatisticsCalculator.ComputeMessageStatusStats(logs);
 
-            _logger.LogInformation($"Message stats - Sent: {sentCount}, Failed: {failedCount}, Pending: {pendingCount}");
+            _logger.LogInformation(
+                "Message stats - Sent: {Sent}, Failed: {Failed}, Pending: {Pending}",
+                stats.SentCount, stats.FailedCount, stats.PendingCount);
 
-            return new MessageStatusStatsDto
-            {
-                SentCount = sentCount,
-                FailedCount = failedCount,
-                PendingCount = pendingCount,
-                TotalCount = logs.Count
-            };
+            return stats;
         }
         catch (Exception ex)
         {
@@ -61,30 +53,16 @@ public class StatisticsService
     {
         try
         {
-            // Get all message logs
             var logs = await _storageManager.GetAllMessageLogs();
-
-            // Get unique users messaged (distinct recipient UPNs)
-            var uniqueUsersMessaged = logs
-                .Where(l => !string.IsNullOrWhiteSpace(l.RecipientUpn))
-                .Select(l => l.RecipientUpn!)
-                .Distinct()
-                .Count();
-
-            // Get total users in tenant from Graph
             var totalUsersInTenant = await _graphService.GetTotalUserCount();
 
-            _logger.LogInformation($"User coverage - Messaged: {uniqueUsersMessaged}, Total in tenant: {totalUsersInTenant}");
+            var stats = StatisticsCalculator.ComputeUserCoverageStats(logs, totalUsersInTenant);
 
-            return new UserCoverageStatsDto
-            {
-                UsersMessaged = uniqueUsersMessaged,
-                TotalUsersInTenant = totalUsersInTenant,
-                UsersNotMessaged = totalUsersInTenant - uniqueUsersMessaged,
-                CoveragePercentage = totalUsersInTenant > 0 
-                    ? Math.Round((double)uniqueUsersMessaged / totalUsersInTenant * 100, 2) 
-                    : 0
-            };
+            _logger.LogInformation(
+                "User coverage - Messaged: {Messaged}, Total in tenant: {Total}",
+                stats.UsersMessaged, stats.TotalUsersInTenant);
+
+            return stats;
         }
         catch (Exception ex)
         {

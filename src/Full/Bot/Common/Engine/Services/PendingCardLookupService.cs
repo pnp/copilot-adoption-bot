@@ -131,38 +131,17 @@ public class PendingCardLookupService
                 return new List<PendingCardInfo>();
             }
 
-            // Get all pending cards with their templates
-            var pendingCards = new List<PendingCardInfo>();
-            foreach (var log in pendingLogs.OrderByDescending(l => l.SentDate))
-            {
-                try
-                {
-                    var batch = await _storageManager.GetBatch(log.MessageBatchId);
-                    if (batch == null) continue;
-
-                    var template = await _storageManager.GetTemplate(batch.TemplateId);
-                    if (template == null) continue;
-
-                    var templateJson = await _storageManager.GetTemplateJson(batch.TemplateId);
-                    var cardAttachment = CreateCardAttachment(templateJson);
-
-                    pendingCards.Add(new PendingCardInfo
-                    {
-                        MessageLogId = log.RowKey,
-                        BatchId = log.MessageBatchId,
-                        TemplateId = batch.TemplateId,
-                        TemplateName = template.TemplateName,
-                        CardJson = templateJson,
-                        CardAttachment = cardAttachment,
-                        SentDate = log.SentDate,
-                        RecipientUpn = log.RecipientUpn ?? upn
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, $"Error processing pending card for log {log.RowKey}");
-                }
-            }
+            // Get all pending cards with their templates.
+            // Cache batch + template + JSON lookups so each unique batch/template is fetched only once
+            // even when many message logs reference the same batch (avoids N+1 storage round trips).
+            var pendingCards = await PendingCardMaterializer.MaterializeAsync(
+                upn,
+                pendingLogs,
+                _storageManager.GetBatch,
+                _storageManager.GetTemplate,
+                _storageManager.GetTemplateJson,
+                CreateCardAttachment,
+                (log, ex) => _logger.LogWarning(ex, $"Error processing pending card for log {log.RowKey}"));
 
             _logger.LogInformation($"Found {pendingCards.Count} pending cards for user {upn}");
             return pendingCards;
