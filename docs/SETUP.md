@@ -16,7 +16,7 @@ This guide covers setting up the Copilot Adoption Bot for local development and 
 ### Development Tools
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [Node.js 18+](https://nodejs.org/)
+- [Node.js 20 LTS](https://nodejs.org/)
 - [Azure Subscription](https://azure.microsoft.com/free/)
 - [Microsoft 365 tenant](https://developer.microsoft.com/microsoft-365/dev-program) with Teams
 

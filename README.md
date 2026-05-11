@@ -76,6 +76,7 @@ Traditional training emails get ignored. Long training sessions are forgotten. *
 | **[Usage Guide](docs/USAGE.md)** | How to create templates and send messages |
 | **[Features Guide](docs/FEATURES.md)** | Detailed feature documentation |
 | **[Deployment Guide](docs/DEPLOYMENT.md)** | Azure deployment and CI/CD pipelines |
+| **[Deploy with Copilot CLI](docs/DEPLOYMENT-COPILOT-CLI.md)** | Agent-guided Azure deployment from your terminal |
 | **[Security Guide](docs/SECURITY.md)** | Security best practices |
 | **[Troubleshooting](docs/TROUBLESHOOTING.md)** | Common issues and solutions |
 
@@ -85,7 +86,7 @@ Traditional training emails get ignored. Long training sessions are forgotten. *
 
 ### 1. Prerequisites
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [Node.js 18+](https://nodejs.org/)
+- [Node.js 20 LTS](https://nodejs.org/)
 - [Azure Subscription](https://azure.microsoft.com/free/)
 - [Microsoft 365 tenant](https://developer.microsoft.com/microsoft-365/dev-program) with Teams
 

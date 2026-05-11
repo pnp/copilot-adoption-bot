@@ -2,14 +2,18 @@
 
 This guide provides an overview of deployment options for the Copilot Adoption Bot Teams application. For detailed instructions, see the specific deployment guides linked below.
 
-## Deployment Guides
+## Choose Your Deployment Path
 
-| Guide | Description |
-|-------|-------------|
-| **[Manual Deployment](DEPLOYMENT-MANUAL.md)** | Step-by-step Azure resource setup and manual deployment |
-| **[GitHub Actions](DEPLOYMENT-GITHUB-ACTIONS.md)** | Automated CI/CD using GitHub Actions with OIDC authentication |
-| **[Azure DevOps](DEPLOYMENT-AZURE-DEVOPS.md)** | Automated CI/CD using Azure DevOps Pipelines |
-| **[Copilot CLI](DEPLOYMENT-COPILOT-CLI.md)** | Interactive agent-guided deployment using GitHub Copilot CLI |
+Pick the guide that matches how you work:
+
+| Guide | Best for | Automation | Recommended when |
+|-------|----------|-----------|------------------|
+| **[Copilot CLI](DEPLOYMENT-COPILOT-CLI.md)** | One-off / first-time deployments from your terminal | Fully agent-driven | You want a guided walkthrough, or you have an existing `deployment-config.json` |
+| **[Manual Deployment](DEPLOYMENT-MANUAL.md)** | Learning the moving parts, locked-down environments | Hand-run `az` commands | You can't install Copilot CLI, or you want full visibility of every step |
+| **[GitHub Actions](DEPLOYMENT-GITHUB-ACTIONS.md)** | Teams using GitHub for source control | Push-to-deploy CI/CD | Code lives on GitHub and you want automated rollouts on `main` |
+| **[Azure DevOps](DEPLOYMENT-AZURE-DEVOPS.md)** | Teams using Azure DevOps for source control | Pipeline-based CI/CD | Code lives in Azure Repos / you already use Azure Pipelines |
+
+> First time deploying? Start with **Copilot CLI** if you have it installed, otherwise **Manual Deployment**. Move to **GitHub Actions** or **Azure DevOps** once you want repeatable rollouts.
 
 > **Looking for local development setup?** See the [Development Environment Guide](DEVELOPMENT.md) for tools, secrets management, and tunneling setup.
 >
@@ -316,7 +320,7 @@ Choose your deployment method:
 
 | Issue | Solution |
 |-------|----------|
-| Build fails on Node.js step | Ensure Node.js 18+ is being used and `package-lock.json` is committed |
+| Build fails on Node.js step | Ensure Node.js 20 LTS is being used and `package-lock.json` is committed |
 | Build fails on .NET step | Ensure .NET 10 SDK is available and solution builds locally |
 | Azure deployment fails with 401/403 | Verify service principal permissions and credentials |
 | App starts but bot doesn't respond | Check messaging endpoint configuration and Application Insights logs |

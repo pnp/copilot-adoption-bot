@@ -12,6 +12,14 @@ Common issues and solutions for the Copilot Adoption Bot.
 - [Copilot Stats Issues](#copilot-stats-issues)
 - [Performance Issues](#performance-issues)
 
+> **Looking for deployment-specific issues?** See also:
+> - [Manual Deployment troubleshooting](DEPLOYMENT-MANUAL.md)
+> - [GitHub Actions troubleshooting](DEPLOYMENT-GITHUB-ACTIONS.md)
+> - [Azure DevOps troubleshooting](DEPLOYMENT-AZURE-DEVOPS.md)
+> - [Copilot CLI troubleshooting](DEPLOYMENT-COPILOT-CLI.md#troubleshooting)
+>
+> **Setting issues?** Check the [Configuration Reference cheat sheet](CONFIGURATION.md#cheat-sheet) for the exact key names.
+
 ## Authentication Issues
 
 ### Error: "Current authenticated context is not valid for this request"

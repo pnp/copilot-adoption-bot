@@ -2,6 +2,25 @@
 
 This guide enables you to deploy the Copilot Adoption Bot entirely from the **GitHub Copilot CLI** terminal agent. The agent will create Azure resources, configure the app, build, deploy, and set up the Teams app — but it needs information from you first.
 
+## TL;DR — Quickest Start
+
+Already have a bot app registration, an Azure subscription, and Copilot CLI installed?
+
+```bash
+# 1. Copy the config template and fill in your values
+cp docs/deployment-config.example.json deployment-config.json
+
+# 2. Launch Copilot CLI in this repo and paste:
+#    "Deploy the Copilot Adoption Bot using deployment-config.json.
+#     Follow docs/DEPLOYMENT-COPILOT-CLI.md."
+```
+
+The agent will read your config, create everything, build, deploy, and print a summary at the end. Manual steps (admin consent, bot endpoint, Teams app upload) are surfaced explicitly so you don't miss them.
+
+If you don't have a config file yet, [Option B below](#option-b--fully-interactive) walks you through every question.
+
+---
+
 ## Prerequisites
 
 Before you start, make sure you have:
@@ -236,12 +255,75 @@ The structure of `deployment-config.json` mirrors the questions above. See [`dep
 
 ---
 
+## Redeploying / Updating
+
+To push a new build of the same app, run this prompt:
+
+```
+Redeploy the Copilot Adoption Bot to the existing App Service named <app-name> in
+resource group <resource-group>:
+1. Build the frontend: cd src/Full/Bot/Web/web.client && npm ci && npm run build
+2. Publish the backend: cd src/Full/Bot && dotnet publish Web/Web.Server/Web.Server.csproj -c Release -o ./publish
+3. Zip the publish folder and run `az webapp deploy --src-path deploy.zip --type zip`
+4. Tail the logs with `az webapp log tail` and confirm the app started cleanly.
+```
+
+The agent will skip Azure resource creation and just rebuild & redeploy. App settings, RBAC roles, and the Entra app registration are preserved.
+
+> **App settings changed?** If you added a new config key (e.g., enabling AI Foundry), include it in the prompt: *"...and set AIFoundryConfig\_\_Endpoint, AIFoundryConfig\_\_DeploymentName, AIFoundryConfig\_\_ApiKey on the app before redeploying."*
+
+---
+
+## Tearing Down
+
+To delete everything created by a deployment, use this prompt:
+
+```
+Tear down the Copilot Adoption Bot deployment:
+1. Delete the resource group <resource-group> with `az group delete --yes --no-wait`.
+   That removes the App Service, plan, storage account, App Insights and Key Vault.
+2. Delete the Entra app registration(s) created for the bot and (if any) web admin
+   panel: `az ad app delete --id <appId>`. Ask me first which apps were created so
+   we don't delete a shared one.
+3. Remind me to remove the Teams app from the org catalog (Teams Admin Center →
+   Manage apps → ... → Delete) and from any users' personal scope if it was
+   sideloaded.
+```
+
+> ⚠️ The agent should always confirm the resource group name and app registration IDs before deleting anything.
+
+---
+
 ## Troubleshooting
+
+### Azure CLI / deployment issues
 
 | Issue | Solution |
 |-------|----------|
-| `DOTNET\|10.0` runtime not available | Try a different region, or use `DOTNETCORE\|10.0`. The .NET 10 stack is still rolling out. |
-| Storage 403 Forbidden | If using RBAC, ensure managed identity is enabled and roles are assigned. Role assignments can take up to 5 minutes to propagate. |
-| Bot not responding in Teams | Verify the messaging endpoint is `https://<app>/api/messages` in the Teams Developer Portal. |
-| Graph API 401/403 | Ensure admin consent was granted for all required permissions. |
-| Frontend not loading | Check that the App Service is running .NET 10 and the SPA files were included in the publish output. |
+| `DOTNET\|10.0` runtime not available in region | The .NET 10 stack is rolling out regionally. Try `eastus`, `westeurope`, `westus3`, or fall back to `DOTNETCORE\|10.0`. |
+| `WebAppName ... is not available` | App Service names are globally unique. Use a more specific prefix (e.g., add tenant initials or a random suffix). |
+| Storage account name rejected | Must be 3-24 chars, lowercase letters + digits only, globally unique. The agent should generate one automatically; tell it your preferred prefix. |
+| `az login` works but commands fail with `AuthorizationFailed` | Confirm you're on the right subscription: `az account show`. Switch with `az account set --subscription "..."`. |
+| `az ad app create` fails with `Insufficient privileges` | You need the **Application Administrator** or **Cloud Application Administrator** role to create app registrations. Ask your tenant admin or use an existing app registration (set `bot.mode: "existing"`). |
+| `az role assignment create` fails | The signed-in user needs `Microsoft.Authorization/roleAssignments/write` (Owner or User Access Administrator) at the storage account scope. |
+| Deploy step says "Conflict" / 409 | A previous deployment is still in progress. Wait 1-2 minutes, then retry. |
+
+### Runtime issues after deployment
+
+| Issue | Solution |
+|-------|----------|
+| Storage 403 Forbidden | If using RBAC, ensure managed identity is enabled (`az webapp identity show`) and all three roles (Blob/Table/Queue Data Contributor) are assigned. Role assignments can take up to 5 minutes to propagate. |
+| Bot not responding in Teams | Verify the messaging endpoint is `https://<app>/api/messages` in the Teams Developer Portal. Check `az webapp log tail` for incoming requests. |
+| Graph API 401/403 | Ensure admin consent was granted for all required permissions. Re-run `az ad app permission admin-consent --id <appId>` if needed. Note: requires Application Administrator role. |
+| Frontend not loading (blank page or 404 on `/`) | Check the publish output included `wwwroot/index.html`. If the frontend wasn't built before `dotnet publish`, the SPA files will be missing. Rebuild and redeploy. |
+| `appsettings.json` values aren't taking effect | Confirm you used `__` (double underscore) for nested keys in `az webapp config appsettings set`, not `:` or `.`. |
+| AI Foundry calls fail | Check the deployment name matches exactly (case-sensitive) and the endpoint includes the trailing `/`. |
+
+### Config-file issues
+
+| Issue | Solution |
+|-------|----------|
+| Agent says "config file missing" | The agent looks for `deployment-config.json` at the repo root by default. If yours is elsewhere, pass the full path in your prompt. |
+| Agent re-asks values that are in the file | Check the JSON is valid (`Get-Content deployment-config.json \| ConvertFrom-Json` on Windows, or `jq . deployment-config.json` on Unix). A single trailing comma will silently invalidate it. |
+| Secrets accidentally committed | Rotate them immediately (bot client secret, storage key, AI Foundry key) and use `git filter-repo` or BFG to scrub history. Then double-check `.gitignore` includes `deployment-config.json`. |
+

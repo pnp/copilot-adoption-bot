@@ -2,6 +2,40 @@
 
 This document provides a complete reference for all configuration settings in the Copilot Adoption Bot.
 
+## Cheat Sheet
+
+Quick reference of every supported setting. Required = needed for the app to start; "if X" = conditionally required when a feature is enabled. See the detailed sections below for descriptions and examples.
+
+| JSON Path | Env Var | Required |
+|-----------|---------|----------|
+| `MicrosoftAppId` | `MicrosoftAppId` | Yes |
+| `MicrosoftAppPassword` | `MicrosoftAppPassword` | Yes |
+| `MicrosoftAppType` | `MicrosoftAppType` | No (default `SingleTenant`) |
+| `GraphConfig:ClientId` | `GraphConfig__ClientId` | Yes |
+| `GraphConfig:ClientSecret` | `GraphConfig__ClientSecret` | Yes |
+| `GraphConfig:TenantId` | `GraphConfig__TenantId` | Yes |
+| `GraphConfig:Authority` | `GraphConfig__Authority` | No |
+| `GraphConfig:ApiAudience` | `GraphConfig__ApiAudience` | No |
+| `ConnectionStrings:Storage` | `ConnectionStrings__Storage` | If not using RBAC |
+| `StorageAuthConfig:UseRBAC` | `StorageAuthConfig__UseRBAC` | If using RBAC |
+| `StorageAuthConfig:StorageAccountName` | `StorageAuthConfig__StorageAccountName` | If using RBAC |
+| `StorageAuthConfig:RBACOverrideCredentials:ClientId` | `StorageAuthConfig__RBACOverrideCredentials__ClientId` | No |
+| `StorageAuthConfig:RBACOverrideCredentials:ClientSecret` | `StorageAuthConfig__RBACOverrideCredentials__ClientSecret` | No |
+| `StorageAuthConfig:RBACOverrideCredentials:TenantId` | `StorageAuthConfig__RBACOverrideCredentials__TenantId` | No |
+| `WebAuthConfig:ClientId` | `WebAuthConfig__ClientId` | If using web admin panel |
+| `WebAuthConfig:ClientSecret` | `WebAuthConfig__ClientSecret` | If using web admin panel |
+| `WebAuthConfig:TenantId` | `WebAuthConfig__TenantId` | If using web admin panel |
+| `WebAuthConfig:ApiAudience` | `WebAuthConfig__ApiAudience` | If using web admin panel |
+| `AppCatalogTeamAppId` | `AppCatalogTeamAppId` | No |
+| `AIFoundryConfig:Endpoint` | `AIFoundryConfig__Endpoint` | If using AI features |
+| `AIFoundryConfig:DeploymentName` | `AIFoundryConfig__DeploymentName` | If using AI features |
+| `AIFoundryConfig:ApiKey` | `AIFoundryConfig__ApiKey` | If using AI features |
+| `AIFoundryConfig:MaxTokens` | `AIFoundryConfig__MaxTokens` | No (default `2000`) |
+| `AIFoundryConfig:Temperature` | `AIFoundryConfig__Temperature` | No (default `0.7`) |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | `APPLICATIONINSIGHTS_CONNECTION_STRING` | No |
+
+---
+
 ## Configuration Methods
 
 The application supports multiple configuration methods, applied in this order of precedence (highest to lowest):
