@@ -256,14 +256,19 @@ public class GraphUserService : IExternalUserService
     }
 
     /// <summary>
-    /// Get managers for batch of users (for enrichment).
+    /// Get managers for batch of users (for enrichment). Parallelism is bounded so we
+    /// don't trigger Graph throttling on large tenants.
     /// </summary>
     public async Task EnrichUsersWithManagersAsync(List<EnrichedUserInfo> users)
     {
         _logger.LogInformation($"Enriching {users.Count} users with manager information...");
-        
+
+        const int maxParallelism = 16;
+        using var throttler = new SemaphoreSlim(maxParallelism);
+
         var tasks = users.Select(async user =>
         {
+            await throttler.WaitAsync();
             try
             {
                 var manager = await _graphClient.Users[user.UserPrincipalName].Manager.GetAsync();
@@ -277,6 +282,10 @@ public class GraphUserService : IExternalUserService
             {
                 // Manager not found or not accessible - continue
             }
+            finally
+            {
+                throttler.Release();
+            }
         });
 
         await Task.WhenAll(tasks);
@@ -285,15 +294,19 @@ public class GraphUserService : IExternalUserService
 
     /// <summary>
     /// Enrich users with Microsoft 365 Copilot license information in parallel.
+    /// Parallelism is bounded to avoid Graph throttling on large tenants.
     /// </summary>
     public async Task EnrichUsersWithLicenseInfoAsync(List<EnrichedUserInfo> users)
     {
         _logger.LogInformation($"Enriching {users.Count} users with license information...");
-        
+
         const string copilotSkuId = "Microsoft_365_Copilot";
-        
+        const int maxParallelism = 16;
+        using var throttler = new SemaphoreSlim(maxParallelism);
+
         var tasks = users.Select(async user =>
         {
+            await throttler.WaitAsync();
             try
             {
                 var licenses = await _graphClient.Users[user.Id]
@@ -302,7 +315,7 @@ public class GraphUserService : IExternalUserService
 
                 if (licenses?.Value != null)
                 {
-                    user.HasCopilotLicense = licenses.Value.Any(license => 
+                    user.HasCopilotLicense = licenses.Value.Any(license =>
                         license.SkuPartNumber?.Equals(copilotSkuId, StringComparison.OrdinalIgnoreCase) == true);
                 }
             }
@@ -311,10 +324,14 @@ public class GraphUserService : IExternalUserService
                 _logger.LogDebug($"Could not retrieve license info for user {user.UserPrincipalName}: {ex.Message}");
                 // Continue without license info
             }
+            finally
+            {
+                throttler.Release();
+            }
         });
 
         await Task.WhenAll(tasks);
-        
+
         var usersWithCopilot = users.Count(u => u.HasCopilotLicense);
         _logger.LogInformation($"License enrichment completed. {usersWithCopilot} users have Copilot licenses");
     }

@@ -125,7 +125,7 @@ cd Web/web.client
 npm run dev
 ```
 
-Visit `https://localhost:5001` for the API and `http://localhost:5173` for the web interface.
+Visit `https://localhost:5173` for the web interface during development (the Vite dev server, which proxies API calls to the backend). The backend API itself listens on `https://localhost:7053` and `http://localhost:5295` (set in `Web.Server/Properties/launchSettings.json`; watch the `dotnet run` output for the actual values).
 
 ---
 

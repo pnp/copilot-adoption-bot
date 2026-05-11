@@ -147,20 +147,42 @@ public class SmartGroupStorageManager : TableStorageManager
     #region Smart Group Member Cache
 
     /// <summary>
-    /// Cache resolved smart group members
+    /// Cache resolved smart group members. All members for a group share the same
+    /// partition key (the groupId), so we can submit inserts as transactional batches
+    /// (up to 100 ops per batch) - O(N/100) round trips instead of O(N).
     /// </summary>
     public async Task CacheSmartGroupMembers(string groupId, List<SmartGroupMemberCacheEntity> members)
     {
         // Clear existing cache first
         await ClearSmartGroupMemberCache(groupId);
 
+        if (members.Count == 0) return;
+
         var tableClient = await GetTableClient(SMART_GROUP_MEMBERS_TABLE_NAME);
 
+        var now = DateTime.UtcNow;
         foreach (var member in members)
         {
             member.PartitionKey = groupId;
-            member.CachedDate = DateTime.UtcNow;
-            await tableClient.AddEntityAsync(member);
+            member.CachedDate = now;
+        }
+
+        var ops = members.Select(m => new TableTransactionAction(TableTransactionActionType.Add, m));
+        try
+        {
+            await TableBatch.SubmitInBatchesAsync(tableClient, ops);
+        }
+        catch (Azure.RequestFailedException ex)
+        {
+            _logger.LogWarning(ex, "Batched smart-group member insert failed for {GroupId}; falling back to per-entity inserts", groupId);
+            foreach (var member in members)
+            {
+                try { await tableClient.AddEntityAsync(member); }
+                catch (Azure.RequestFailedException innerEx) when (innerEx.Status == 409)
+                {
+                    // Already present (race). Ignore.
+                }
+            }
         }
 
         _logger.LogInformation($"Cached {members.Count} members for smart group {groupId}");
@@ -173,9 +195,10 @@ public class SmartGroupStorageManager : TableStorageManager
     {
         var tableClient = await GetTableClient(SMART_GROUP_MEMBERS_TABLE_NAME);
         var members = new List<SmartGroupMemberCacheEntity>();
+        var safeGroupId = ODataFilter.EscapeLiteral(groupId);
 
         await foreach (var entity in tableClient.QueryAsync<SmartGroupMemberCacheEntity>(
-            filter: $"PartitionKey eq '{groupId}'"))
+            filter: $"PartitionKey eq '{safeGroupId}'"))
         {
             members.Add(entity);
         }
@@ -184,16 +207,36 @@ public class SmartGroupStorageManager : TableStorageManager
     }
 
     /// <summary>
-    /// Clear the member cache for a smart group
+    /// Clear the member cache for a smart group. Uses transactional batches because all
+    /// members share the groupId partition key.
     /// </summary>
     public async Task ClearSmartGroupMemberCache(string groupId)
     {
         var tableClient = await GetTableClient(SMART_GROUP_MEMBERS_TABLE_NAME);
         var existingMembers = await GetCachedSmartGroupMembers(groupId);
 
-        foreach (var member in existingMembers)
+        if (existingMembers.Count == 0)
         {
-            await tableClient.DeleteEntityAsync(member.PartitionKey, member.RowKey);
+            _logger.LogDebug("No cached members to clear for smart group {GroupId}", groupId);
+            return;
+        }
+
+        var ops = existingMembers.Select(m => new TableTransactionAction(TableTransactionActionType.Delete, m));
+        try
+        {
+            await TableBatch.SubmitInBatchesAsync(tableClient, ops);
+        }
+        catch (Azure.RequestFailedException ex)
+        {
+            _logger.LogWarning(ex, "Batched smart-group member delete failed for {GroupId}; falling back to per-entity deletes", groupId);
+            foreach (var member in existingMembers)
+            {
+                try { await tableClient.DeleteEntityAsync(member.PartitionKey, member.RowKey); }
+                catch (Azure.RequestFailedException innerEx) when (innerEx.Status == 404)
+                {
+                    // Already gone. Ignore.
+                }
+            }
         }
 
         _logger.LogInformation($"Cleared member cache for smart group {groupId}");

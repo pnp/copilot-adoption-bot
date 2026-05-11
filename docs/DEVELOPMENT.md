@@ -12,7 +12,7 @@ This guide covers setting up a local development environment for the Copilot Ado
 | [Node.js](https://nodejs.org/) | 18+ | Frontend development | [Download](https://nodejs.org/) |
 | [npm](https://www.npmjs.com/) | 9+ | Package management | Included with Node.js |
 | [Git](https://git-scm.com/) | Latest | Version control | [Download](https://git-scm.com/) |
-| [Visual Studio 2022](https://visualstudio.microsoft.com/) or [VS Code](https://code.visualstudio.com/) | Latest | IDE | [VS 2022](https://visualstudio.microsoft.com/) / [VS Code](https://code.visualstudio.com/) |
+| [Visual Studio 2022 (17.12+)](https://visualstudio.microsoft.com/), [Visual Studio 2026](https://visualstudio.microsoft.com/) or [VS Code](https://code.visualstudio.com/) | Latest | IDE (.NET 10 SDK required) | [VS](https://visualstudio.microsoft.com/) / [VS Code](https://code.visualstudio.com/) |
 
 ### Optional Tools
 
@@ -119,7 +119,7 @@ Create `src/Full/Bot/Web/web.client/.env.local`:
 VITE_MSAL_CLIENT_ID=your-bot-app-id
 VITE_MSAL_AUTHORITY=https://login.microsoftonline.com/your-tenant-id
 VITE_MSAL_SCOPES=api://your-bot-app-id/access_as_user
-VITE_TEAMSFX_START_LOGIN_PAGE_URL=https://localhost:5001/auth-start.html
+VITE_TEAMSFX_START_LOGIN_PAGE_URL=https://localhost:5173/auth-start.html
 ```
 
 ---
@@ -148,15 +148,15 @@ cd Web/web.client
 npm run dev
 ```
 
-The React app will be available at `http://localhost:5173`.
+The React app will be available at `https://localhost:5173` (HTTPS - Vite proxies API calls to the backend).
 
 ### Access Points (defaults)
 
 | URL | Description |
 |-----|-------------|
-| `https://localhost:7053` | Backend API |
+| `https://localhost:5173` | **Frontend (Vite dev server)** - what you open in the browser |
+| `https://localhost:7053` | Backend API (called via the Vite proxy from the frontend) |
 | `https://localhost:7053/swagger` | API documentation |
-| `http://localhost:5173` | Frontend (dev server) |
 
 ---
 

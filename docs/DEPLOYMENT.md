@@ -53,18 +53,19 @@ The storage account requires Table Storage, Blob Storage **and Queue Storage**:
 ```
 Storage Account
 ├── Table Storage
-│   ├── messagetemplates     (template metadata)
-│   ├── messagebatches       (recipient batch metadata)
-│   ├── messagelogs          (per-recipient delivery tracking)
-│   ├── ConversationCache    (bot conversation references)
-│   ├── usercache            (cached user / Copilot data)
-│   ├── usersyncmetadata     (delta-sync watermark)
-│   ├── smartgroups          (AI-resolved group definitions)
-│   └── settings             (key/value app settings)
+│   ├── messagetemplates       (template metadata)
+│   ├── messagebatches         (recipient batch metadata)
+│   ├── messagelogs            (per-recipient delivery tracking)
+│   ├── ConversationCache      (bot conversation references)
+│   ├── usercache              (cached user / Copilot data)
+│   ├── usersyncmetadata       (delta-sync watermark)
+│   ├── smartgroups            (AI-resolved group definitions)
+│   ├── smartgroupmembers      (cached members per smart group)
+│   └── appsettings            (key/value app settings)
 ├── Blob Storage
-│   └── message-templates    (container for adaptive-card JSON payloads)
+│   └── message-templates      (container for adaptive-card JSON payloads)
 └── Queue Storage
-    └── batch-messages       (queue used by the background sender)
+    └── batch-messages         (queue used by the background sender)
 ```
 
 > **Note**: All containers, tables and queues are automatically created by the application on first run.

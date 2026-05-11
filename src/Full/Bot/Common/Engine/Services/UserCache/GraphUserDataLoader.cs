@@ -213,22 +213,25 @@ public class GraphUserDataLoader : IUserDataLoader
 
             _logger.LogInformation($"Checking license info for {users.Count} users...");
 
-            // Fetch license info for each user in parallel
+            // Bound parallelism so we don't trigger Graph throttling (HTTP 429) on large tenants.
+            // Replace the manual lock + plain dictionary with a thread-safe one.
+            const int maxParallelism = 16;
+            using var throttler = new SemaphoreSlim(maxParallelism);
+            var concurrentLicenseInfo = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>();
+
             var tasks = users.Select(async user =>
             {
+                await throttler.WaitAsync();
                 try
                 {
                     var licenses = await _graphClient.Users[user.Id].LicenseDetails.GetAsync();
-                    
-                    var hasCopilot = licenses?.Value?.Any(license => 
+
+                    var hasCopilot = licenses?.Value?.Any(license =>
                         license.SkuPartNumber?.Equals(copilotSkuId, StringComparison.OrdinalIgnoreCase) == true) ?? false;
 
-                    lock (licenseInfo)
+                    if (!string.IsNullOrEmpty(user.UserPrincipalName))
                     {
-                        if (!string.IsNullOrEmpty(user.UserPrincipalName))
-                        {
-                            licenseInfo[user.UserPrincipalName] = hasCopilot;
-                        }
+                        concurrentLicenseInfo[user.UserPrincipalName] = hasCopilot;
                     }
                 }
                 catch (Exception ex)
@@ -236,9 +239,18 @@ public class GraphUserDataLoader : IUserDataLoader
                     _logger.LogDebug($"Could not retrieve license info for user {user.UserPrincipalName}: {ex.Message}");
                     // Continue without license info for this user
                 }
+                finally
+                {
+                    throttler.Release();
+                }
             });
 
             await Task.WhenAll(tasks);
+
+            foreach (var kvp in concurrentLicenseInfo)
+            {
+                licenseInfo[kvp.Key] = kvp.Value;
+            }
 
             var usersWithCopilot = licenseInfo.Count(kvp => kvp.Value);
             _logger.LogInformation($"License info retrieved for {licenseInfo.Count} users. {usersWithCopilot} have Copilot licenses");

@@ -69,8 +69,9 @@ gotchas of this repo. Keep it short, specific and current.
   doesn't abort the whole job.
 - **Tables in use** (all auto-created on first run):
   `messagetemplates`, `messagebatches`, `messagelogs`, `ConversationCache`, `usercache`,
-  `usersyncmetadata`, `smartgroups`, `settings`. Blob container: `message-templates`.
-  Queue: `batch-messages`. Keep `docs/DEPLOYMENT.md` in sync if you add/rename any.
+  `usersyncmetadata`, `smartgroups`, `smartgroupmembers`, `appsettings`. Blob container:
+  `message-templates`. Queue: `batch-messages`. Keep `docs/DEPLOYMENT.md` in sync if you
+  add/rename any.
 - **RBAC roles required** (RBAC path): `Storage Blob Data Contributor`,
   `Storage Table Data Contributor`, `Storage Queue Data Contributor`.
 
@@ -102,12 +103,19 @@ gotchas of this repo. Keep it short, specific and current.
 
 - Backend: `cd Web/Web.Server && dotnet run` – default URLs come from
   `Properties/launchSettings.json` (`https://localhost:7053`, `http://localhost:5295`).
-- Frontend: `cd Web/web.client && npm install && npm run dev` – `http://localhost:5173`.
-- Tunnel for bot testing: expose the **HTTPS** backend port (`7053` by default).
-  Update the bot endpoint in the Teams Developer Portal to
+- Frontend: `cd Web/web.client && npm install && npm run dev` – Vite serves the
+  React app on **`https://localhost:5173`** (HTTPS) and proxies `/api/*` to the
+  backend on `7053`. **Open `https://localhost:5173` in the browser**, not the
+  backend port.
+- Tunnel for bot testing: expose the **backend HTTPS** port (`7053` by default) –
+  the bot messaging endpoint `/api/messages` is served by `Web.Server`, not by
+  Vite. Update the bot endpoint in the Teams Developer Portal to
   `https://<tunnel>/api/messages`.
-- Secrets live in **.NET User Secrets** (`Web.Server` project). Never commit
-  secrets or `appsettings.json` with real values to git.
+- Secrets live in **.NET User Secrets** (`Web.Server` project + `UnitTests`
+  project, each with their own `UserSecretsId`). Local dev typically points at
+  **Azurite** (`UseDevelopmentStorage=true` in `StorageAuthConfig.ConnectionString`
+  / `ConnectionStrings:Storage`, `UseRBAC=false`). Never commit secrets or
+  `appsettings.json` with real values.
 
 ## Style
 
@@ -129,6 +137,12 @@ gotchas of this repo. Keep it short, specific and current.
 - Runtime: App Service `.NET 10` stack identifier (`DOTNET|10.0` / `DOTNETCORE|10.0`)
   is regionally rolled out. Don't hard-code expectations of its availability in
   deployment docs.
+
+## Agent behavior (applies to all work in this repo)
+
+- **Never run `git commit` or `git push` unless the user explicitly asks.** Make
+  edits and stop. The user reviews the diff and decides when to commit.
+- This rule applies to every folder in this repository, not just `src/Full/Bot`.
 
 ## When in doubt
 

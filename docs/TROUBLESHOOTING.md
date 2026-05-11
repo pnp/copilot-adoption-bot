@@ -93,7 +93,7 @@ Common issues and solutions for the Copilot Adoption Bot.
    - Go to Azure Portal → Entra ID → App registrations → Your app
    - Go to Authentication
    - Add redirect URIs:
-     - For local: `https://localhost:5001/auth-end.html`
+     - For local: `https://localhost:5173/auth-end.html`
      - For production: `https://your-app.azurewebsites.net/auth-end.html`
 
 2. **Configure CORS:**
@@ -311,8 +311,8 @@ Common issues and solutions for the Copilot Adoption Bot.
    - Ensure Table service is enabled
 
 2. **Check Table Names:**
-   - MessageTemplates
-   - MessageLogs
+   - messagetemplates
+   - messagelogs
    - UserCache
    - SyncMetadata
 

@@ -453,7 +453,7 @@ cd Web/Web.Server
 dotnet run
 ```
 
-The API will be available at `https://localhost:5001` (or configured port)
+The API will be available at `https://localhost:7053` (the exact port comes from `Web.Server/Properties/launchSettings.json` and is printed to the console on startup)
 
 **Frontend:**
 ```bash
@@ -461,7 +461,7 @@ cd Web/web.client
 npm run dev
 ```
 
-The React app will be available at `http://localhost:5173`
+The React app will be available at `https://localhost:5173` (the Vite dev server uses HTTPS and proxies API calls to the backend)
 
 ### Production Mode
 

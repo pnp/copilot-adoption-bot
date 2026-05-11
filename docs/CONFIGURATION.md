@@ -423,14 +423,14 @@ The React frontend uses environment variables defined in `.env.local`:
 | `VITE_MSAL_CLIENT_ID` | Client ID for MSAL authentication | `your-bot-app-id` |
 | `VITE_MSAL_AUTHORITY` | Azure AD authority | `https://login.microsoftonline.com/your-tenant-id` |
 | `VITE_MSAL_SCOPES` | API scopes for access token | `api://your-app-id/access_as_user` |
-| `VITE_TEAMSFX_START_LOGIN_PAGE_URL` | Login redirect URL | `https://localhost:5001/auth-start.html` |
+| `VITE_TEAMSFX_START_LOGIN_PAGE_URL` | Login redirect URL | `https://localhost:5173/auth-start.html` |
 
 **Example `.env.local`:**
 ```env
 VITE_MSAL_CLIENT_ID=12345678-1234-1234-1234-123456789abc
 VITE_MSAL_AUTHORITY=https://login.microsoftonline.com/your-tenant-id
 VITE_MSAL_SCOPES=api://12345678-1234-1234-1234-123456789abc/access_as_user
-VITE_TEAMSFX_START_LOGIN_PAGE_URL=https://localhost:5001/auth-start.html
+VITE_TEAMSFX_START_LOGIN_PAGE_URL=https://localhost:5173/auth-start.html
 ```
 
 ---

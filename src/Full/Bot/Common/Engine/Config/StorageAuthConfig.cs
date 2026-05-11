@@ -29,7 +29,7 @@ public class StorageAuthConfig : PropertyBoundConfig
     /// Only used when UseRBAC is true.
     /// If not provided, DefaultAzureCredential will be used (Managed Identity, Azure CLI, etc.)
     /// </summary>
-    [ConfigSection()]
+    [ConfigSection(Optional = true)]
     public AzureADAuthConfig? RBACOverrideCredentials { get; set; }
 
     /// <summary>
