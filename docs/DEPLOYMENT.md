@@ -9,6 +9,7 @@ This guide provides an overview of deployment options for the Copilot Adoption B
 | **[Manual Deployment](DEPLOYMENT-MANUAL.md)** | Step-by-step Azure resource setup and manual deployment |
 | **[GitHub Actions](DEPLOYMENT-GITHUB-ACTIONS.md)** | Automated CI/CD using GitHub Actions with OIDC authentication |
 | **[Azure DevOps](DEPLOYMENT-AZURE-DEVOPS.md)** | Automated CI/CD using Azure DevOps Pipelines |
+| **[Copilot CLI](DEPLOYMENT-COPILOT-CLI.md)** | Interactive agent-guided deployment using GitHub Copilot CLI |
 
 > **Looking for local development setup?** See the [Development Environment Guide](DEVELOPMENT.md) for tools, secrets management, and tunneling setup.
 >

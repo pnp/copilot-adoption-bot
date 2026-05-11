@@ -413,3 +413,6 @@ src/Full/Bot/Web/web.client/dist/img/icons/settings.svg
 src/Full/Bot/Web/web.client/dist/js/circles.min.js
 src/Full/Bot/Web/web.client/dist/js/main.js
 src/Full/Bot/Web/web.client/dist/js/pushy.js
+
+# Local deployment config (contains client secrets - see docs/DEPLOYMENT-COPILOT-CLI.md)
+deployment-config.json

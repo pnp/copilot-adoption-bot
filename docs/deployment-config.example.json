@@ -1,0 +1,84 @@
+{
+  "$schema": "Optional. All fields are optional unless marked REQUIRED in DEPLOYMENT-COPILOT-CLI.md. Leave any value as null or remove the key to have the agent prompt you for it.",
+
+  "azure": {
+    "subscriptionId": "00000000-0000-0000-0000-000000000000",
+    "location": "eastus",
+    "resourcePrefix": "copilotbot",
+    "resourceGroup": "rg-copilot-adoption-bot",
+    "appServicePlanSku": "B1",
+    "appServicePlanIsLinux": false,
+    "appServiceName": "copilot-adoption-bot-app",
+    "storageAccountName": "copilotbotsa"
+  },
+
+  "bot": {
+    "mode": "existing",
+    "appId": "00000000-0000-0000-0000-000000000000",
+    "appPassword": "REPLACE_WITH_BOT_CLIENT_SECRET",
+    "appType": "SingleTenant",
+    "tenantId": "00000000-0000-0000-0000-000000000000",
+    "displayName": "Copilot Adoption Bot"
+  },
+
+  "graph": {
+    "useSameAsBot": true,
+    "clientId": null,
+    "clientSecret": null,
+    "tenantId": null,
+    "permissions": [
+      "User.Read.All",
+      "TeamsActivity.Send",
+      "TeamsAppInstallation.ReadWriteForUser.All",
+      "Reports.Read.All"
+    ],
+    "grantAdminConsent": true
+  },
+
+  "storage": {
+    "authMode": "rbac",
+    "connectionString": null
+  },
+
+  "webAuth": {
+    "enabled": false,
+    "mode": "create-new",
+    "clientId": null,
+    "clientSecret": null,
+    "tenantId": null,
+    "apiAudience": null
+  },
+
+  "frontend": {
+    "msalClientId": null,
+    "msalAuthority": "https://login.microsoftonline.com/<tenantId>",
+    "msalScopes": "api://<webAuthClientId>/access_as_user",
+    "teamsfxStartLoginPageUrl": "https://<appServiceName>.azurewebsites.net/auth-start"
+  },
+
+  "aiFoundry": {
+    "enabled": false,
+    "endpoint": null,
+    "deploymentName": "gpt-4o-mini",
+    "apiKey": null,
+    "maxTokens": 2000,
+    "temperature": 0.7
+  },
+
+  "appInsights": {
+    "enabled": true,
+    "name": null
+  },
+
+  "keyVault": {
+    "enabled": false,
+    "name": null
+  },
+
+  "teamsApp": {
+    "buildPackage": true,
+    "publishToCatalog": false,
+    "manifestSource": "user",
+    "outputPath": "./teams-app.zip"
+  }
+}
