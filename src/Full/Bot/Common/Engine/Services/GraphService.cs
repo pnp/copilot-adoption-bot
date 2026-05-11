@@ -8,7 +8,7 @@ namespace Common.Engine.Services;
 /// <summary>
 /// Service for interacting with Microsoft Graph API
 /// </summary>
-public class GraphService
+public class GraphService : ITenantUserCounter
 {
     private readonly GraphServiceClient _graphClient;
     private readonly ILogger<GraphService> _logger;

@@ -68,6 +68,11 @@ public static class ServiceCollectionExtensions
         // Reuse the singleton GraphServiceClient registered by AddGraphServices.
         services.AddSingleton<GraphService>();
 
+        // Expose narrow data-source abstractions used by StatisticsService so the service
+        // can be unit-tested without touching Azure Table Storage or Microsoft Graph.
+        services.AddSingleton<ITenantUserCounter>(sp => sp.GetRequiredService<GraphService>());
+        services.AddSingleton<IMessageLogReader>(sp => sp.GetRequiredService<MessageTemplateStorageManager>());
+
         services.AddScoped<StatisticsService>();
 
         return services;

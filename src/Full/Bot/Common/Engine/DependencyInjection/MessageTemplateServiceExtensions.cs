@@ -38,6 +38,11 @@ public static class MessageTemplateServiceExtensions
             return new BatchQueueService(storageAuthConfig, logger);
         });
 
+        // Adapter that resolves the scoped MessageTemplateService when MessageSenderService
+        // needs to persist message-log status updates. Lets MessageSenderService stay free of
+        // IServiceProvider/scope-resolution logic and remain unit-testable.
+        services.AddSingleton<IMessageLogStatusWriter, ScopedMessageLogStatusWriter>();
+
         // Register message sender service
         services.AddSingleton<MessageSenderService>();
 

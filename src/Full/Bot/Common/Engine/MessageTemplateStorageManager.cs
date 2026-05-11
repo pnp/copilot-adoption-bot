@@ -2,6 +2,7 @@ using Azure.Data.Tables;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Common.Engine.Config;
+using Common.Engine.Services;
 using Common.Engine.Storage;
 using Microsoft.Extensions.Logging;
 
@@ -10,7 +11,7 @@ namespace Common.Engine;
 /// <summary>
 /// Manages message templates in Azure Storage (Table + Blob)
 /// </summary>
-public class MessageTemplateStorageManager : TableStorageManager
+public class MessageTemplateStorageManager : TableStorageManager, IMessageLogReader
 {
     private readonly BlobServiceClient _blobServiceClient;
     private readonly ILogger _logger;

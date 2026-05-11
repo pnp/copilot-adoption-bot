@@ -20,6 +20,45 @@ public class CopilotStatsService
     }
 
     /// <summary>
+    /// Update cached users with Copilot statistics via the cache storage abstraction.
+    /// Prefer this overload over the <see cref="TableClient"/>-based one for new code
+    /// because it is fully unit-testable without an Azure Table Storage dependency.
+    /// </summary>
+    public async Task<int> UpdateCachedUsersWithStatsAsync(ICacheStorage cacheStorage, List<CopilotUsageRecord> stats)
+    {
+        ArgumentNullException.ThrowIfNull(cacheStorage);
+        ArgumentNullException.ThrowIfNull(stats);
+
+        if (stats.Count == 0)
+        {
+            _logger.LogInformation("No Copilot usage records provided; nothing to update");
+            return 0;
+        }
+
+        var statsByUpn = new Dictionary<string, CopilotUserStats>(StringComparer.OrdinalIgnoreCase);
+        foreach (var stat in stats)
+        {
+            if (string.IsNullOrWhiteSpace(stat.UserPrincipalName)) continue;
+            statsByUpn[stat.UserPrincipalName] = new CopilotUserStats
+            {
+                LastActivityDate = stat.LastActivityDate,
+                CopilotChatLastActivityDate = stat.CopilotChatLastActivityDate,
+                TeamsCopilotLastActivityDate = stat.TeamsCopilotLastActivityDate,
+                WordCopilotLastActivityDate = stat.WordCopilotLastActivityDate,
+                ExcelCopilotLastActivityDate = stat.ExcelCopilotLastActivityDate,
+                PowerPointCopilotLastActivityDate = stat.PowerPointCopilotLastActivityDate,
+                OutlookCopilotLastActivityDate = stat.OutlookCopilotLastActivityDate,
+                OneNoteCopilotLastActivityDate = stat.OneNoteCopilotLastActivityDate,
+                LoopCopilotLastActivityDate = stat.LoopCopilotLastActivityDate
+            };
+        }
+
+        var updated = await cacheStorage.UpdateUsersWithCopilotStatsAsync(statsByUpn);
+        _logger.LogInformation($"Updated Copilot stats for {updated} users (via ICacheStorage)");
+        return updated;
+    }
+
+    /// <summary>
     /// Update cached users with Copilot statistics.
     /// </summary>
     public async Task UpdateCachedUsersWithStatsAsync(TableClient tableClient, List<CopilotUsageRecord> stats)

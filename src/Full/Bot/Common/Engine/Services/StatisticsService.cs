@@ -8,17 +8,17 @@ namespace Common.Engine.Services;
 /// </summary>
 public class StatisticsService
 {
-    private readonly MessageTemplateStorageManager _storageManager;
-    private readonly GraphService _graphService;
+    private readonly IMessageLogReader _logReader;
+    private readonly ITenantUserCounter _tenantUserCounter;
     private readonly ILogger<StatisticsService> _logger;
 
     public StatisticsService(
-        MessageTemplateStorageManager storageManager,
-        GraphService graphService,
+        IMessageLogReader logReader,
+        ITenantUserCounter tenantUserCounter,
         ILogger<StatisticsService> logger)
     {
-        _storageManager = storageManager;
-        _graphService = graphService;
+        _logReader = logReader;
+        _tenantUserCounter = tenantUserCounter;
         _logger = logger;
     }
 
@@ -29,7 +29,7 @@ public class StatisticsService
     {
         try
         {
-            var logs = await _storageManager.GetAllMessageLogs();
+            var logs = await _logReader.GetAllMessageLogs();
 
             var stats = StatisticsCalculator.ComputeMessageStatusStats(logs);
 
@@ -53,8 +53,8 @@ public class StatisticsService
     {
         try
         {
-            var logs = await _storageManager.GetAllMessageLogs();
-            var totalUsersInTenant = await _graphService.GetTotalUserCount();
+            var logs = await _logReader.GetAllMessageLogs();
+            var totalUsersInTenant = await _tenantUserCounter.GetTotalUserCount();
 
             var stats = StatisticsCalculator.ComputeUserCoverageStats(logs, totalUsersInTenant);
 

@@ -655,11 +655,14 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
             return;
         }
 
-        // Check if AI Foundry is configured
-        if (string.IsNullOrEmpty(_config.AIFoundryConfig?.Endpoint) ||
-            string.IsNullOrEmpty(_config.AIFoundryConfig?.ApiKey))
+        // Check if AI Foundry is configured. Either an API key or RBAC (with a deployment +
+        // endpoint) is enough to call the service; only bail if neither auth path is set up.
+        var aiConfig = _config.AIFoundryConfig;
+        var hasEndpoint = !string.IsNullOrEmpty(aiConfig?.Endpoint);
+        var hasAuth = aiConfig != null && (aiConfig.UseRBAC || !string.IsNullOrEmpty(aiConfig.ApiKey));
+        if (!hasEndpoint || !hasAuth)
         {
-            Assert.Inconclusive("AI Foundry is not configured - set AIFoundryConfig:Endpoint and AIFoundryConfig:ApiKey in user secrets");
+            Assert.Inconclusive("AI Foundry is not configured - set AIFoundryConfig:Endpoint plus either AIFoundryConfig:UseRBAC=true or AIFoundryConfig:ApiKey in user secrets");
             return;
         }
 
