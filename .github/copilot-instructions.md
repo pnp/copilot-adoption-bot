@@ -91,8 +91,13 @@ gotchas of this repo. Keep it short, specific and current.
   resource, Graph client or filesystem state. They are gated in CI by
   `--filter FullyQualifiedName~UnitTests.Services` and always run.
 - **Integration tests** go under `UnitTests/IntegrationTests/`, extend `AbstractTest`,
-  and read `appsettings.json`. They only run in CI when `TESTS_APPSETTINGS_JSON`
-  is provided.
+  and read `appsettings.json`. Storage-only integration tests
+  (`StorageManagerIntegrationTests`, `BatchQueueServiceIntegrationTests`,
+  `MessageTemplateServiceIntegrationTests`) run in CI against an **Azurite** service
+  container - the workflow writes a minimal `appsettings.json` pointing at
+  `UseDevelopmentStorage=true` and includes stub `GraphConfig` values purely to satisfy
+  `PropertyBoundConfig` validation. Graph-dependent integration tests are not run in CI
+  and need real configuration locally.
 - New behaviour needs a test in the matching pure helper. If a class needs Azure to
   test, extract the testable part into a static/pure helper first (see the pattern
   in *Architectural conventions* above).

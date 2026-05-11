@@ -120,20 +120,18 @@ variables:
   # Node.js 20 LTS is required by the React frontend
 ```
 
-### 3.2 Secret pipeline variable for integration tests (optional)
+### 3.2 Tests run against Azurite
 
-The pipeline references `$(TESTS_APPSETTINGS_JSON)` and gates the test step on whether it is set.
-To enable real-Azure integration tests during CI:
+The pipeline starts **Azurite** (Azure Storage emulator) as a Docker container before tests run
+and writes a minimal `appsettings.json` that points at it (`UseDevelopmentStorage=true`). Both the
+pure unit tests and the storage-only integration tests
+(`StorageManagerIntegrationTests`, `BatchQueueServiceIntegrationTests`,
+`MessageTemplateServiceIntegrationTests`) execute against Azurite on every run.
 
-1. Open the pipeline in Azure DevOps → **Edit** → **Variables**.
-2. Add a new variable named `TESTS_APPSETTINGS_JSON`.
-3. Paste the full contents of an `appsettings.json` that matches `UnitTests/appsettings.example.json`.
-4. Mark it as **Keep this value secret**.
+No `TESTS_APPSETTINGS_JSON` pipeline variable is required. Graph-dependent integration tests are
+intentionally excluded from CI and must be run locally with real configuration.
 
-The pure unit tests (CSV parser, statistics calculator, pending-card materializer, OData filter,
-table batching) do **not** need this variable — they run as part of `dotnet test` once it is invoked.
-
-### 3.2 Pipeline Variables in Azure DevOps (Alternative)
+### 3.3 Pipeline Variables in Azure DevOps (Alternative)
 
 For sensitive or environment-specific values:
 

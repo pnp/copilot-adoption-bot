@@ -57,10 +57,30 @@ stages:
               projects: '$(solution)'
 
           - script: |
-              echo "$(TESTS_APPSETTINGS_JSON)" > appsettings.json
-            displayName: 'Create test appsettings.json from variable'
+              docker run -d --name azurite -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite:latest
+              # Wait briefly for Azurite to come up
+              sleep 3
+            displayName: 'Start Azurite (Azure Storage emulator) for integration tests'
+
+          - script: |
+              cat > appsettings.json << 'EOF'
+              {
+                "GraphConfig": {
+                  "ClientId": "00000000-0000-0000-0000-000000000000",
+                  "ClientSecret": "stub-not-used-in-storage-tests",
+                  "TenantId": "00000000-0000-0000-0000-000000000000"
+                },
+                "StorageAuthConfig": {
+                  "UseRBAC": false,
+                  "ConnectionString": "UseDevelopmentStorage=true"
+                },
+                "ConnectionStrings": {
+                  "Storage": "UseDevelopmentStorage=true"
+                }
+              }
+              EOF
+            displayName: 'Write test appsettings.json (Azurite)'
             workingDirectory: '$(workingDirectory)/UnitTests'
-            condition: and(succeeded(), ne(variables['TESTS_APPSETTINGS_JSON'], ''))
 
           - task: DotNetCoreCLI@2
             displayName: 'Build solution'
@@ -70,26 +90,12 @@ stages:
               arguments: '--configuration $(buildConfiguration) --no-restore'
 
           - task: DotNetCoreCLI@2
-            displayName: 'Run unit tests (no Azure required)'
-            condition: and(succeeded(), eq(variables['TESTS_APPSETTINGS_JSON'], ''))
+            displayName: 'Run tests (unit + storage integration against Azurite)'
             inputs:
               command: 'test'
               projects: '$(solution)'
-              arguments: '--configuration $(buildConfiguration) --no-build --verbosity normal --filter "FullyQualifiedName~UnitTests.Services" --logger trx --results-directory $(Agent.TempDirectory)/TestResults'
+              arguments: '--configuration $(buildConfiguration) --no-build --verbosity normal --filter "FullyQualifiedName~UnitTests.Services|FullyQualifiedName~UnitTests.IntegrationTests.StorageManagerIntegrationTests|FullyQualifiedName~UnitTests.IntegrationTests.BatchQueueServiceIntegrationTests|FullyQualifiedName~UnitTests.IntegrationTests.MessageTemplateServiceIntegrationTests" --logger trx --results-directory $(Agent.TempDirectory)/TestResults'
               publishTestResults: true
-
-          - task: DotNetCoreCLI@2
-            displayName: 'Run all tests (unit + integration)'
-            condition: and(succeeded(), ne(variables['TESTS_APPSETTINGS_JSON'], ''))
-            inputs:
-              command: 'test'
-              projects: '$(solution)'
-              arguments: '--configuration $(buildConfiguration) --no-build --verbosity normal --logger trx --results-directory $(Agent.TempDirectory)/TestResults'
-              publishTestResults: true
-
-          - script: echo "##vso[task.logissue type=warning]Integration tests skipped - set TESTS_APPSETTINGS_JSON to enable them. Pure unit tests still ran."
-            displayName: 'Integration test notice'
-            condition: and(succeeded(), eq(variables['TESTS_APPSETTINGS_JSON'], ''))
 
           - task: DotNetCoreCLI@2
             displayName: 'Publish Web.Server'

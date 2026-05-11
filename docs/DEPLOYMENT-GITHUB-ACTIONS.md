@@ -221,30 +221,19 @@ Add the following secrets:
 | `VITE_MSAL_AUTHORITY` | Azure AD authority URL | `https://login.microsoftonline.com/<your-tenant-id>` |
 | `VITE_MSAL_SCOPES` | API scopes for access token | `api://<your-client-id>/access_as_user` |
 | `VITE_TEAMSFX_START_LOGIN_PAGE_URL` | (Optional) Login redirect URL for Teams SSO | `https://<your-app-name>.azurewebsites.net/auth-start.html` |
-| `TESTS_APPSETTINGS_JSON` | (Optional) Full appsettings.json for unit tests | See below |
 
-### 5.1.1 Configure TESTS_APPSETTINGS_JSON for Unit Tests
+> **Tests run against Azurite in CI** — the workflow starts an Azurite (Azure Storage emulator)
+> service container and writes a minimal `appsettings.json` pointing at it, so the pure unit tests
+> *and* the storage-only integration tests (`StorageManagerIntegrationTests`,
+> `BatchQueueServiceIntegrationTests`, `MessageTemplateServiceIntegrationTests`) all run on every
+> push. **No `TESTS_APPSETTINGS_JSON` secret is required.** Graph-dependent integration tests are
+> not run in CI and must be executed locally with real configuration.
 
-The `TESTS_APPSETTINGS_JSON` secret enables the workflow to run integration tests against real Azure resources. If not configured, tests are skipped with a warning.
+### 5.1.1 (Removed) TESTS_APPSETTINGS_JSON
 
-**To configure:**
-
-1. See the [Configuration Guide](CONFIGURATION.md) for the full appsettings.json structure and all available options
-2. Use [appsettings.example.json](../src/Full/Bot/UnitTests/appsettings.example.json) as a starting template
-3. At minimum, you need `ConnectionStrings:Storage` and `GraphConfig` settings for tests to run
-
-**To add the secret:**
-
-1. Create your JSON configuration based on the example template
-2. Go to **Settings** → **Secrets and variables** → **Actions** → **Secrets** tab
-3. Click **New repository secret**
-4. Name: `TESTS_APPSETTINGS_JSON`
-5. Value: Paste the entire JSON (minified or formatted - both work)
-6. Click **Add secret**
-
-> **Tip**: You can minify the JSON before pasting. The workflow writes it to `appsettings.json` in the test project directory.
-
-> **Security Note**: Use a dedicated test Azure Storage account and consider using a service principal with minimal Graph API permissions for testing.
+This secret is no longer used. CI now uses Azurite for storage-backed tests, and Graph-backed
+tests are intentionally excluded from CI because they require admin-consented application
+permissions you should not give a CI service principal.
 
 ### 5.2 Add Repository Variables
 
@@ -290,12 +279,11 @@ VITE_TEAMSFX_START_LOGIN_PAGE_URL # (Optional) Login redirect URL for Teams SSO
 AZURE_WEBAPP_NAME        # Your Azure App Service name (e.g., copilot-adoption-bot-app)
 ```
 
-**Optional Secret** (for running integration tests):
-```
-TESTS_APPSETTINGS_JSON   # Full appsettings.json content for unit tests
-```
-
-> **Note**: `TESTS_APPSETTINGS_JSON` is only needed for **integration** tests that talk to real Azure Storage and Microsoft Graph. The pure unit tests under `UnitTests/Services` (CSV parser, statistics calculator, pending-card materializer, OData escaping, table batching) run without it. If the secret is missing the workflow currently skips the entire `dotnet test` step, so until that is split, you can leave the secret unset for first-time deployment and the build will still produce a deployable artifact.
+> **Note**: Tests run on every push using **Azurite** (Azure Storage emulator) as a service container.
+> Pure unit tests under `UnitTests.Services` and the storage-only integration tests under
+> `UnitTests.IntegrationTests` (Storage manager / queue / message-template) execute against Azurite
+> automatically — no extra configuration required. Graph-dependent integration tests are deliberately
+> excluded from CI and must be run locally.
 
 ### Workflow Triggers
 
@@ -330,13 +318,11 @@ After successful deployment:
 
 ## Workflow Triggers Summary
 
-| Trigger | Build | Tests | Deploy |
-|---------|-------|-------|--------|
-| Push to `main` | ✅ | ✅* | ✅ |
-| Pull request to `main` | ✅ | ✅* | ❌ |
-| Manual (`workflow_dispatch`) | ✅ | ✅* | ✅ |
-
-\* Tests only run if `TESTS_APPSETTINGS_JSON` secret is configured.
+| Trigger | Build | Tests (unit + Azurite-backed) | Deploy |
+|---------|-------|-------------------------------|--------|
+| Push to `main` | ✅ | ✅ | ✅ |
+| Pull request to `main` | ✅ | ✅ | ❌ |
+| Manual (`workflow_dispatch`) | ✅ | ✅ | ✅ |
 
 ---
 

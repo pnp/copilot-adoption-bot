@@ -23,6 +23,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    # Azurite gives the integration tests a local Azure Storage emulator so they
+    # don't need real cloud credentials. Blob 10000, Queue 10001, Table 10002.
+    services:
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite:latest
+        ports:
+          - 10000:10000
+          - 10001:10001
+          - 10002:10002
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -63,26 +73,39 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore "${{ env.SOLUTION_PATH }}"
 
-      - name: Create test appsettings.json from secret
-        if: ${{ env.HAS_TESTS_CONFIG == 'true' }}
+      - name: Write test appsettings.json (Azurite)
+        # The integration tests read appsettings.json via AbstractTest -> TestsConfig (extends
+        # AppConfig). AppConfig requires GraphConfig to be present even though the storage-only
+        # integration tests never call Graph, so we provide stub Graph values purely to satisfy
+        # the PropertyBoundConfig validator. Storage points at the Azurite service container.
         working-directory: ${{ env.WORKING_DIRECTORY }}/UnitTests
-        env:
-          TESTS_APPSETTINGS_JSON: ${{ secrets.TESTS_APPSETTINGS_JSON }}
-        run: echo "$TESTS_APPSETTINGS_JSON" > appsettings.json
+        run: |
+          cat > appsettings.json << 'EOF'
+          {
+            "GraphConfig": {
+              "ClientId": "00000000-0000-0000-0000-000000000000",
+              "ClientSecret": "stub-not-used-in-storage-tests",
+              "TenantId": "00000000-0000-0000-0000-000000000000"
+            },
+            "StorageAuthConfig": {
+              "UseRBAC": false,
+              "ConnectionString": "UseDevelopmentStorage=true"
+            },
+            "ConnectionStrings": {
+              "Storage": "UseDevelopmentStorage=true"
+            }
+          }
+          EOF
 
       - name: Build solution
         run: dotnet build "${{ env.SOLUTION_PATH }}" --configuration Release --no-restore
 
-      - name: Run unit tests (no Azure required)
-        if: ${{ env.HAS_TESTS_CONFIG != 'true' }}
-        # Run only the pure unit tests under UnitTests/Services. Integration tests under
-        # UnitTests/IntegrationTests need real Azure resources and are skipped when
-        # TESTS_APPSETTINGS_JSON is not configured.
-        run: dotnet test "${{ env.SOLUTION_PATH }}" --configuration Release --no-build --verbosity normal --filter "FullyQualifiedName~UnitTests.Services" --logger trx --results-directory TestResults
-
-      - name: Run all tests (unit + integration)
-        if: ${{ env.HAS_TESTS_CONFIG == 'true' }}
-        run: dotnet test "${{ env.SOLUTION_PATH }}" --configuration Release --no-build --verbosity normal --logger trx --results-directory TestResults
+      - name: Run tests (unit + storage integration against Azurite)
+        # Integration tests that only need storage now run against the Azurite service
+        # container. Tests that need real Microsoft Graph still require additional config
+        # and will throw - they remain part of the "full Azure" path documented in
+        # docs/DEPLOYMENT-GITHUB-ACTIONS.md.
+        run: dotnet test "${{ env.SOLUTION_PATH }}" --configuration Release --no-build --verbosity normal --filter "FullyQualifiedName~UnitTests.Services|FullyQualifiedName~UnitTests.IntegrationTests.StorageManagerIntegrationTests|FullyQualifiedName~UnitTests.IntegrationTests.BatchQueueServiceIntegrationTests|FullyQualifiedName~UnitTests.IntegrationTests.MessageTemplateServiceIntegrationTests" --logger trx --results-directory TestResults
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -99,9 +122,6 @@ jobs:
         with:
           name: webapp-package
           path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-
-    env:
-      HAS_TESTS_CONFIG: ${{ secrets.TESTS_APPSETTINGS_JSON != '' }}
 
   deploy:
     runs-on: ubuntu-latest
