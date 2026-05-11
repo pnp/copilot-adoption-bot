@@ -141,9 +141,26 @@ public class AzureTableCacheStorage : ICacheStorage
             users.Add(user);
         }
 
-        foreach (var user in users)
+        // Submit deletes in transactional batches (all users share the same partition key).
+        var ops = users.Select(u => new TableTransactionAction(TableTransactionActionType.Delete, u));
+        try
         {
-            await tableClient.DeleteEntityAsync(user.PartitionKey, user.RowKey);
+            await TableBatch.SubmitInBatchesAsync(tableClient, ops);
+        }
+        catch (Azure.RequestFailedException ex)
+        {
+            _logger.LogWarning(ex, "Batched user-cache clear failed; falling back to per-entity deletes");
+            foreach (var user in users)
+            {
+                try
+                {
+                    await tableClient.DeleteEntityAsync(user.PartitionKey, user.RowKey);
+                }
+                catch (Azure.RequestFailedException innerEx) when (innerEx.Status == 404)
+                {
+                    // Already gone.
+                }
+            }
         }
 
         // Clear sync metadata including delta token to force a full sync

@@ -39,21 +39,33 @@ public class GraphUserService : IExternalUserService
     ];
 
     /// <summary>
-    /// Constructor for loading users directly from Microsoft Graph.
+    /// Preferred constructor: reuses the singleton <see cref="GraphServiceClient"/> from DI.
+    /// </summary>
+    public GraphUserService(GraphServiceClient graphClient, ILogger<GraphUserService> logger)
+    {
+        _graphClient = graphClient ?? throw new ArgumentNullException(nameof(graphClient));
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Legacy constructor for callers that still build their own credential. Prefer the DI overload.
     /// </summary>
     public GraphUserService(
         AzureADAuthConfig config,
         ILogger<GraphUserService> logger)
+        : this(BuildClient(config), logger)
     {
-        _logger = logger;
+    }
 
+    private static GraphServiceClient BuildClient(AzureADAuthConfig config)
+    {
         var clientSecretCredential = new ClientSecretCredential(
             config.TenantId,
             config.ClientId,
             config.ClientSecret);
 
         var scopes = new[] { "https://graph.microsoft.com/.default" };
-        _graphClient = new GraphServiceClient(clientSecretCredential, scopes);
+        return new GraphServiceClient(clientSecretCredential, scopes);
     }
 
     /// <summary>

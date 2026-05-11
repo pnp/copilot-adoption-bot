@@ -65,11 +65,8 @@ public static class ServiceCollectionExtensions
     /// </summary>
     private static IServiceCollection AddStatisticsServices(this IServiceCollection services, AppConfig config)
     {
-        services.AddSingleton<GraphService>(sp =>
-        {
-            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GraphService>>();
-            return new GraphService(config.GraphConfig, logger);
-        });
+        // Reuse the singleton GraphServiceClient registered by AddGraphServices.
+        services.AddSingleton<GraphService>();
 
         services.AddScoped<StatisticsService>();
 
@@ -128,12 +125,9 @@ public static class ServiceCollectionExtensions
         // Register UserCacheManager
         services.AddSingleton<IUserCacheManager, UserCacheManager>();
 
-        // Register GraphUserService for direct Graph API access (without cache)
-        services.AddSingleton<IExternalUserService, GraphUserService>(sp =>
-        {
-            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GraphUserService>>();
-            return new GraphUserService(config.GraphConfig, logger);
-        });
+        // Register GraphUserService for direct Graph API access (without cache).
+        // Reuses singleton GraphServiceClient registered by AddGraphServices.
+        services.AddSingleton<IExternalUserService, GraphUserService>();
 
         // Register CachedUserService for cache-first user data access
         services.AddSingleton<CachedUserService>(sp =>

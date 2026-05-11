@@ -36,9 +36,11 @@ public class PendingCardLookupService
 
             var tableClient = await _storageManager.GetTableClient(LOGS_TABLE_NAME);
 
-            // Query for pending messages for this UPN, ordered by SentDate descending
-            var filter = $"PartitionKey eq '{MessageLogTableEntity.PartitionKeyVal}' and RecipientUpn eq '{upn}' and Status eq 'Pending'";
-            
+            // Query for pending messages for this UPN, ordered by SentDate descending.
+            // Escape UPN to avoid breaking the OData filter on apostrophes (e.g. o'connor@..).
+            var safeUpn = ODataFilter.EscapeLiteral(upn);
+            var filter = $"PartitionKey eq '{MessageLogTableEntity.PartitionKeyVal}' and RecipientUpn eq '{safeUpn}' and Status eq 'Pending'";
+
             var query = tableClient.QueryAsync<MessageLogTableEntity>(
                 filter: filter,
                 maxPerPage: 100);

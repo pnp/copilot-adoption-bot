@@ -256,13 +256,30 @@ public class MessageTemplateStorageManager : TableStorageManager
             throw new InvalidOperationException($"Batch {batchId} not found");
         }
 
-        // Delete all message logs associated with this batch
+        // Delete all message logs associated with this batch (using transactional batches when possible)
         var logs = await GetMessageLogsByBatch(batchId);
         var logsTableClient = await GetTableClient(LOGS_TABLE_NAME);
-        
-        foreach (var log in logs)
+
+        var deleteOps = logs.Select(log =>
+            new TableTransactionAction(TableTransactionActionType.Delete, log));
+        try
         {
-            await logsTableClient.DeleteEntityAsync(MessageLogTableEntity.PartitionKeyVal, log.RowKey);
+            await TableBatch.SubmitInBatchesAsync(logsTableClient, deleteOps);
+        }
+        catch (Azure.RequestFailedException ex)
+        {
+            _logger.LogWarning(ex, "Batched log delete failed for batch {BatchId}; falling back to per-entity deletes", batchId);
+            foreach (var log in logs)
+            {
+                try
+                {
+                    await logsTableClient.DeleteEntityAsync(MessageLogTableEntity.PartitionKeyVal, log.RowKey);
+                }
+                catch (Azure.RequestFailedException innerEx) when (innerEx.Status == 404)
+                {
+                    // Already deleted - ignore.
+                }
+            }
         }
 
         // Delete the batch
@@ -305,39 +322,63 @@ public class MessageTemplateStorageManager : TableStorageManager
     {
         _logger.LogInformation("Creating {RecipientCount} message log entries in storage for batch {BatchId}", 
             recipientUpns.Count, messageBatchId);
-        
+
         var tableClient = await GetTableClient(LOGS_TABLE_NAME);
-        var logEntities = new List<MessageLogTableEntity>();
+        var logEntities = new List<MessageLogTableEntity>(recipientUpns.Count);
+        var operations = new List<TableTransactionAction>(recipientUpns.Count);
+
+        var now = DateTime.UtcNow;
+        foreach (var recipientUpn in recipientUpns)
+        {
+            var logEntity = new MessageLogTableEntity
+            {
+                RowKey = Guid.NewGuid().ToString(),
+                MessageBatchId = messageBatchId,
+                SentDate = now,
+                RecipientUpn = recipientUpn,
+                Status = "Pending",
+                LastError = null
+            };
+            logEntities.Add(logEntity);
+            operations.Add(new TableTransactionAction(TableTransactionActionType.Add, logEntity));
+        }
 
         var successCount = 0;
         var failureCount = 0;
-
-        foreach (var recipientUpn in recipientUpns)
+        try
         {
-            try
+            await TableBatch.SubmitInBatchesAsync(tableClient, operations);
+            successCount = logEntities.Count;
+        }
+        catch (Azure.RequestFailedException ex)
+        {
+            // Batch transaction failed atomically. Fall back to per-entity inserts so we record
+            // as many as possible and surface granular failure data.
+            _logger.LogWarning(ex, "Batched message-log insert failed for batch {BatchId}; falling back to per-entity inserts", messageBatchId);
+            logEntities.Clear();
+            foreach (var recipientUpn in recipientUpns)
             {
-                var logEntity = new MessageLogTableEntity
+                try
                 {
-                    RowKey = Guid.NewGuid().ToString(),
-                    MessageBatchId = messageBatchId,
-                    SentDate = DateTime.UtcNow,
-                    RecipientUpn = recipientUpn,
-                    Status = "Pending",
-                    LastError = null
-                };
-
-                await tableClient.AddEntityAsync(logEntity);
-                logEntities.Add(logEntity);
-                successCount++;
-                
-                _logger.LogDebug("Created message log entry {LogId} for recipient {RecipientUpn} in batch {BatchId}", 
-                    logEntity.RowKey, recipientUpn, messageBatchId);
-            }
-            catch (Exception ex)
-            {
-                failureCount++;
-                _logger.LogError(ex, "Failed to create message log entry for recipient {RecipientUpn} in batch {BatchId}", 
-                    recipientUpn, messageBatchId);
+                    var logEntity = new MessageLogTableEntity
+                    {
+                        RowKey = Guid.NewGuid().ToString(),
+                        MessageBatchId = messageBatchId,
+                        SentDate = now,
+                        RecipientUpn = recipientUpn,
+                        Status = "Pending",
+                        LastError = null
+                    };
+                    await tableClient.AddEntityAsync(logEntity);
+                    logEntities.Add(logEntity);
+                    successCount++;
+                }
+                catch (Exception innerEx)
+                {
+                    failureCount++;
+                    _logger.LogError(innerEx, "Failed to create message log entry for recipient {RecipientUpn} in batch {BatchId}",
+                        recipientUpn, messageBatchId);
+                }
             }
         }
 
@@ -404,9 +445,10 @@ public class MessageTemplateStorageManager : TableStorageManager
     {
         var tableClient = await GetTableClient(LOGS_TABLE_NAME);
         var logs = new List<MessageLogTableEntity>();
+        var safeBatchId = ODataFilter.EscapeLiteral(batchId);
 
         await foreach (var entity in tableClient.QueryAsync<MessageLogTableEntity>(
-            filter: $"PartitionKey eq '{MessageLogTableEntity.PartitionKeyVal}' and MessageBatchId eq '{batchId}'"))
+            filter: $"PartitionKey eq '{MessageLogTableEntity.PartitionKeyVal}' and MessageBatchId eq '{safeBatchId}'"))
         {
             logs.Add(entity);
         }
@@ -415,21 +457,26 @@ public class MessageTemplateStorageManager : TableStorageManager
     }
 
     /// <summary>
-    /// Get message logs for a specific template (via batches)
+    /// Get message logs for a specific template (via batches).
+    /// Avoids N+1 storage round trips by fetching the full set of logs once and filtering
+    /// in-memory by the batch ids that belong to the template.
     /// </summary>
     public async Task<List<MessageLogTableEntity>> GetMessageLogsByTemplate(string templateId)
     {
         var batches = await GetAllBatches();
-        var templateBatches = batches.Where(b => b.TemplateId == templateId).ToList();
-        
-        var logs = new List<MessageLogTableEntity>();
-        foreach (var batch in templateBatches)
+        var templateBatchIds = batches
+            .Where(b => b.TemplateId == templateId)
+            .Select(b => b.RowKey)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (templateBatchIds.Count == 0)
         {
-            var batchLogs = await GetMessageLogsByBatch(batch.RowKey);
-            logs.AddRange(batchLogs);
+            return new List<MessageLogTableEntity>();
         }
 
-        return logs;
+        // Single scan; in-memory filter. Cheaper than per-batch table queries once batch count > 1.
+        var allLogs = await GetAllMessageLogs();
+        return allLogs.Where(l => templateBatchIds.Contains(l.MessageBatchId)).ToList();
     }
 
     #endregion

@@ -48,18 +48,26 @@ Before deploying, ensure you have:
 
 ### Storage Account Structure
 
-The storage account requires both Table Storage and Blob Storage:
+The storage account requires Table Storage, Blob Storage **and Queue Storage**:
 
 ```
 Storage Account
 ├── Table Storage
-│   ├── MessageTemplates (template metadata)
-│   └── MessageLogs (delivery tracking)
-└── Blob Storage
-    └── message-templates (container for JSON payloads)
+│   ├── messagetemplates     (template metadata)
+│   ├── messagebatches       (recipient batch metadata)
+│   ├── messagelogs          (per-recipient delivery tracking)
+│   ├── ConversationCache    (bot conversation references)
+│   ├── usercache            (cached user / Copilot data)
+│   ├── usersyncmetadata     (delta-sync watermark)
+│   ├── smartgroups          (AI-resolved group definitions)
+│   └── settings             (key/value app settings)
+├── Blob Storage
+│   └── message-templates    (container for adaptive-card JSON payloads)
+└── Queue Storage
+    └── batch-messages       (queue used by the background sender)
 ```
 
-> **Note**: The `message-templates` blob container is automatically created by the application on first run.
+> **Note**: All containers, tables and queues are automatically created by the application on first run.
 
 ---
 

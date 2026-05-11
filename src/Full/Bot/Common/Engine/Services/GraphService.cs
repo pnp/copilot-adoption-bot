@@ -1,4 +1,3 @@
-using Azure.Identity;
 using Common.Engine.Config;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
@@ -14,17 +13,32 @@ public class GraphService
     private readonly GraphServiceClient _graphClient;
     private readonly ILogger<GraphService> _logger;
 
-    public GraphService(AzureADAuthConfig config, ILogger<GraphService> logger)
+    /// <summary>
+    /// Preferred constructor: reuses the singleton <see cref="GraphServiceClient"/> registered in DI
+    /// so that all callers share a single underlying HttpClient and credential pipeline.
+    /// </summary>
+    public GraphService(GraphServiceClient graphClient, ILogger<GraphService> logger)
     {
+        _graphClient = graphClient ?? throw new ArgumentNullException(nameof(graphClient));
         _logger = logger;
+    }
 
-        var clientSecretCredential = new ClientSecretCredential(
+    /// <summary>
+    /// Legacy constructor for callers that still build their own credential. Prefer the DI overload.
+    /// </summary>
+    public GraphService(AzureADAuthConfig config, ILogger<GraphService> logger)
+        : this(BuildClient(config), logger)
+    {
+    }
+
+    private static GraphServiceClient BuildClient(AzureADAuthConfig config)
+    {
+        var clientSecretCredential = new Azure.Identity.ClientSecretCredential(
             config.TenantId,
             config.ClientId,
             config.ClientSecret);
 
-        var scopes = new[] { "https://graph.microsoft.com/.default" };
-        _graphClient = new GraphServiceClient(clientSecretCredential, scopes);
+        return new GraphServiceClient(clientSecretCredential, new[] { "https://graph.microsoft.com/.default" });
     }
 
     /// <summary>

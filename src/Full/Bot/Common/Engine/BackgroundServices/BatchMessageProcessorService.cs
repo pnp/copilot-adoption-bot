@@ -31,36 +31,60 @@ public class BatchMessageProcessorService : BackgroundService
         // Initialize the queue
         await _queueService.InitializeAsync();
 
+        // Bound parallel processing so we don't overwhelm Graph / Bot Framework throttling limits.
+        const int maxParallelism = 8;
+        using var throttler = new SemaphoreSlim(maxParallelism);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                var (message, queueMessage) = await _queueService.DequeueMessageAsync();
+                var batch = await _queueService.DequeueMessagesAsync(maxMessages: 32);
 
-                if (message != null && queueMessage != null)
-                {
-                    _logger.LogInformation($"Processing message for recipient {message.RecipientUpn}");
-
-                    // Send the message
-                    var result = await _senderService.SendMessageAsync(message);
-
-                    if (result.Success)
-                    {
-                        _logger.LogInformation($"Successfully processed message {message.MessageLogId}");
-                    }
-                    else
-                    {
-                        _logger.LogWarning($"Failed to process message {message.MessageLogId}: {result.ErrorMessage}");
-                    }
-
-                    // Delete the message from the queue
-                    await _queueService.DeleteMessageAsync(queueMessage);
-                }
-                else
+                if (batch.Count == 0)
                 {
                     // No messages in queue, wait before polling again
                     await Task.Delay(_pollInterval, stoppingToken);
+                    continue;
                 }
+
+                var tasks = batch.Select(async pair =>
+                {
+                    var (message, queueMessage) = pair;
+                    await throttler.WaitAsync(stoppingToken);
+                    try
+                    {
+                        _logger.LogInformation("Processing message for recipient {Recipient}", message.RecipientUpn);
+
+                        var result = await _senderService.SendMessageAsync(message);
+                        if (result.Success)
+                        {
+                            _logger.LogInformation("Successfully processed message {LogId}", message.MessageLogId);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to process message {LogId}: {Error}", message.MessageLogId, result.ErrorMessage);
+                        }
+
+                        await _queueService.DeleteMessageAsync(queueMessage);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing queued message {LogId}", message.MessageLogId);
+                        // Do NOT delete on transient failure - Azure Storage Queue will redeliver after visibility timeout.
+                    }
+                    finally
+                    {
+                        throttler.Release();
+                    }
+                });
+
+                await Task.WhenAll(tasks);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Graceful shutdown.
+                break;
             }
             catch (Exception ex)
             {

@@ -30,10 +30,10 @@ public class BotConversationCache : TableStorageManager
 
         _logger.LogInformation("Populating conversation cache from table storage");
         var client = await base.GetTableClient(TABLE_NAME);
-        var queryResultsFilter = client.Query<CachedUserAndConversationData>(filter: $"PartitionKey eq '{CachedUserAndConversationData.PartitionKeyVal}'");
-        
+
         int count = 0;
-        foreach (var qEntity in queryResultsFilter)
+        await foreach (var qEntity in client.QueryAsync<CachedUserAndConversationData>(
+            filter: $"PartitionKey eq '{CachedUserAndConversationData.PartitionKeyVal}'"))
         {
             _userIdConversationCache.AddOrUpdate(qEntity.RowKey, qEntity, (key, newValue) => qEntity);
             count++;
@@ -43,18 +43,20 @@ public class BotConversationCache : TableStorageManager
 
     public async Task RemoveFromCache(string aadObjectId)
     {
-        CachedUserAndConversationData? u = null;
-        if (_userIdConversationCache.TryGetValue(aadObjectId, out u))
-        {
-            _userIdConversationCache.TryRemove(aadObjectId, out u);
-        }
+        _userIdConversationCache.TryRemove(aadObjectId, out _);
         var client = await base.GetTableClient(TABLE_NAME);
-
-        await client.DeleteEntityAsync(CachedUserAndConversationData.PartitionKeyVal, aadObjectId);
+        try
+        {
+            await client.DeleteEntityAsync(CachedUserAndConversationData.PartitionKeyVal, aadObjectId);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            // Already gone - ignore.
+        }
     }
 
     /// <summary>
-    /// App installed for user & now we have a conversation reference to cache for future chat threads.
+    /// App installed for user &amp; now we have a conversation reference to cache for future chat threads.
     /// </summary>
     public async Task AddConversationReferenceToCache(Activity activity, BotUser botUser)
     {
@@ -64,23 +66,24 @@ public class BotConversationCache : TableStorageManager
 
     internal async Task AddOrUpdateUserAndConversationId(ConversationReference conversationReference, BotUser botUser, string serviceUrl, GraphServiceClient graphClient)
     {
-        CachedUserAndConversationData? u = null;
+        CachedUserAndConversationData? u;
         var client = await base.GetTableClient(TABLE_NAME);
 
         if (!_userIdConversationCache.TryGetValue(botUser.UserId, out u))
         {
-            // Have not got in memory cache
-            Response<CachedUserAndConversationData>? entityResponse = null;
+            // Have not got in memory cache - check table storage (async).
             try
             {
-                entityResponse = client.GetEntity<CachedUserAndConversationData>(CachedUserAndConversationData.PartitionKeyVal, botUser.UserId);
+                var entityResponse = await client.GetEntityAsync<CachedUserAndConversationData>(
+                    CachedUserAndConversationData.PartitionKeyVal, botUser.UserId);
+                u = entityResponse.Value;
             }
             catch (RequestFailedException ex) when (ex.Status == 404)
             {
-                // No worries
+                u = null;
             }
 
-            if (entityResponse == null)
+            if (u == null)
             {
                 string? upn = null;
                 if (botUser.IsAzureAdUserId)
@@ -90,19 +93,25 @@ public class BotConversationCache : TableStorageManager
                     upn = user?.UserPrincipalName ?? throw new ArgumentNullException($"No userPrincipalName for {nameof(conversationReference.User.AadObjectId)} '{conversationReference.User.AadObjectId}'");
                 }
 
-                // Not in storage account either. Add there
-                u = new CachedUserAndConversationData()
+                u = new CachedUserAndConversationData
                 {
                     RowKey = botUser.UserId,
                     ServiceUrl = serviceUrl,
                     UserPrincipalName = upn,
+                    ConversationId = conversationReference.Conversation.Id
                 };
-                u.ConversationId = conversationReference.Conversation.Id;
-                client.AddEntity(u);
-            }
-            else
-            {
-                u = entityResponse.Value;
+
+                try
+                {
+                    await client.AddEntityAsync(u);
+                }
+                catch (RequestFailedException ex) when (ex.Status == 409)
+                {
+                    // Concurrent add - re-read and use the existing entity.
+                    var refreshed = await client.GetEntityAsync<CachedUserAndConversationData>(
+                        CachedUserAndConversationData.PartitionKeyVal, botUser.UserId);
+                    u = refreshed.Value;
+                }
             }
         }
 

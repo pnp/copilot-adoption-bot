@@ -60,33 +60,78 @@ public class BatchQueueService
     }
 
     /// <summary>
-    /// Enqueue multiple messages for batch processing
+    /// Enqueue multiple messages for batch processing. Sends are issued in parallel (bounded)
+    /// to reduce wall-clock time on large batches.
     /// </summary>
     public async Task EnqueueBatchMessagesAsync(List<BatchQueueMessage> messages)
     {
-        foreach (var message in messages)
+        ArgumentNullException.ThrowIfNull(messages);
+        if (messages.Count == 0) return;
+
+        const int maxParallelism = 16;
+        using var throttler = new SemaphoreSlim(maxParallelism);
+
+        var tasks = messages.Select(async message =>
         {
-            await EnqueueMessageAsync(message);
-        }
+            await throttler.WaitAsync();
+            try
+            {
+                var json = JsonSerializer.Serialize(message);
+                await _queueClient.SendMessageAsync(json);
+            }
+            finally
+            {
+                throttler.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks);
         _logger.LogInformation($"Enqueued {messages.Count} messages for processing");
     }
 
     /// <summary>
-    /// Dequeue a message for processing
+    /// Dequeue a single message for processing.
     /// </summary>
     public async Task<(BatchQueueMessage? Message, QueueMessage? QueueMessage)> DequeueMessageAsync()
     {
-        QueueMessage[] messages = await _queueClient.ReceiveMessagesAsync(maxMessages: 1);
-        
-        if (messages.Length == 0)
+        var batch = await DequeueMessagesAsync(maxMessages: 1);
+        return batch.Count == 0 ? (null, null) : batch[0];
+    }
+
+    /// <summary>
+    /// Dequeue up to <paramref name="maxMessages"/> messages from the queue. Azure Storage Queue
+    /// allows up to 32 messages per receive call; values outside [1, 32] are clamped.
+    /// Messages that fail JSON deserialization are skipped and logged.
+    /// </summary>
+    public async Task<List<(BatchQueueMessage Message, QueueMessage QueueMessage)>> DequeueMessagesAsync(int maxMessages = 32)
+    {
+        if (maxMessages < 1) maxMessages = 1;
+        if (maxMessages > 32) maxMessages = 32;
+
+        QueueMessage[] messages = await _queueClient.ReceiveMessagesAsync(maxMessages: maxMessages);
+        var result = new List<(BatchQueueMessage, QueueMessage)>(messages.Length);
+
+        foreach (var queueMessage in messages)
         {
-            return (null, null);
+            BatchQueueMessage? parsed;
+            try
+            {
+                parsed = JsonSerializer.Deserialize<BatchQueueMessage>(queueMessage.MessageText);
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "Failed to deserialize queue message {MessageId}; deleting poison message", queueMessage.MessageId);
+                await DeleteMessageAsync(queueMessage);
+                continue;
+            }
+
+            if (parsed != null)
+            {
+                result.Add((parsed, queueMessage));
+            }
         }
 
-        var queueMessage = messages[0];
-        var batchMessage = JsonSerializer.Deserialize<BatchQueueMessage>(queueMessage.MessageText);
-        
-        return (batchMessage, queueMessage);
+        return result;
     }
 
     /// <summary>
