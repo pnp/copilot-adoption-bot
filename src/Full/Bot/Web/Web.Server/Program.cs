@@ -23,7 +23,7 @@ public class Program
 
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
-
+        builder.Services.AddHealthChecks();
 
         var config = builder.Services.AddBotServices(builder.Configuration);
 
