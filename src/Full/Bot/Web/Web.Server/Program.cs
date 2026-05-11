@@ -129,6 +129,12 @@ public class Program
         // Anonymous liveness probe for App Service / Front Door / availability tests.
         app.MapHealthChecks("/health").AllowAnonymous();
 
+        // SPA fallback: serve index.html for any unmatched non-file, non-api request so
+        // client-side routes like /tabhome work when the user hits F5 or shares a deep
+        // link. The regex constraint keeps /api/* returning a real 404 if it doesn't
+        // match a controller, rather than silently returning HTML.
+        app.MapFallbackToFile("{*path:regex(^(?!api/).*$)}", "index.html");
+
         app.Run();
     }
 }
