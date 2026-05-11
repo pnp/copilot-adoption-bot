@@ -6,10 +6,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using UnitTests.Fakes;
 
-namespace UnitTests.Services;
+namespace UnitTests.IntegrationTests;
 
 /// <summary>
-/// Unit tests for CopilotStatsService using fake loader.
+/// Integration tests for CopilotStatsService. Requires real Azure Table Storage (or Azurite).`r`n/// Only runs in CI when TESTS_APPSETTINGS_JSON is provided.
 /// </summary>
 [TestClass]
 public class CopilotStatsServiceTests : AbstractTest
