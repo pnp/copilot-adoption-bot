@@ -87,9 +87,9 @@ public class Program
 #if DEBUG
 
         // Clear out the bot cache for dev testing. That way we get 1st time user experience every time.
-        var graph = app.Services.GetRequiredService<Microsoft.Graph.GraphServiceClient>();
-        var logger = app.Services.GetRequiredService<ILogger<BotConversationCache>>();
-        var botCache = new BotConversationCache(graph, config, logger);
+        // Resolve from DI rather than newing up a parallel instance, so we share the table-client
+        // cache and any in-memory state with the rest of the application.
+        var botCache = app.Services.GetRequiredService<BotConversationCache>();
         var allUsers = await botCache.GetCachedUsers();
         foreach (var user in allUsers)
         {
@@ -125,6 +125,9 @@ public class Program
         app.UseAuthorization();
 
         app.MapControllers();
+
+        // Anonymous liveness probe for App Service / Front Door / availability tests.
+        app.MapHealthChecks("/health").AllowAnonymous();
 
         app.Run();
     }

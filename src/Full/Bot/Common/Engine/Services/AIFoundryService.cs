@@ -91,6 +91,18 @@ public class AIFoundryService
     }
 
     /// <summary>
+    /// Maximum number of users sent to the AI in a single chat completion request.
+    /// Each chunk produces its own JSON response and the results are merged. Keeps prompts
+    /// well within model token limits and lets us run chunks in parallel.
+    /// </summary>
+    internal const int SmartGroupResolutionChunkSize = 100;
+
+    /// <summary>
+    /// Maximum number of chunks that can be in-flight against the model at once.
+    /// </summary>
+    internal const int SmartGroupResolutionMaxParallelism = 4;
+
+    /// <summary>
     /// Resolve a smart group description to matching users using AI.
     /// </summary>
     /// <param name="groupDescription">Natural language description of the target users</param>
@@ -102,16 +114,75 @@ public class AIFoundryService
     {
         _logger.LogInformation($"Resolving smart group: '{groupDescription}' against {availableUsers.Count} users");
 
-        var results = new List<AIUserMatchResult>();
-
         if (availableUsers.Count == 0)
         {
             _logger.LogWarning("No users provided for smart group resolution");
-            return results;
+            return new List<AIUserMatchResult>();
         }
 
-        // Build the user list for the AI prompt
-        var userSummaries = availableUsers.Select((u, idx) => $"{idx + 1}. {u.ToAISummary()}").ToList();
+        // Page the user list. Sending an entire tenant in a single prompt would blow past
+        // the model's input-token limit and is expensive even when it fits.
+        var chunks = ChunkUsers(availableUsers, SmartGroupResolutionChunkSize);
+        _logger.LogInformation(
+            "Smart-group resolution will run {ChunkCount} AI request(s) of up to {ChunkSize} users each",
+            chunks.Count, SmartGroupResolutionChunkSize);
+
+        using var throttler = new SemaphoreSlim(SmartGroupResolutionMaxParallelism);
+        var perChunkResults = new System.Collections.Concurrent.ConcurrentBag<List<AIUserMatchResult>>();
+
+        var tasks = chunks.Select(async chunk =>
+        {
+            await throttler.WaitAsync();
+            try
+            {
+                var chunkResults = await ResolveSmartGroupChunkAsync(groupDescription, chunk);
+                perChunkResults.Add(chunkResults);
+            }
+            finally
+            {
+                throttler.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks);
+
+        // Merge results. If the same UPN appears in multiple chunks (shouldn't, but defensively
+        // handle it), keep the highest confidence.
+        var merged = new Dictionary<string, AIUserMatchResult>(StringComparer.OrdinalIgnoreCase);
+        foreach (var chunkResult in perChunkResults)
+        {
+            foreach (var r in chunkResult)
+            {
+                if (!merged.TryGetValue(r.UserPrincipalName, out var existing) || existing.ConfidenceScore < r.ConfidenceScore)
+                {
+                    merged[r.UserPrincipalName] = r;
+                }
+            }
+        }
+
+        _logger.LogInformation($"AI matched {merged.Count} users for smart group across {chunks.Count} chunk(s)");
+        return merged.Values.ToList();
+    }
+
+    /// <summary>
+    /// Pure helper: chunk the user list. Internal for unit testing.
+    /// </summary>
+    internal static List<List<EnrichedUserInfo>> ChunkUsers(List<EnrichedUserInfo> users, int chunkSize)
+    {
+        if (chunkSize <= 0) throw new ArgumentOutOfRangeException(nameof(chunkSize));
+        var chunks = new List<List<EnrichedUserInfo>>();
+        for (var i = 0; i < users.Count; i += chunkSize)
+        {
+            chunks.Add(users.GetRange(i, Math.Min(chunkSize, users.Count - i)));
+        }
+        return chunks;
+    }
+
+    private async Task<List<AIUserMatchResult>> ResolveSmartGroupChunkAsync(
+        string groupDescription,
+        List<EnrichedUserInfo> chunkUsers)
+    {
+        var userSummaries = chunkUsers.Select((u, idx) => $"{idx + 1}. {u.ToAISummary()}").ToList();
         var userListText = string.Join("\n", userSummaries);
 
         var systemPrompt = $@"You are an AI assistant that helps match users to group criteria based on their profile and activity data.
@@ -165,10 +236,9 @@ Which users match the group description? Return as JSON array.";
 
         try
         {
-            // Log the prompts for debugging
             _logger.LogDebug($"System Prompt: {systemPrompt}");
             _logger.LogDebug($"User Prompt: {userPrompt}");
-            
+
             var messages = new List<ChatMessage>
             {
                 new SystemChatMessage(systemPrompt),
@@ -188,18 +258,16 @@ Which users match the group description? Return as JSON array.";
                 var responseText = response.Value.Content[0].Text;
                 _logger.LogDebug($"AI Response: {responseText}");
 
-                // Parse the JSON response
-                results = ParseUserMatchResponse(responseText, availableUsers);
-                _logger.LogInformation($"AI matched {results.Count} users for smart group");
+                return ParseUserMatchResponse(responseText, chunkUsers);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling AI Foundry for smart group resolution");
+            _logger.LogError(ex, "Error calling AI Foundry for smart group resolution chunk");
             throw;
         }
 
-        return results;
+        return new List<AIUserMatchResult>();
     }
 
     /// <summary>

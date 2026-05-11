@@ -91,15 +91,20 @@ public static class AzureStorageClientFactory
         }
     }
 
+    // DefaultAzureCredential probes ~7 credential sources on construction; we cache a single
+    // process-wide instance (built lazily and thread-safely) so the per-client cost is paid once.
+    private static readonly Lazy<DefaultAzureCredential> s_defaultCredential =
+        new(() => new DefaultAzureCredential(), LazyThreadSafetyMode.ExecutionAndPublication);
+
     /// <summary>
     /// Gets the appropriate Azure credential based on the configuration.
-    /// Uses RBACOverrideCredentials if provided, otherwise uses DefaultAzureCredential.
+    /// Uses RBACOverrideCredentials if provided, otherwise uses a cached DefaultAzureCredential.
     /// </summary>
     private static Azure.Core.TokenCredential GetCredential(StorageAuthConfig storageAuthConfig, ILogger logger)
     {
         if (storageAuthConfig.RBACOverrideCredentials != null)
         {
-            logger.LogDebug("Using ClientSecretCredential with override credentials for tenant {TenantId}", 
+            logger.LogDebug("Using ClientSecretCredential with override credentials for tenant {TenantId}",
                 storageAuthConfig.RBACOverrideCredentials.TenantId);
             return new ClientSecretCredential(
                 storageAuthConfig.RBACOverrideCredentials.TenantId,
@@ -107,9 +112,8 @@ public static class AzureStorageClientFactory
                 storageAuthConfig.RBACOverrideCredentials.ClientSecret);
         }
 
-        logger.LogDebug("Using DefaultAzureCredential (Managed Identity, Azure CLI, Environment Variables, etc.)");
-        // Use DefaultAzureCredential (Managed Identity, Azure CLI, Environment Variables, etc.)
-        return new DefaultAzureCredential();
+        logger.LogDebug("Using cached DefaultAzureCredential (Managed Identity, Azure CLI, Environment Variables, etc.)");
+        return s_defaultCredential.Value;
     }
 
     /// <summary>

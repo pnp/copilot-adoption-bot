@@ -13,17 +13,20 @@ public class DiagnosticsController : ControllerBase
     private readonly GraphService _graphService;
     private readonly BatchQueueService _queueService;
     private readonly AppConfig _appConfig;
+    private readonly IWebHostEnvironment _hostEnvironment;
     private readonly ILogger<DiagnosticsController> _logger;
 
     public DiagnosticsController(
-        GraphService graphService, 
+        GraphService graphService,
         BatchQueueService queueService,
         AppConfig appConfig,
+        IWebHostEnvironment hostEnvironment,
         ILogger<DiagnosticsController> logger)
     {
         _graphService = graphService;
         _queueService = queueService;
         _appConfig = appConfig;
+        _hostEnvironment = hostEnvironment;
         _logger = logger;
     }
 
@@ -121,15 +124,19 @@ public class DiagnosticsController : ControllerBase
                     ? "RBAC with Service Principal" 
                     : "RBAC with DefaultAzureCredential")
                 : "Connection String";
-            
+
+            // Redact override credential identifiers outside of Development to avoid leaking
+            // service-principal IDs via an authenticated diagnostics endpoint.
+            var showOverrideDetails = _hostEnvironment.IsDevelopment();
+
             return Ok(new
             {
                 useRBAC = storageConfig.UseRBAC,
                 storageAccountName = storageConfig.StorageAccountName,
                 hasConnectionString = !string.IsNullOrEmpty(storageConfig.ConnectionString),
                 hasOverrideCredentials = storageConfig.RBACOverrideCredentials != null,
-                overrideTenantId = storageConfig.RBACOverrideCredentials?.TenantId,
-                overrideClientId = storageConfig.RBACOverrideCredentials?.ClientId,
+                overrideTenantId = showOverrideDetails ? storageConfig.RBACOverrideCredentials?.TenantId : null,
+                overrideClientId = showOverrideDetails ? storageConfig.RBACOverrideCredentials?.ClientId : null,
                 effectiveAuthMethod = authMethod,
                 configurationSource = "StorageAuthConfig"
             });
