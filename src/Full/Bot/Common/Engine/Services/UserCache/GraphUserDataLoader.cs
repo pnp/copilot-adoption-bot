@@ -197,9 +197,11 @@ public class GraphUserDataLoader : IUserDataLoader
                 return licenseInfo;
             }
 
-            var users = new List<User>(usersResult.Value);
+            var users = new List<User>();
 
-            // Handle pagination
+            // PageIterator iterates ALL items (including the first page already loaded into
+            // usersResult), so don't pre-populate from usersResult.Value or the first page
+            // would be duplicated.
             var pageIterator = PageIterator<User, UserCollectionResponse>.CreatePageIterator(
                 _graphClient,
                 usersResult,

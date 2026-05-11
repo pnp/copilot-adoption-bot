@@ -101,14 +101,21 @@ public class BatchQueueService
     /// <summary>
     /// Dequeue up to <paramref name="maxMessages"/> messages from the queue. Azure Storage Queue
     /// allows up to 32 messages per receive call; values outside [1, 32] are clamped.
-    /// Messages that fail JSON deserialization are skipped and logged.
+    /// A visibility timeout is set explicitly so slow per-message processing (Graph + Bot Framework)
+    /// won't redeliver messages mid-flight. Messages that fail JSON deserialization or contain a
+    /// null payload are treated as poison and deleted after logging.
     /// </summary>
     public async Task<List<(BatchQueueMessage Message, QueueMessage QueueMessage)>> DequeueMessagesAsync(int maxMessages = 32)
     {
         if (maxMessages < 1) maxMessages = 1;
         if (maxMessages > 32) maxMessages = 32;
 
-        QueueMessage[] messages = await _queueClient.ReceiveMessagesAsync(maxMessages: maxMessages);
+        // 5 minutes gives the processor plenty of time to send the message via Graph/Bot Framework
+        // even under throttling. Messages still redeliver on hard failure because we only call
+        // DeleteMessageAsync on success.
+        var visibilityTimeout = TimeSpan.FromMinutes(5);
+
+        QueueMessage[] messages = await _queueClient.ReceiveMessagesAsync(maxMessages: maxMessages, visibilityTimeout: visibilityTimeout);
         var result = new List<(BatchQueueMessage, QueueMessage)>(messages.Length);
 
         foreach (var queueMessage in messages)
@@ -125,10 +132,14 @@ public class BatchQueueService
                 continue;
             }
 
-            if (parsed != null)
+            if (parsed == null)
             {
-                result.Add((parsed, queueMessage));
+                _logger.LogWarning("Queue message {MessageId} deserialized to null payload; deleting poison message", queueMessage.MessageId);
+                await DeleteMessageAsync(queueMessage);
+                continue;
             }
+
+            result.Add((parsed, queueMessage));
         }
 
         return result;

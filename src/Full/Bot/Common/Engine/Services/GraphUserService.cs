@@ -105,16 +105,8 @@ public class GraphUserService : IExternalUserService
                 requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
             });
 
-            if (result?.Value != null)
-            {
-                foreach (var user in result.Value)
-                {
-                    var enrichedUser = MapToEnrichedUser(user);
-                    users.Add(enrichedUser);
-                }
-            }
-
-            // Handle paging for large tenants
+            // PageIterator iterates ALL items (including the first page in `result`), so don't
+            // pre-populate from result.Value or the first page would be duplicated.
             var pageIterator = PageIterator<User, UserCollectionResponse>.CreatePageIterator(
                 _graphClient,
                 result!,
@@ -154,10 +146,12 @@ public class GraphUserService : IExternalUserService
         {
             _logger.LogInformation($"Fetching users in department '{department}' from Graph...");
 
+            // Escape apostrophes (per OData) so department names like "Children's Hospital" don't break the filter.
+            var safeDepartment = (department ?? string.Empty).Replace("'", "''");
             var result = await _graphClient.Users.GetAsync(requestConfiguration =>
             {
                 requestConfiguration.QueryParameters.Select = UserSelectProperties;
-                requestConfiguration.QueryParameters.Filter = $"accountEnabled eq true and department eq '{department}'";
+                requestConfiguration.QueryParameters.Filter = $"accountEnabled eq true and department eq '{safeDepartment}'";
                 requestConfiguration.QueryParameters.Top = 999;
                 requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
             });

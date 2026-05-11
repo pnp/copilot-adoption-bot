@@ -14,6 +14,10 @@ public class BatchMessageProcessorService : BackgroundService
     private readonly ILogger<BatchMessageProcessorService> _logger;
     private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(5);
 
+    // Drop messages that keep failing after this many unhandled redeliveries so a poison
+    // message can't block the queue forever.
+    private const int MaxDequeueCount = 5;
+
     public BatchMessageProcessorService(
         BatchQueueService queueService,
         MessageSenderService senderService,
@@ -66,12 +70,33 @@ public class BatchMessageProcessorService : BackgroundService
                             _logger.LogWarning("Failed to process message {LogId}: {Error}", message.MessageLogId, result.ErrorMessage);
                         }
 
+                        // SendMessageAsync persists the outcome (Success/Failed) to the message log,
+                        // so we always remove the queue message after it returns - whether the send
+                        // succeeded or recorded a permanent failure. We only rely on redelivery for
+                        // *unhandled* exceptions below.
                         await _queueService.DeleteMessageAsync(queueMessage);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error processing queued message {LogId}", message.MessageLogId);
-                        // Do NOT delete on transient failure - Azure Storage Queue will redeliver after visibility timeout.
+                        _logger.LogError(ex, "Error processing queued message {LogId} (dequeue count {DequeueCount})",
+                            message.MessageLogId, queueMessage.DequeueCount);
+
+                        // Poison-message guard: after MaxDequeueCount unhandled failures, drop the
+                        // message so it doesn't redeliver forever and block the queue.
+                        if (queueMessage.DequeueCount >= MaxDequeueCount)
+                        {
+                            _logger.LogError("Message {LogId} exceeded MaxDequeueCount ({MaxDequeueCount}); deleting as poison",
+                                message.MessageLogId, MaxDequeueCount);
+                            try
+                            {
+                                await _queueService.DeleteMessageAsync(queueMessage);
+                            }
+                            catch (Exception delEx)
+                            {
+                                _logger.LogError(delEx, "Failed to delete poison message {LogId}", message.MessageLogId);
+                            }
+                        }
+                        // Otherwise let Azure Storage Queue redeliver after visibility timeout.
                     }
                     finally
                     {

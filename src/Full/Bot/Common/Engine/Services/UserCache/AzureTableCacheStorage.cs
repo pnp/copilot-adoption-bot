@@ -98,35 +98,56 @@ public class AzureTableCacheStorage : ICacheStorage
     public async Task UpsertUsersAsync(IEnumerable<EnrichedUserInfo> users)
     {
         var tableClient = await _storageManager.GetTableClient(_userCacheTableName);
+        var now = DateTime.UtcNow;
 
-        foreach (var user in users)
+        var entities = users.Select(user => new UserCacheTableEntity
         {
-            var cachedUser = new UserCacheTableEntity
-            {
-                RowKey = user.UserPrincipalName,
-                Id = user.Id,
-                UserPrincipalName = user.UserPrincipalName,
-                DisplayName = user.DisplayName,
-                GivenName = user.GivenName,
-                Surname = user.Surname,
-                Mail = user.Mail,
-                Department = user.Department,
-                JobTitle = user.JobTitle,
-                OfficeLocation = user.OfficeLocation,
-                City = user.City,
-                Country = user.Country,
-                State = user.State,
-                CompanyName = user.CompanyName,
-                EmployeeType = user.EmployeeType,
-                EmployeeHireDate = user.HireDate?.DateTime,
-                LastSyncedDate = DateTime.UtcNow,
-                IsDeleted = user.IsDeleted,
-                HasCopilotLicense = user.HasCopilotLicense,
-                ManagerUpn = user.ManagerUpn,
-                ManagerDisplayName = user.ManagerDisplayName
-            };
+            RowKey = user.UserPrincipalName,
+            Id = user.Id,
+            UserPrincipalName = user.UserPrincipalName,
+            DisplayName = user.DisplayName,
+            GivenName = user.GivenName,
+            Surname = user.Surname,
+            Mail = user.Mail,
+            Department = user.Department,
+            JobTitle = user.JobTitle,
+            OfficeLocation = user.OfficeLocation,
+            City = user.City,
+            Country = user.Country,
+            State = user.State,
+            CompanyName = user.CompanyName,
+            EmployeeType = user.EmployeeType,
+            EmployeeHireDate = user.HireDate?.DateTime,
+            LastSyncedDate = now,
+            IsDeleted = user.IsDeleted,
+            HasCopilotLicense = user.HasCopilotLicense,
+            ManagerUpn = user.ManagerUpn,
+            ManagerDisplayName = user.ManagerDisplayName
+        }).ToList();
 
-            await tableClient.UpsertEntityAsync(cachedUser, TableUpdateMode.Replace);
+        if (entities.Count == 0) return;
+
+        // All users share the same partition key, so we can use transactional batches.
+        var ops = entities.Select(e =>
+            new TableTransactionAction(TableTransactionActionType.UpsertReplace, e));
+        try
+        {
+            await TableBatch.SubmitInBatchesAsync(tableClient, ops);
+        }
+        catch (Azure.RequestFailedException ex)
+        {
+            _logger.LogWarning(ex, "Batched user-cache upsert failed; falling back to per-entity upserts");
+            foreach (var entity in entities)
+            {
+                try
+                {
+                    await tableClient.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+                }
+                catch (Exception innerEx)
+                {
+                    _logger.LogError(innerEx, "Failed to upsert user {Upn}", entity.UserPrincipalName);
+                }
+            }
         }
     }
 
