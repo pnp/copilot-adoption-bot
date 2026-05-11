@@ -7,9 +7,9 @@ This guide walks you through manually deploying the Copilot Adoption Bot to Azur
 Before starting, ensure you have:
 
 - [ ] Completed [Teams Bot Setup](SETUP.md#teams-bot-setup)
-- [ ] [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli) installed
+- [ ] [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli) **2.40+** installed (required for the `az webapp deploy --src-path` flag)
 - [ ] [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) installed
-- [ ] [Node.js 18+](https://nodejs.org/) installed
+- [ ] [Node.js 20 LTS](https://nodejs.org/) installed (matches the CI pipelines)
 - [ ] Azure subscription with Contributor access
 
 ---
@@ -160,12 +160,15 @@ az webapp config appsettings set \
 ```
 
 **For Connection String:**
+
+Set it as a regular app setting so it binds directly to `IConfiguration["ConnectionStrings:Storage"]`
+without relying on the `CUSTOMCONNSTR_` prefix App Service uses for `connection-string set`:
+
 ```bash
-az webapp config connection-string set \
+az webapp config appsettings set \
   --name copilot-adoption-bot-app \
   --resource-group rg-copilot-adoption-bot \
-  --settings Storage="$STORAGE_CONN" \
-  --connection-string-type Custom
+  --settings ConnectionStrings__Storage="$STORAGE_CONN"
 ```
 
 ### 3.3 Set Optional Settings
@@ -239,10 +242,12 @@ az webapp deploy \
 
 ### Option B: Using Visual Studio
 
-1. Open `Adoption Bot.sln` in Visual Studio 2022
+> Requires **Visual Studio 2022 17.12+** or **Visual Studio 2026** with the .NET 10 SDK installed.
+
+1. Open `Adoption Bot.sln` in Visual Studio
 2. Right-click on `Web.Server` project
 3. Select **Publish**
-4. Choose **Azure** → **Azure App Service (Windows)**
+4. Choose **Azure** → **Azure App Service** (pick Windows or Linux to match the plan you created)
 5. Select your App Service and click **Publish**
 
 ### Option C: Using VS Code

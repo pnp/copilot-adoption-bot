@@ -116,7 +116,7 @@ This credential is **required** for the workflow to authenticate with Azure duri
 **Option A: Using Azure Portal**
 
 1. Go to **Microsoft Entra ID** → **App registrations** → Your app
-2. Navigate to **Certificates & secrets** → **Federated credentials**
+2. Under **Manage**, open the **Certificates & secrets** blade and switch to the **Federated credentials** tab
 3. Click **+ Add credential**
 4. Select **GitHub Actions deploying Azure resources**
 5. Configure:
@@ -295,7 +295,7 @@ AZURE_WEBAPP_NAME        # Your Azure App Service name (e.g., copilot-adoption-b
 TESTS_APPSETTINGS_JSON   # Full appsettings.json content for unit tests
 ```
 
-> **Note**: If `TESTS_APPSETTINGS_JSON` is not configured, tests are skipped with a warning. This is fine for initial deployment.
+> **Note**: `TESTS_APPSETTINGS_JSON` is only needed for **integration** tests that talk to real Azure Storage and Microsoft Graph. The pure unit tests under `UnitTests/Services` (CSV parser, statistics calculator, pending-card materializer, OData escaping, table batching) run without it. If the secret is missing the workflow currently skips the entire `dotnet test` step, so until that is split, you can leave the secret unset for first-time deployment and the build will still produce a deployable artifact.
 
 ### Workflow Triggers
 

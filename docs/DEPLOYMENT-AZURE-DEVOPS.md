@@ -113,13 +113,25 @@ Edit `.azure-pipelines/azure-deploy.yml` and update the default values:
 variables:
   # Azure configuration
   azureSubscription: 'AzureServiceConnection'  # Your service connection name
-  webAppName: 'copilot-adoption-bot-app'       # Your App Service name
-  
-  # Build configuration  
-  vmImageName: 'ubuntu-latest'
+  webAppName: 'copilot-adoption-bot-app'       # Your App Service name (default in the repo is 'office-nudge-web')
+
+  # Build configuration
   dotnetVersion: '10.0.x'
-  nodeVersion: '18.x'
+  # Node.js 20 LTS is required by the React frontend
 ```
+
+### 3.2 Secret pipeline variable for integration tests (optional)
+
+The pipeline references `$(TESTS_APPSETTINGS_JSON)` and gates the test step on whether it is set.
+To enable real-Azure integration tests during CI:
+
+1. Open the pipeline in Azure DevOps → **Edit** → **Variables**.
+2. Add a new variable named `TESTS_APPSETTINGS_JSON`.
+3. Paste the full contents of an `appsettings.json` that matches `UnitTests/appsettings.example.json`.
+4. Mark it as **Keep this value secret**.
+
+The pure unit tests (CSV parser, statistics calculator, pending-card materializer, OData filter,
+table batching) do **not** need this variable — they run as part of `dotnet test` once it is invoked.
 
 ### 3.2 Pipeline Variables in Azure DevOps (Alternative)
 
@@ -136,144 +148,22 @@ For sensitive or environment-specific values:
 
 ---
 
-## Step 4: Create the Pipeline
+## Step 4: Use the Pipeline File
 
-### 4.1 Create Pipeline File
+The repository already ships a working pipeline at
+[`.azure-pipelines/azure-deploy.yml`](../.azure-pipelines/azure-deploy.yml). Use that file as the source
+of truth rather than copy-pasting a sample; this section just calls out the values you must change.
 
-Create `.azure-pipelines/azure-deploy.yml` in your repository:
-
-```yaml
-trigger:
-  branches:
-    include:
-      - main
-  paths:
-    exclude:
-      - '*.md'
-      - 'docs/**'
-
-pr:
-  branches:
-    include:
-      - main
-
-variables:
-  # Azure configuration - update these values
-  azureSubscription: 'AzureServiceConnection'
-  webAppName: 'copilot-adoption-bot-app'
-  
-  # Build configuration
-  vmImageName: 'ubuntu-latest'
-  dotnetVersion: '10.0.x'
-  nodeVersion: '18.x'
-  
-  # Paths
-  solutionPath: 'src/Full/Bot'
-  frontendPath: 'src/Full/Bot/Web/web.client'
-  projectPath: 'src/Full/Bot/Web/Web.Server/Web.Server.csproj'
-
-stages:
-- stage: Build
-  displayName: 'Build Stage'
-  jobs:
-  - job: Build
-    displayName: 'Build Job'
-    pool:
-      vmImage: $(vmImageName)
-    
-    steps:
-    - task: UseDotNet@2
-      displayName: 'Setup .NET SDK'
-      inputs:
-        version: $(dotnetVersion)
-        includePreviewVersions: true
-
-    - task: NodeTool@0
-      displayName: 'Setup Node.js'
-      inputs:
-        versionSpec: $(nodeVersion)
-
-    - task: Npm@1
-      displayName: 'Install frontend dependencies'
-      inputs:
-        command: 'ci'
-        workingDir: $(frontendPath)
-
-    - task: Npm@1
-      displayName: 'Build frontend'
-      inputs:
-        command: 'custom'
-        workingDir: $(frontendPath)
-        customCommand: 'run build'
-
-    - task: DotNetCoreCLI@2
-      displayName: 'Restore NuGet packages'
-      inputs:
-        command: 'restore'
-        projects: '$(solutionPath)/**/*.csproj'
-
-    - task: DotNetCoreCLI@2
-      displayName: 'Build solution'
-      inputs:
-        command: 'build'
-        projects: '$(solutionPath)/**/*.csproj'
-        arguments: '--configuration Release --no-restore'
-
-    - task: DotNetCoreCLI@2
-      displayName: 'Run tests'
-      inputs:
-        command: 'test'
-        projects: '$(solutionPath)/**/*Tests.csproj'
-        arguments: '--configuration Release --no-build --verbosity normal'
-      continueOnError: false
-
-    - task: DotNetCoreCLI@2
-      displayName: 'Publish application'
-      inputs:
-        command: 'publish'
-        publishWebProjects: false
-        projects: $(projectPath)
-        arguments: '--configuration Release --no-build --output $(Build.ArtifactStagingDirectory)/publish'
-        zipAfterPublish: true
-
-    - task: PublishBuildArtifacts@1
-      displayName: 'Publish artifact'
-      inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)/publish'
-        ArtifactName: 'webapp'
-        publishLocation: 'Container'
-
-- stage: Deploy
-  displayName: 'Deploy Stage'
-  dependsOn: Build
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-  jobs:
-  - deployment: Deploy
-    displayName: 'Deploy to Azure'
-    environment: 'Production'
-    pool:
-      vmImage: $(vmImageName)
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: DownloadBuildArtifacts@1
-            displayName: 'Download artifact'
-            inputs:
-              buildType: 'current'
-              downloadType: 'single'
-              artifactName: 'webapp'
-              downloadPath: '$(System.ArtifactsDirectory)'
-
-          - task: AzureWebApp@1
-            displayName: 'Deploy to Azure Web App'
-            inputs:
-              azureSubscription: $(azureSubscription)
-              appType: 'webApp'
-              appName: $(webAppName)
-              package: '$(System.ArtifactsDirectory)/webapp/*.zip'
-              deploymentMethod: 'auto'
-```
+> ⚠️ **Before your first run**, edit the checked-in pipeline and update these placeholder values:
+>
+> | Variable | Default in repo | Change to |
+> |----------|-----------------|-----------|
+> | `webAppName` | `office-nudge-web` | The App Service name you created in Step 1 |
+> | `azureSubscription` | `AzureServiceConnection` | Your service connection name from this guide |
+>
+> The repo pipeline targets **Linux** App Service (`appType: webAppLinux`, `runtimeStack: DOTNETCORE|10.0`)
+> with Node 20 and .NET 10. If you created a Windows App Service in Step 1, change `appType` to `webApp`
+> and drop the `runtimeStack` line.
 
 ### 4.2 Import Pipeline in Azure DevOps
 

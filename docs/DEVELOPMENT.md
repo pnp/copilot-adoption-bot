@@ -133,7 +133,11 @@ cd Web/Web.Server
 dotnet run
 ```
 
-The API will be available at `https://localhost:5001`
+The exact backend URLs are defined in
+`Web/Web.Server/Properties/launchSettings.json`. The default `https` profile listens on
+`https://localhost:7053` and `http://localhost:5295` and opens `/swagger` on launch.
+Watch the console output from `dotnet run` (or the Debug output in Visual Studio) for the actual
+port numbers in case you changed the profile.
 
 ### Start the Frontend (Development Mode)
 
@@ -144,14 +148,14 @@ cd Web/web.client
 npm run dev
 ```
 
-The React app will be available at `http://localhost:5173`
+The React app will be available at `http://localhost:5173`.
 
-### Access Points
+### Access Points (defaults)
 
 | URL | Description |
 |-----|-------------|
-| `https://localhost:5001` | Backend API |
-| `https://localhost:5001/swagger` | API documentation |
+| `https://localhost:7053` | Backend API |
+| `https://localhost:7053/swagger` | API documentation |
 | `http://localhost:5173` | Frontend (dev server) |
 
 ---
@@ -181,13 +185,13 @@ Teams bots require a publicly accessible HTTPS endpoint. During development, use
 #### Start the Tunnel
 
 ```bash
-# Expose the backend port (5001)
-ngrok http https://localhost:5001
+# Expose the backend HTTPS port (default 7053 - check launchSettings.json)
+ngrok http https://localhost:7053
 ```
 
 You'll see output like:
 ```
-Forwarding    https://abc123.ngrok-free.app -> https://localhost:5001
+Forwarding    https://abc123.ngrok-free.app -> https://localhost:7053
 ```
 
 #### Configure Bot Endpoint
@@ -209,7 +213,7 @@ Dev Tunnels are built into VS Code and don't require a separate account.
 1. Open VS Code
 2. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
 3. Search for **"Forward a Port"**
-4. Enter port `5001`
+4. Enter the backend HTTPS port from `launchSettings.json` (default `7053`)
 5. Set visibility to **Public** (required for Teams)
 6. Copy the generated URL
 
@@ -222,7 +226,7 @@ https://your-tunnel-url.devtunnels.ms/api/messages
 
 ### Option 3: Visual Studio Dev Tunnels
 
-Visual Studio 2022 has built-in Dev Tunnels support.
+Visual Studio 2022 (17.6+) and Visual Studio 2026 have built-in Dev Tunnels support.
 
 1. Right-click on the `Web.Server` project
 2. Select **Properties** → **Debug** → **General**
@@ -245,8 +249,8 @@ dotnet run
 cd Web/web.client
 npm run dev
 
-# Terminal 3: Tunnel (choose one)
-ngrok http https://localhost:5001
+# Terminal 3: Tunnel (choose one) - port matches launchSettings.json
+ngrok http https://localhost:7053
 ```
 
 ### 2. Update Bot Endpoint

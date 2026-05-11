@@ -70,7 +70,16 @@ stages:
               arguments: '--configuration $(buildConfiguration) --no-restore'
 
           - task: DotNetCoreCLI@2
-            displayName: 'Run unit tests'
+            displayName: 'Run unit tests (no Azure required)'
+            condition: and(succeeded(), eq(variables['TESTS_APPSETTINGS_JSON'], ''))
+            inputs:
+              command: 'test'
+              projects: '$(solution)'
+              arguments: '--configuration $(buildConfiguration) --no-build --verbosity normal --filter "FullyQualifiedName~UnitTests.Services" --logger trx --results-directory $(Agent.TempDirectory)/TestResults'
+              publishTestResults: true
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Run all tests (unit + integration)'
             condition: and(succeeded(), ne(variables['TESTS_APPSETTINGS_JSON'], ''))
             inputs:
               command: 'test'
@@ -78,8 +87,8 @@ stages:
               arguments: '--configuration $(buildConfiguration) --no-build --verbosity normal --logger trx --results-directory $(Agent.TempDirectory)/TestResults'
               publishTestResults: true
 
-          - script: echo "##vso[task.logissue type=warning]Tests skipped - TESTS_APPSETTINGS_JSON variable not configured"
-            displayName: 'Skip tests notification'
+          - script: echo "##vso[task.logissue type=warning]Integration tests skipped - set TESTS_APPSETTINGS_JSON to enable them. Pure unit tests still ran."
+            displayName: 'Integration test notice'
             condition: and(succeeded(), eq(variables['TESTS_APPSETTINGS_JSON'], ''))
 
           - task: DotNetCoreCLI@2

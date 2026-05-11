@@ -73,17 +73,20 @@ jobs:
       - name: Build solution
         run: dotnet build "${{ env.SOLUTION_PATH }}" --configuration Release --no-restore
 
-      - name: Run unit tests
+      - name: Run unit tests (no Azure required)
+        if: ${{ env.HAS_TESTS_CONFIG != 'true' }}
+        # Run only the pure unit tests under UnitTests/Services. Integration tests under
+        # UnitTests/IntegrationTests need real Azure resources and are skipped when
+        # TESTS_APPSETTINGS_JSON is not configured.
+        run: dotnet test "${{ env.SOLUTION_PATH }}" --configuration Release --no-build --verbosity normal --filter "FullyQualifiedName~UnitTests.Services" --logger trx --results-directory TestResults
+
+      - name: Run all tests (unit + integration)
         if: ${{ env.HAS_TESTS_CONFIG == 'true' }}
         run: dotnet test "${{ env.SOLUTION_PATH }}" --configuration Release --no-build --verbosity normal --logger trx --results-directory TestResults
 
-      - name: Skip tests notification
-        if: ${{ env.HAS_TESTS_CONFIG != 'true' }}
-        run: echo "::warning::Tests skipped - TESTS_APPSETTINGS_JSON secret not configured"
-
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: ${{ always() && env.HAS_TESTS_CONFIG == 'true' }}
+        if: ${{ always() }}
         with:
           name: test-results
           path: TestResults

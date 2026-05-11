@@ -408,7 +408,7 @@ DELETE /api/UserCache/Clear
 ### Maintenance
 
 **Manual Refresh:**
-1. Navigate to Settings ? User Cache Management
+1. Navigate to Settings → User Cache Management
 2. Click "Refresh User Cache"
 3. Wait for completion notification
 

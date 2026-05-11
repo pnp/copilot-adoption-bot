@@ -171,14 +171,18 @@ For AI-powered bot conversations, you need an Azure AI Foundry deployment:
 
 ## Estimated Costs
 
-| Resource | Estimated Monthly Cost |
-|----------|----------------------|
-| App Service (B1) | ~$13 USD |
-| Storage Account (minimal usage) | ~$1-5 USD |
-| Application Insights (basic) | Free tier available |
-| Azure AI Foundry | Pay-per-token (varies by usage) |
+| Resource | SKU | Estimated Monthly Cost |
+|----------|-----|----------------------|
+| App Service Plan | B1 (Windows or Linux) | ~$13 USD |
+| Storage Account | Standard LRS, minimal usage | ~$1-5 USD |
+| Application Insights | Basic / pay-as-you-go | Free tier available |
+| Azure AI Foundry | Pay-per-token | Varies by usage |
 
-**Total**: ~$15-25 USD/month for basic deployment (excluding AI Foundry usage)
+**Total**: ~$15-25 USD/month for basic deployment (excluding AI Foundry usage).
+
+> **Sizing note**: B1 is fine for a few hundred users and the background sender. For
+> tenant-wide rollouts (10k+ users with periodic delta syncs) prefer **B2** (3.5 GB RAM)
+> or **P1v3** so the user cache sync and the parallel batch sender do not contend for memory.
 
 ---
 
@@ -223,6 +227,10 @@ az webapp identity assign \
 
 ### 4. Grant Key Vault Access
 
+Azure now recommends the **RBAC** authorization model for Key Vault. The commands below
+use RBAC; the older access-policy commands (`az keyvault set-policy ...`) still work for
+vaults created with the legacy model.
+
 ```bash
 # Get the principal ID from the previous command output
 PRINCIPAL_ID=$(az webapp identity show \
@@ -230,10 +238,19 @@ PRINCIPAL_ID=$(az webapp identity show \
   --resource-group myResourceGroup \
   --query principalId -o tsv)
 
-az keyvault set-policy \
-  --name my-copilot-bot-kv \
-  --object-id $PRINCIPAL_ID \
-  --secret-permissions get list
+# Recommended: RBAC model
+az keyvault update --name my-copilot-bot-kv --enable-rbac-authorization true
+
+VAULT_ID=$(az keyvault show --name my-copilot-bot-kv --query id -o tsv)
+
+az role assignment create \
+  --assignee $PRINCIPAL_ID \
+  --role "Key Vault Secrets User" \
+  --scope $VAULT_ID
+
+# Legacy alternative (only if the vault was created with the access-policy model):
+# az keyvault set-policy --name my-copilot-bot-kv \
+#   --object-id $PRINCIPAL_ID --secret-permissions get list
 ```
 
 ### 5. Reference Secrets in App Settings

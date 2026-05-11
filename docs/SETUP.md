@@ -32,7 +32,7 @@ This section covers creating a Teams bot and configuring the required Microsoft 
 
 1. Navigate to the [Teams Developer Portal](https://dev.teams.microsoft.com/)
 2. Sign in with your Microsoft 365 account
-3. Go to **Tools** ? **Bot management** in the left navigation
+3. Go to **Tools** → **Bot management** in the left navigation
 4. Click **+ New Bot**
 5. Enter a name for your bot (e.g., "Copilot Adoption Bot")
 6. Click **Add**
@@ -48,12 +48,12 @@ This section covers creating a Teams bot and configuring the required Microsoft 
 When you create a bot in the Teams Developer Portal, an Entra ID (Azure AD) app registration is automatically created. You need to add the required Microsoft Graph permissions to this app.
 
 1. Go to the [Azure Portal](https://portal.azure.com/)
-2. Navigate to **Microsoft Entra ID** ? **App registrations**
+2. Navigate to **Microsoft Entra ID** → **App registrations**
 3. Search for your bot by name or Bot ID (the app will have the same name as your bot)
 4. Click on the app registration to open it
 5. Go to **API permissions** in the left menu
 6. Click **+ Add a permission**
-7. Select **Microsoft Graph** ? **Application permissions**
+7. Select **Microsoft Graph** → **Application permissions**
 8. Add the following permissions:
    - `User.Read.All` - Required for reading user information and statistics
    - `Reports.Read.All` - Required for Copilot usage statistics (optional, enables Copilot stats features)
@@ -92,9 +92,9 @@ Once your application is deployed to Azure App Service, you need to configure th
 1. Deploy your application to Azure App Service (see [Deployment Guide](DEPLOYMENT.md))
 2. Note your App Service URL (e.g., `https://your-app-name.azurewebsites.net`)
 3. Go back to the [Teams Developer Portal](https://dev.teams.microsoft.com/)
-4. Navigate to **Tools** ? **Bot management**
+4. Navigate to **Tools** → **Bot management**
 5. Click on your bot to open its settings
-6. Under **Configure** ? **Endpoint address**, enter:
+6. Under **Configure** → **Endpoint address**, enter:
    ```
    https://your-app-name.azurewebsites.net/api/messages
    ```
@@ -116,7 +116,17 @@ If the bot doesn't respond, see the [Troubleshooting Guide](TROUBLESHOOTING.md).
 
 This section covers configuring the application for local development and production.
 
-> :memo: **Note**: When you create a bot in the Teams Developer Portal, an Entra ID (Azure AD) app registration is automatically created. This same app registration is used for both the bot identity and Microsoft Graph API access. You will use the Bot ID as your `MicrosoftAppId` / `GraphConfig:ClientId` and the bot client secret as your `MicrosoftAppPassword` / `GraphConfig:ClientSecret`.
+> :memo: **Note on app registrations**: When you create a bot in the Teams Developer Portal, an
+> Entra ID (Azure AD) app registration is automatically created. This same app registration is used
+> for **both** the bot identity (`MicrosoftAppId` / `MicrosoftAppPassword`) **and** Microsoft Graph
+> API access (`GraphConfig:ClientId` / `GraphConfig:ClientSecret`).
+>
+> **`WebAuthConfig` is different.** It authenticates users of the React web portal via MSAL and
+> typically needs a **separate** app registration that exposes a delegated scope such as
+> `api://<webAuthClientId>/access_as_user` and lists `https://<your-app>.azurewebsites.net` as a
+> redirect URI. Re-using the bot app registration here will work for single-tenant cases but is
+> not recommended — the two apps have different audiences (Application vs Delegated permissions)
+> and different consent surfaces.
 
 ### 1. Backend Configuration (User Secrets)
 
@@ -344,7 +354,7 @@ VITE_TEAMSFX_START_LOGIN_PAGE_URL=https://your-domain.com/auth-start.html
 
 For production deployments to Azure App Service:
 
-1. **Azure App Service**: Configure application settings in the Azure Portal under Configuration ? Application Settings
+1. **Azure App Service**: Configure application settings in the Azure Portal under Configuration → Application Settings
 2. **Azure Key Vault**: For enhanced security, store secrets in Azure Key Vault and reference them:
    ```
    @Microsoft.KeyVault(SecretUri=https://your-keyvault.vault.azure.net/secrets/StorageConnectionString/)

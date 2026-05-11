@@ -45,7 +45,7 @@ Common issues and solutions for the Copilot Adoption Bot.
    - Verify it matches your Azure AD tenant
 
 3. **Regenerate Client Secret:**
-   - Go to Azure Portal ? Entra ID ? App registrations
+   - Go to Azure Portal → Entra ID → App registrations
    - Find your app
    - Go to Certificates & secrets
    - Create new client secret
@@ -64,7 +64,7 @@ Common issues and solutions for the Copilot Adoption Bot.
 **Solutions:**
 
 1. **Verify App Registration:**
-   - Go to Azure Portal ? Entra ID ? App registrations
+   - Go to Azure Portal → Entra ID → App registrations
    - Search for your app by Client ID
    - Ensure it exists and is enabled
 
@@ -90,7 +90,7 @@ Common issues and solutions for the Copilot Adoption Bot.
 **Solutions:**
 
 1. **Add Redirect URIs in App Registration:**
-   - Go to Azure Portal ? Entra ID ? App registrations ? Your app
+   - Go to Azure Portal → Entra ID → App registrations → Your app
    - Go to Authentication
    - Add redirect URIs:
      - For local: `https://localhost:5001/auth-end.html`
@@ -112,7 +112,7 @@ Common issues and solutions for the Copilot Adoption Bot.
 **Solutions:**
 
 1. **Verify Application Permissions:**
-   - Go to Azure Portal ? Entra ID ? App registrations ? Your app
+   - Go to Azure Portal → Entra ID → App registrations → Your app
    - Click **API permissions**
    - Ensure all required permissions are listed:
      - `User.Read.All` (Application)
@@ -173,12 +173,12 @@ Common issues and solutions for the Copilot Adoption Bot.
 **Solutions:**
 
 1. **Verify Bot Endpoint:**
-   - Go to Teams Developer Portal ? Bot management ? Your bot
+   - Go to Teams Developer Portal → Bot management → Your bot
    - Check endpoint address: `https://your-app.azurewebsites.net/api/messages`
    - Ensure URL is correct and uses HTTPS
 
 2. **Check App Service Status:**
-   - Go to Azure Portal ? App Service
+   - Go to Azure Portal → App Service
    - Verify app is running
    - Check Application Insights logs for errors
 
@@ -246,12 +246,12 @@ Common issues and solutions for the Copilot Adoption Bot.
    ```
 
 2. **Check Storage Account:**
-   - Go to Azure Portal ? Storage Account
+   - Go to Azure Portal → Storage Account
    - Verify account exists and is accessible
    - Check if account key is correct
 
 3. **Firewall Rules:**
-   - Go to Storage Account ? Networking
+   - Go to Storage Account → Networking
    - Add your IP address or App Service IPs
    - Ensure firewall allows necessary connections
 
@@ -307,7 +307,7 @@ Common issues and solutions for the Copilot Adoption Bot.
 **Solutions:**
 
 1. **Verify Table Service:**
-   - Go to Azure Portal ? Storage Account
+   - Go to Azure Portal → Storage Account
    - Ensure Table service is enabled
 
 2. **Check Table Names:**
@@ -447,7 +447,7 @@ Common issues and solutions for the Copilot Adoption Bot.
 **Solutions:**
 
 1. **Check Application Logs:**
-   - Go to Azure Portal ? App Service ? Log stream
+   - Go to Azure Portal → App Service → Log stream
    - Look for startup errors
 
 2. **Verify Runtime:**
@@ -474,9 +474,9 @@ Common issues and solutions for the Copilot Adoption Bot.
 **Solutions:**
 
 1. **Add Permission:**
-   - Go to Azure Portal ? Entra ID ? App registrations ? Your app
-   - API permissions ? Add permission
-   - Microsoft Graph ? Application permissions
+   - Go to Azure Portal → Entra ID → App registrations → Your app
+   - API permissions → Add permission
+   - Microsoft Graph → Application permissions
    - Select `Reports.Read.All`
 
 2. **Grant Admin Consent:**
