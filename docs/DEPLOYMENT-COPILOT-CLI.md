@@ -6,9 +6,9 @@ This guide enables you to deploy the Copilot Adoption Bot entirely from the **Gi
 
 Already have a bot app registration, an Azure subscription, and Copilot CLI installed?
 
-```bash
+```powershell
 # 1. Copy the config template and fill in your values
-cp docs/deployment-config.example.json deployment-config.json
+Copy-Item docs/deployment-config.example.json deployment-config.json
 
 # 2. Launch Copilot CLI in this repo and paste:
 #    "Deploy the Copilot Adoption Bot using deployment-config.json.

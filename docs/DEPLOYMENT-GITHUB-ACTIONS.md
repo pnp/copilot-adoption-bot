@@ -174,29 +174,29 @@ The service principal needs permissions to deploy to your Azure resources.
 
 ### 4.2 Assign Contributor Role
 
-```bash
+```powershell
 # Get your subscription ID
-SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+$SUBSCRIPTION_ID = az account show --query id -o tsv
 
 # Get your resource group name
-RESOURCE_GROUP="rg-copilot-adoption-bot"
+$RESOURCE_GROUP = "rg-copilot-adoption-bot"
 
 # Assign Contributor role to the service principal
-az role assignment create \
-  --assignee <app-id> \
-  --role Contributor \
-  --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP
+az role assignment create `
+  --assignee <app-id> `
+  --role Contributor `
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
 ```
 
 ### 4.3 (Optional) Additional Permissions for Key Vault
 
 If using Azure Key Vault with the deployment:
 
-```bash
+```powershell
 # Grant Key Vault access
-az keyvault set-policy \
-  --name my-copilot-bot-kv \
-  --spn <app-id> \
+az keyvault set-policy `
+  --name my-copilot-bot-kv `
+  --spn <app-id> `
   --secret-permissions get list
 ```
 

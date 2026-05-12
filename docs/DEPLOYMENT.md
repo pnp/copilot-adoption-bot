@@ -104,33 +104,33 @@ Uses Azure role-based access control with no storage keys in configuration.
 | `Storage Queue Data Contributor` | Queue storage access |
 
 **Azure CLI Commands:**
-```bash
+```powershell
 # Get your App Service managed identity principal ID
-APP_PRINCIPAL_ID=$(az webapp identity show \
-  --name myAppName \
-  --resource-group myResourceGroup \
-  --query principalId -o tsv)
+$APP_PRINCIPAL_ID = az webapp identity show `
+  --name myAppName `
+  --resource-group myResourceGroup `
+  --query principalId -o tsv
 
 # Get storage account ID
-STORAGE_ID=$(az storage account show \
-  --name mystorageaccount \
-  --resource-group myResourceGroup \
-  --query id -o tsv)
+$STORAGE_ID = az storage account show `
+  --name mystorageaccount `
+  --resource-group myResourceGroup `
+  --query id -o tsv
 
 # Assign roles to the managed identity
-az role assignment create \
-  --assignee $APP_PRINCIPAL_ID \
-  --role "Storage Blob Data Contributor" \
+az role assignment create `
+  --assignee $APP_PRINCIPAL_ID `
+  --role "Storage Blob Data Contributor" `
   --scope $STORAGE_ID
 
-az role assignment create \
-  --assignee $APP_PRINCIPAL_ID \
-  --role "Storage Table Data Contributor" \
+az role assignment create `
+  --assignee $APP_PRINCIPAL_ID `
+  --role "Storage Table Data Contributor" `
   --scope $STORAGE_ID
 
-az role assignment create \
-  --assignee $APP_PRINCIPAL_ID \
-  --role "Storage Queue Data Contributor" \
+az role assignment create `
+  --assignee $APP_PRINCIPAL_ID `
+  --role "Storage Queue Data Contributor" `
   --scope $STORAGE_ID
 ```
 
@@ -161,6 +161,34 @@ For AI-powered bot conversations, you need an Azure AI Foundry deployment:
 4. **Grant the App Service Managed Identity (or your local identity) access** to the AI Foundry resource. Azure AI Foundry is configured to use **Azure RBAC only** - API key authentication is not supported. Assign a role such as:
    - `Cognitive Services OpenAI User` (data-plane access to call the deployed model), or
    - `Azure AI Developer`
+
+### Assigning the AI Foundry Role
+
+These commands target the App Service Managed Identity (for production). Run them in **PowerShell** with the **Azure CLI (`az`)** installed and signed in (`az login`). Make sure you've enabled the Managed Identity first - see [Enable Managed Identity](#3-enable-managed-identity) below.
+
+```powershell
+# Get the App Service Managed Identity principal ID
+$APP_PRINCIPAL_ID = az webapp identity show `
+  --name myAppName `
+  --resource-group myResourceGroup `
+  --query principalId -o tsv
+
+# Get the AI Foundry (Azure OpenAI / Cognitive Services) resource ID
+$FOUNDRY_ID = az cognitiveservices account show `
+  --name yourFoundryResource `
+  --resource-group yourResourceGroup `
+  --query id -o tsv
+
+# Assign the data-plane role
+az role assignment create `
+  --assignee $APP_PRINCIPAL_ID `
+  --role "Cognitive Services OpenAI User" `
+  --scope $FOUNDRY_ID
+```
+
+> **Local development / service principal**: If you're running locally with `az login`, or using `AIFoundryConfig:RBACOverrideCredentials` with a service principal, assign the same role to that identity instead. See [SETUP.md → Assigning RBAC Roles to Azure AI Foundry](SETUP.md#assigning-rbac-roles-to-azure-ai-foundry-optional---for-copilot-connected-mode) for the local-dev variant.
+
+> **Note**: Role assignments can take up to 5 minutes to propagate. If you see `401`/`403` errors from AI Foundry immediately after assignment, wait a few minutes.
 
 **Configuration:**
 ```json
@@ -199,26 +227,26 @@ For production deployments, store all secrets in Azure Key Vault.
 
 ### 1. Create Azure Key Vault
 
-```bash
-az keyvault create \
-  --name my-copilot-bot-kv \
-  --resource-group myResourceGroup \
+```powershell
+az keyvault create `
+  --name my-copilot-bot-kv `
+  --resource-group myResourceGroup `
   --location eastus
 ```
 
 ### 2. Add Secrets
 
-```bash
+```powershell
 # Required secrets
-az keyvault secret set --vault-name my-copilot-bot-kv \
+az keyvault secret set --vault-name my-copilot-bot-kv `
   --name GraphClientSecret --value "<your-client-secret>"
-az keyvault secret set --vault-name my-copilot-bot-kv \
+az keyvault secret set --vault-name my-copilot-bot-kv `
   --name BotAppPassword --value "<your-bot-password>"
 
 # Optional secrets
-az keyvault secret set --vault-name my-copilot-bot-kv \
+az keyvault secret set --vault-name my-copilot-bot-kv `
   --name StorageConnectionString --value "<your-connection-string>"
-az keyvault secret set --vault-name my-copilot-bot-kv \
+az keyvault secret set --vault-name my-copilot-bot-kv `
   --name ApplicationInsightsConnectionString --value "<your-appinsights-connection-string>"
 
 # Note: Azure AI Foundry uses Azure RBAC only and does NOT use an API key.
@@ -228,9 +256,9 @@ az keyvault secret set --vault-name my-copilot-bot-kv \
 
 ### 3. Enable Managed Identity
 
-```bash
-az webapp identity assign \
-  --resource-group myResourceGroup \
+```powershell
+az webapp identity assign `
+  --resource-group myResourceGroup `
   --name myAppName
 ```
 
@@ -240,25 +268,25 @@ Azure now recommends the **RBAC** authorization model for Key Vault. The command
 use RBAC; the older access-policy commands (`az keyvault set-policy ...`) still work for
 vaults created with the legacy model.
 
-```bash
+```powershell
 # Get the principal ID from the previous command output
-PRINCIPAL_ID=$(az webapp identity show \
-  --name myAppName \
-  --resource-group myResourceGroup \
-  --query principalId -o tsv)
+$PRINCIPAL_ID = az webapp identity show `
+  --name myAppName `
+  --resource-group myResourceGroup `
+  --query principalId -o tsv
 
 # Recommended: RBAC model
 az keyvault update --name my-copilot-bot-kv --enable-rbac-authorization true
 
-VAULT_ID=$(az keyvault show --name my-copilot-bot-kv --query id -o tsv)
+$VAULT_ID = az keyvault show --name my-copilot-bot-kv --query id -o tsv
 
-az role assignment create \
-  --assignee $PRINCIPAL_ID \
-  --role "Key Vault Secrets User" \
+az role assignment create `
+  --assignee $PRINCIPAL_ID `
+  --role "Key Vault Secrets User" `
   --scope $VAULT_ID
 
 # Legacy alternative (only if the vault was created with the access-policy model):
-# az keyvault set-policy --name my-copilot-bot-kv \
+# az keyvault set-policy --name my-copilot-bot-kv `
 #   --object-id $PRINCIPAL_ID --secret-permissions get list
 ```
 

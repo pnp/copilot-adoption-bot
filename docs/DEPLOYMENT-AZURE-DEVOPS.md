@@ -87,18 +87,18 @@ If using automatic service connection creation, permissions are assigned automat
 
 For manual service principals:
 
-```bash
+```powershell
 # Get your subscription ID
-SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+$SUBSCRIPTION_ID = az account show --query id -o tsv
 
 # Get your resource group name
-RESOURCE_GROUP="rg-copilot-adoption-bot"
+$RESOURCE_GROUP = "rg-copilot-adoption-bot"
 
 # Assign Contributor role
-az role assignment create \
-  --assignee <service-principal-app-id> \
-  --role Contributor \
-  --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP
+az role assignment create `
+  --assignee <service-principal-app-id> `
+  --role Contributor `
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
 ```
 
 ---

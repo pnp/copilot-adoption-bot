@@ -18,26 +18,26 @@ Before starting, ensure you have:
 
 ### 1.1 Login to Azure
 
-```bash
+```powershell
 az login
 az account set --subscription "Your Subscription Name"
 ```
 
 ### 1.2 Create Resource Group
 
-```bash
-az group create \
-  --name rg-copilot-adoption-bot \
+```powershell
+az group create `
+  --name rg-copilot-adoption-bot `
   --location eastus
 ```
 
 ### 1.3 Create App Service Plan
 
-```bash
-az appservice plan create \
-  --name asp-copilot-adoption-bot \
-  --resource-group rg-copilot-adoption-bot \
-  --sku B1 \
+```powershell
+az appservice plan create `
+  --name asp-copilot-adoption-bot `
+  --resource-group rg-copilot-adoption-bot `
+  --sku B1 `
   --is-linux false
 ```
 
@@ -45,30 +45,30 @@ az appservice plan create \
 
 ### 1.4 Create App Service
 
-```bash
-az webapp create \
-  --name copilot-adoption-bot-app \
-  --resource-group rg-copilot-adoption-bot \
-  --plan asp-copilot-adoption-bot \
+```powershell
+az webapp create `
+  --name copilot-adoption-bot-app `
+  --resource-group rg-copilot-adoption-bot `
+  --plan asp-copilot-adoption-bot `
   --runtime "DOTNET|10.0"
 ```
 
 ### 1.5 Create Storage Account
 
-```bash
-az storage account create \
-  --name copilotbotsa \
-  --resource-group rg-copilot-adoption-bot \
-  --location eastus \
-  --sku Standard_LRS \
+```powershell
+az storage account create `
+  --name copilotbotsa `
+  --resource-group rg-copilot-adoption-bot `
+  --location eastus `
+  --sku Standard_LRS `
   --kind StorageV2
 ```
 
 ### 1.6 Enable Managed Identity
 
-```bash
-az webapp identity assign \
-  --name copilot-adoption-bot-app \
+```powershell
+az webapp identity assign `
+  --name copilot-adoption-bot-app `
   --resource-group rg-copilot-adoption-bot
 ```
 
@@ -78,33 +78,33 @@ az webapp identity assign \
 
 ### Option A: RBAC (Recommended)
 
-```bash
+```powershell
 # Get the managed identity principal ID
-PRINCIPAL_ID=$(az webapp identity show \
-  --name copilot-adoption-bot-app \
-  --resource-group rg-copilot-adoption-bot \
-  --query principalId -o tsv)
+$PRINCIPAL_ID = az webapp identity show `
+  --name copilot-adoption-bot-app `
+  --resource-group rg-copilot-adoption-bot `
+  --query principalId -o tsv
 
 # Get storage account ID
-STORAGE_ID=$(az storage account show \
-  --name copilotbotsa \
-  --resource-group rg-copilot-adoption-bot \
-  --query id -o tsv)
+$STORAGE_ID = az storage account show `
+  --name copilotbotsa `
+  --resource-group rg-copilot-adoption-bot `
+  --query id -o tsv
 
 # Assign required roles
-az role assignment create \
-  --assignee $PRINCIPAL_ID \
-  --role "Storage Blob Data Contributor" \
+az role assignment create `
+  --assignee $PRINCIPAL_ID `
+  --role "Storage Blob Data Contributor" `
   --scope $STORAGE_ID
 
-az role assignment create \
-  --assignee $PRINCIPAL_ID \
-  --role "Storage Table Data Contributor" \
+az role assignment create `
+  --assignee $PRINCIPAL_ID `
+  --role "Storage Table Data Contributor" `
   --scope $STORAGE_ID
 
-az role assignment create \
-  --assignee $PRINCIPAL_ID \
-  --role "Storage Queue Data Contributor" \
+az role assignment create `
+  --assignee $PRINCIPAL_ID `
+  --role "Storage Queue Data Contributor" `
   --scope $STORAGE_ID
 ```
 
@@ -112,14 +112,14 @@ az role assignment create \
 
 ### Option B: Connection String
 
-```bash
+```powershell
 # Get the storage connection string
-STORAGE_CONN=$(az storage account show-connection-string \
-  --name copilotbotsa \
-  --resource-group rg-copilot-adoption-bot \
-  --query connectionString -o tsv)
+$STORAGE_CONN = az storage account show-connection-string `
+  --name copilotbotsa `
+  --resource-group rg-copilot-adoption-bot `
+  --query connectionString -o tsv
 
-echo "Connection String: $STORAGE_CONN"
+Write-Host "Connection String: $STORAGE_CONN"
 ```
 
 ---
@@ -128,34 +128,34 @@ echo "Connection String: $STORAGE_CONN"
 
 ### 3.1 Set Required App Settings
 
-```bash
+```powershell
 # Bot configuration (from Teams Developer Portal)
-az webapp config appsettings set \
-  --name copilot-adoption-bot-app \
-  --resource-group rg-copilot-adoption-bot \
-  --settings \
-    MicrosoftAppId="your-bot-app-id" \
+az webapp config appsettings set `
+  --name copilot-adoption-bot-app `
+  --resource-group rg-copilot-adoption-bot `
+  --settings `
+    MicrosoftAppId="your-bot-app-id" `
     MicrosoftAppPassword="your-bot-app-password"
 
 # Graph API configuration
-az webapp config appsettings set \
-  --name copilot-adoption-bot-app \
-  --resource-group rg-copilot-adoption-bot \
-  --settings \
-    GraphConfig__ClientId="your-client-id" \
-    GraphConfig__ClientSecret="your-client-secret" \
+az webapp config appsettings set `
+  --name copilot-adoption-bot-app `
+  --resource-group rg-copilot-adoption-bot `
+  --settings `
+    GraphConfig__ClientId="your-client-id" `
+    GraphConfig__ClientSecret="your-client-secret" `
     GraphConfig__TenantId="your-tenant-id"
 ```
 
 ### 3.2 Set Storage Configuration
 
 **For RBAC:**
-```bash
-az webapp config appsettings set \
-  --name copilot-adoption-bot-app \
-  --resource-group rg-copilot-adoption-bot \
-  --settings \
-    StorageAuthConfig__UseRBAC="true" \
+```powershell
+az webapp config appsettings set `
+  --name copilot-adoption-bot-app `
+  --resource-group rg-copilot-adoption-bot `
+  --settings `
+    StorageAuthConfig__UseRBAC="true" `
     StorageAuthConfig__StorageAccountName="copilotbotsa"
 ```
 
@@ -164,34 +164,34 @@ az webapp config appsettings set \
 Set it as a regular app setting so it binds directly to `IConfiguration["ConnectionStrings:Storage"]`
 without relying on the `CUSTOMCONNSTR_` prefix App Service uses for `connection-string set`:
 
-```bash
-az webapp config appsettings set \
-  --name copilot-adoption-bot-app \
-  --resource-group rg-copilot-adoption-bot \
+```powershell
+az webapp config appsettings set `
+  --name copilot-adoption-bot-app `
+  --resource-group rg-copilot-adoption-bot `
   --settings ConnectionStrings__Storage="$STORAGE_CONN"
 ```
 
 ### 3.3 Set Optional Settings
 
-```bash
+```powershell
 # Application Insights (if using)
-az webapp config appsettings set \
-  --name copilot-adoption-bot-app \
-  --resource-group rg-copilot-adoption-bot \
-  --settings \
+az webapp config appsettings set `
+  --name copilot-adoption-bot-app `
+  --resource-group rg-copilot-adoption-bot `
+  --settings `
     APPLICATIONINSIGHTS_CONNECTION_STRING="your-appinsights-connection-string"
 
 # Azure AI Foundry (if using)
 # Authentication is Azure RBAC only - grant the App Service Managed Identity
 # a role such as `Cognitive Services OpenAI User` on the AI Foundry resource.
-# No API key is supported.
-az webapp config appsettings set \
-  --name copilot-adoption-bot-app \
-  --resource-group rg-copilot-adoption-bot \
-  --settings \
-    AIFoundryConfig__Endpoint="https://your-resource.openai.azure.com/" \
-    AIFoundryConfig__DeploymentName="gpt-4o-mini" \
-    AIFoundryConfig__MaxTokens="2000" \
+# No API key is supported. See DEPLOYMENT.md for the role assignment commands.
+az webapp config appsettings set `
+  --name copilot-adoption-bot-app `
+  --resource-group rg-copilot-adoption-bot `
+  --settings `
+    AIFoundryConfig__Endpoint="https://your-resource.openai.azure.com/" `
+    AIFoundryConfig__DeploymentName="gpt-4o-mini" `
+    AIFoundryConfig__MaxTokens="2000" `
     AIFoundryConfig__Temperature="0.7"
 ```
 
@@ -201,13 +201,13 @@ az webapp config appsettings set \
 
 ### 4.1 Navigate to Solution Directory
 
-```bash
+```powershell
 cd src/Full/Bot
 ```
 
 ### 4.2 Build Frontend
 
-```bash
+```powershell
 cd Web/web.client
 npm ci
 npm run build
@@ -216,9 +216,9 @@ cd ../..
 
 ### 4.3 Build and Publish Backend
 
-```bash
-dotnet publish Web/Web.Server/Web.Server.csproj \
-  -c Release \
+```powershell
+dotnet publish Web/Web.Server/Web.Server.csproj `
+  -c Release `
   -o ./publish
 ```
 
@@ -228,17 +228,15 @@ dotnet publish Web/Web.Server/Web.Server.csproj \
 
 ### Option A: Using Azure CLI
 
-```bash
+```powershell
 # Create a zip file of the publish folder
-cd publish
-zip -r ../deploy.zip .
-cd ..
+Compress-Archive -Path ./publish/* -DestinationPath ./deploy.zip -Force
 
 # Deploy the zip file
-az webapp deploy \
-  --resource-group rg-copilot-adoption-bot \
-  --name copilot-adoption-bot-app \
-  --src-path ./deploy.zip \
+az webapp deploy `
+  --resource-group rg-copilot-adoption-bot `
+  --name copilot-adoption-bot-app `
+  --src-path ./deploy.zip `
   --type zip
 ```
 
@@ -288,16 +286,16 @@ Open your browser and navigate to:
 
 ### 7.2 Check Logs
 
-```bash
+```powershell
 # Stream live logs
-az webapp log tail \
-  --name copilot-adoption-bot-app \
+az webapp log tail `
+  --name copilot-adoption-bot-app `
   --resource-group rg-copilot-adoption-bot
 
 # Download logs
-az webapp log download \
-  --name copilot-adoption-bot-app \
-  --resource-group rg-copilot-adoption-bot \
+az webapp log download `
+  --name copilot-adoption-bot-app `
+  --resource-group rg-copilot-adoption-bot `
   --log-file logs.zip
 ```
 
@@ -313,7 +311,7 @@ az webapp log download \
 
 To deploy updates:
 
-```bash
+```powershell
 # Navigate to solution directory
 cd src/Full/Bot
 
@@ -327,14 +325,12 @@ cd ../..
 dotnet publish Web/Web.Server/Web.Server.csproj -c Release -o ./publish
 
 # Deploy
-cd publish
-zip -r ../deploy.zip .
-cd ..
+Compress-Archive -Path ./publish/* -DestinationPath ./deploy.zip -Force
 
-az webapp deploy \
-  --resource-group rg-copilot-adoption-bot \
-  --name copilot-adoption-bot-app \
-  --src-path ./deploy.zip \
+az webapp deploy `
+  --resource-group rg-copilot-adoption-bot `
+  --name copilot-adoption-bot-app `
+  --src-path ./deploy.zip `
   --type zip
 ```
 
@@ -344,10 +340,10 @@ az webapp deploy \
 
 To remove all resources:
 
-```bash
-az group delete \
-  --name rg-copilot-adoption-bot \
-  --yes \
+```powershell
+az group delete `
+  --name rg-copilot-adoption-bot `
+  --yes `
   --no-wait
 ```
 

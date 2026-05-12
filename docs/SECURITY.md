@@ -105,15 +105,15 @@ The Copilot Adoption Bot handles sensitive data including user information, auth
 - Grant excessive permissions to SAS tokens
 
 **Storage Account Configuration:**
-```bash
+```powershell
 # Enable firewall
-az storage account update \
-  --name mystorageaccount \
+az storage account update `
+  --name mystorageaccount `
   --default-action Deny
 
 # Add allowed IP
-az storage account network-rule add \
-  --account-name mystorageaccount \
+az storage account network-rule add `
+  --account-name mystorageaccount `
   --ip-address 1.2.3.4
 ```
 
@@ -134,11 +134,11 @@ az storage account network-rule add \
 - Allow anonymous access
 
 **Key Vault Access Policy:**
-```bash
+```powershell
 # Grant app managed identity access to secrets
-az keyvault set-policy \
-  --name mykeyvault \
-  --object-id <managed-identity-object-id> \
+az keyvault set-policy `
+  --name mykeyvault `
+  --object-id <managed-identity-object-id> `
   --secret-permissions get list
 ```
 

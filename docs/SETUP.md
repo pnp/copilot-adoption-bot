@@ -6,6 +6,7 @@ This guide covers setting up the Copilot Adoption Bot for local development and 
 
 - [Prerequisites](#prerequisites)
 - [Teams Bot Setup](#teams-bot-setup)
+- [Web Authentication Setup](#web-authentication-setup)
 - [Configuration](#configuration)
 - [Installation](#installation)
 - [Teams App Deployment](#teams-app-deployment)
@@ -85,7 +86,25 @@ After adding any new Microsoft Graph permissions:
 
 This ensures the bot receives an updated token with the new permissions.
 
-### 3. Configure Bot Messaging Endpoint (After Deployment)
+### 3. Choose Supported Account Types (Audience)
+
+The bot app registration created by the Teams Developer Portal defaults to **single-tenant** (`signInAudience: AzureADMyOrg`). Only change this if you need the bot to be installable from other Microsoft 365 tenants.
+
+| Option | When to use | `signInAudience` |
+|--------|-------------|------------------|
+| **Accounts in this organizational directory only (single tenant)** | Default. The bot runs only in your own tenant. | `AzureADMyOrg` |
+| **Accounts in any organizational directory (multi-tenant)** | You're publishing the bot to other tenants (ISV / Teams Store / cross-tenant rollout). | `AzureADMultipleOrgs` |
+
+**To change it:**
+
+1. Go to the [Azure Portal](https://portal.azure.com/) → **Microsoft Entra ID** → **App registrations** → your bot app
+2. Click **Authentication** in the left menu
+3. Under **Supported account types**, choose the option you need
+4. Click **Save**
+
+> **The audience drives the Authority URL.** Single-tenant apps use `https://login.microsoftonline.com/<tenant-id>`; multi-tenant apps use `https://login.microsoftonline.com/organizations`. Set this on **both** `GraphConfig:Authority` and `WebAuthConfig:Authority`.
+
+### 4. Configure Bot Messaging Endpoint (After Deployment)
 
 Once your application is deployed to Azure App Service, you need to configure the bot's messaging endpoint so Teams knows where to send messages.
 
@@ -112,6 +131,114 @@ After configuring the endpoint:
 
 If the bot doesn't respond, see the [Troubleshooting Guide](TROUBLESHOOTING.md).
 
+## Web Authentication Setup
+
+The React web portal (admin UI) signs users in with **MSAL** and calls the backend `/api/*` with a delegated access token. The backend validates that token using `WebAuthConfig` (registered via `AddMicrosoftIdentityWebApi` in `Web/Web.Server/Program.cs`). This requires an Entra ID app registration that:
+
+- Has an **Application ID URI** (e.g. `api://<clientId>`)
+- Exposes a delegated scope called **`access_as_user`**
+- Lists the frontend origins as **SPA redirect URIs**
+
+This section walks through configuring that app registration.
+
+### 1. Choose Your Approach
+
+| Option | When to use |
+|--------|-------------|
+| **A. Reuse the bot's app registration** | Single-tenant only and you want the simplest setup. The bot app already has a client secret you can reuse for `WebAuthConfig:ClientSecret`. |
+| **B. Create a separate app registration (Recommended)** | Production deployments, multi-tenant scenarios, or anywhere you want a clear separation between **Application permissions** (bot/Graph) and **Delegated permissions** (web users). The two app types have different audiences and different consent surfaces. |
+
+Steps 2–7 below describe **Option B**. For Option A, perform the same Expose-an-API and redirect-URI steps (steps 3, 4 and 5) on the bot app instead and skip steps 2 and 6.
+
+### 2. Create the Web App Registration
+
+1. Go to the [Azure Portal](https://portal.azure.com/) → **Microsoft Entra ID** → **App registrations**
+2. Click **+ New registration**
+3. **Name**: e.g. `Copilot Adoption Bot - Web`
+4. **Supported account types**: pick the same audience as the bot app (see [Choose Supported Account Types](#3-choose-supported-account-types-audience))
+5. **Redirect URI**: leave blank for now (added in step 4)
+6. Click **Register**
+7. Note the **Application (client) ID** — this becomes `WebAuthConfig:ClientId` and `VITE_MSAL_CLIENT_ID`
+8. Note the **Directory (tenant) ID** — this becomes `WebAuthConfig:TenantId`
+
+### 3. Expose an API and Add the `access_as_user` Scope
+
+1. In the new app registration, go to **Expose an API**
+2. Next to **Application ID URI**, click **Add** and accept the default `api://<clientId>` (or set a custom one such as `api://copilot-adoption-bot`). This value becomes:
+   - `WebAuthConfig:ApiAudience` on the backend
+   - The prefix of `VITE_MSAL_SCOPES` on the frontend
+3. Click **+ Add a scope** and fill in:
+   - **Scope name**: `access_as_user`
+   - **Who can consent?**: **Admins and users** (or **Admins only** for production)
+   - **Admin consent display name**: `Access Copilot Adoption Bot as the signed-in user`
+   - **Admin consent description**: `Allows the web app to call the Copilot Adoption Bot API on behalf of the signed-in user.`
+   - **User consent display name**: `Access Copilot Adoption Bot on your behalf`
+   - **User consent description**: `Allows the web app to call the Copilot Adoption Bot API as you.`
+   - **State**: **Enabled**
+4. Click **Add scope**
+
+The full scope value is now `api://<webAuthClientId>/access_as_user` — use this for `VITE_MSAL_SCOPES`.
+
+### 4. Add Redirect URIs (SPA Platform)
+
+The React frontend uses **MSAL.js**, so it must be registered as a **Single-page application** (SPA), not Web.
+
+1. Go to **Authentication** in the left menu
+2. Click **+ Add a platform** → **Single-page application**
+3. Add redirect URIs for every environment you'll run from:
+   - Local dev: `https://localhost:5173`
+   - Local dev auth-end: `https://localhost:5173/auth-end.html`
+   - Production: `https://<your-app-name>.azurewebsites.net`
+   - Production auth-end: `https://<your-app-name>.azurewebsites.net/auth-end.html`
+4. Click **Configure**
+5. Under **Implicit grant and hybrid flows**, leave both **Access tokens** and **ID tokens** unchecked. MSAL.js v2+ uses the authorization code flow with PKCE.
+6. Click **Save**
+
+> **Don't add SPA URIs under the "Web" platform.** Doing so blocks the PKCE flow and produces `AADSTS9002326` ("Cross-origin token redemption is permitted only for the 'Single-Page Application' client-type"). Use the **Single-page application** platform instead.
+
+### 5. (Optional) Authorize the Teams Client for SSO
+
+If you want the bot's Teams tab to use **Teams SSO** so users don't see a consent prompt inside Teams, pre-authorize the Teams client app IDs:
+
+1. Back in **Expose an API**, scroll to **Authorized client applications**
+2. Click **+ Add a client application** and add:
+   - `1fec8e78-bce4-4aaf-ab1b-5451cc387264` (Teams mobile/desktop)
+   - `5e3ce6c0-2b1f-4285-8d4b-75ee78787346` (Teams web)
+3. Tick the `access_as_user` scope and click **Add application**
+
+### 6. Create a Client Secret
+
+The backend needs a client secret to validate tokens with `Microsoft.Identity.Web`.
+
+1. Go to **Certificates & secrets** → **+ New client secret**
+2. Set a description and expiry (max 24 months)
+3. **Copy the secret value immediately** — it is only shown once
+4. Store it as `WebAuthConfig:ClientSecret` (User Secrets locally, Key Vault in production — see [Configuration](#configuration))
+
+### 7. Grant Admin Consent
+
+1. Go to **API permissions** in the web app registration
+2. The registration has `User.Read` (Delegated) on Microsoft Graph by default — leave it
+3. If the `access_as_user` scope is set to **Admins only**, click **Grant admin consent for [Your Tenant]** so users don't have to consent on first sign-in
+
+### Configuration Summary
+
+After the steps above, map the values to configuration as follows:
+
+| Setting | Where it comes from |
+|---------|---------------------|
+| `WebAuthConfig:ClientId` | App registration → **Application (client) ID** |
+| `WebAuthConfig:ClientSecret` | App registration → **Certificates & secrets** |
+| `WebAuthConfig:TenantId` | App registration → **Directory (tenant) ID** |
+| `WebAuthConfig:Authority` | `https://login.microsoftonline.com/<tenantId>` (single-tenant) or `https://login.microsoftonline.com/organizations` (multi-tenant) |
+| `WebAuthConfig:ApiAudience` | The **Application ID URI** from Expose an API (e.g. `api://<clientId>`) |
+| `VITE_MSAL_CLIENT_ID` | Same as `WebAuthConfig:ClientId` |
+| `VITE_MSAL_AUTHORITY` | Same shape as `WebAuthConfig:Authority` |
+| `VITE_MSAL_SCOPES` | `api://<webAuthClientId>/access_as_user` |
+| `VITE_TEAMSFX_START_LOGIN_PAGE_URL` | `https://<your-app>.azurewebsites.net/auth-start.html` (only for Teams SSO) |
+
+See [Configuration](#configuration) for how to apply these values.
+
 ## Configuration
 
 This section covers configuring the application for local development and production.
@@ -122,10 +249,10 @@ This section covers configuring the application for local development and produc
 > API access (`GraphConfig:ClientId` / `GraphConfig:ClientSecret`).
 >
 > **`WebAuthConfig` is different.** It authenticates users of the React web portal via MSAL and
-> typically needs a **separate** app registration that exposes a delegated scope such as
-> `api://<webAuthClientId>/access_as_user` and lists `https://<your-app>.azurewebsites.net` as a
-> redirect URI. Re-using the bot app registration here will work for single-tenant cases but is
-> not recommended — the two apps have different audiences (Application vs Delegated permissions)
+> typically needs a **separate** app registration with `api://<webAuthClientId>/access_as_user`
+> exposed and SPA redirect URIs registered. See [Web Authentication Setup](#web-authentication-setup)
+> for the full walkthrough. Re-using the bot app registration here works for single-tenant cases but
+> is not recommended — the two apps have different audiences (Application vs Delegated permissions)
 > and different consent surfaces.
 
 ### 1. Backend Configuration (User Secrets)
@@ -253,32 +380,32 @@ If using RBAC authentication (recommended), you must assign the required roles t
 
 **For Local Development (Azure CLI Identity):**
 
-When developing locally with Option 2 (RBAC with Default Credentials), the application uses your Azure CLI identity. Assign roles to your user account:
+When developing locally with Option 2 (RBAC with Default Credentials), the application uses your Azure CLI identity. Assign roles to your user account (run in **PowerShell**):
 
-```bash
+```powershell
 # Get your current user's Object ID
-USER_ID=$(az ad signed-in-user show --query id -o tsv)
+$USER_ID = az ad signed-in-user show --query id -o tsv
 
 # Get the storage account resource ID
-STORAGE_ID=$(az storage account show \
-  --name yourstorageaccount \
-  --resource-group yourResourceGroup \
-  --query id -o tsv)
+$STORAGE_ID = az storage account show `
+  --name yourstorageaccount `
+  --resource-group yourResourceGroup `
+  --query id -o tsv
 
 # Assign required roles
-az role assignment create \
-  --assignee $USER_ID \
-  --role "Storage Blob Data Contributor" \
+az role assignment create `
+  --assignee $USER_ID `
+  --role "Storage Blob Data Contributor" `
   --scope $STORAGE_ID
 
-az role assignment create \
-  --assignee $USER_ID \
-  --role "Storage Table Data Contributor" \
+az role assignment create `
+  --assignee $USER_ID `
+  --role "Storage Table Data Contributor" `
   --scope $STORAGE_ID
 
-az role assignment create \
-  --assignee $USER_ID \
-  --role "Storage Queue Data Contributor" \
+az role assignment create `
+  --assignee $USER_ID `
+  --role "Storage Queue Data Contributor" `
   --scope $STORAGE_ID
 ```
 
@@ -286,27 +413,27 @@ az role assignment create \
 
 If using Option 3 (RBAC with Override Credentials), assign roles to your service principal:
 
-```bash
+```powershell
 # Get the storage account resource ID
-STORAGE_ID=$(az storage account show \
-  --name yourstorageaccount \
-  --resource-group yourResourceGroup \
-  --query id -o tsv)
+$STORAGE_ID = az storage account show `
+  --name yourstorageaccount `
+  --resource-group yourResourceGroup `
+  --query id -o tsv
 
 # Assign roles to service principal (replace with your Client ID)
-az role assignment create \
-  --assignee your-service-principal-client-id \
-  --role "Storage Blob Data Contributor" \
+az role assignment create `
+  --assignee your-service-principal-client-id `
+  --role "Storage Blob Data Contributor" `
   --scope $STORAGE_ID
 
-az role assignment create \
-  --assignee your-service-principal-client-id \
-  --role "Storage Table Data Contributor" \
+az role assignment create `
+  --assignee your-service-principal-client-id `
+  --role "Storage Table Data Contributor" `
   --scope $STORAGE_ID
 
-az role assignment create \
-  --assignee your-service-principal-client-id \
-  --role "Storage Queue Data Contributor" \
+az role assignment create `
+  --assignee your-service-principal-client-id `
+  --role "Storage Queue Data Contributor" `
   --scope $STORAGE_ID
 ```
 
@@ -316,12 +443,79 @@ See the [Deployment Guide](DEPLOYMENT.md) for instructions on assigning roles to
 
 **Verify Role Assignments:**
 
-```bash
+```powershell
 # List all role assignments for the storage account
 az role assignment list --scope $STORAGE_ID --output table
 ```
 
 > **Note**: RBAC role assignments can take up to 5 minutes to propagate. If you encounter access denied errors immediately after assignment, wait a few minutes and try again.
+
+
+#### Assigning RBAC Roles to Azure AI Foundry (Optional - for Copilot Connected mode)
+
+If you've configured `AIFoundryConfig` to enable Copilot Connected mode, you must assign a data-plane role to the identity that will call the AI Foundry / Azure OpenAI resource. Authentication is **Azure RBAC only** - API key authentication is not supported.
+
+A role such as one of the following is required:
+
+- `Cognitive Services OpenAI User` (data-plane access to call the deployed model)
+- `Azure AI Developer`
+
+**Prerequisites:**
+- [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli) installed
+- Logged in to Azure CLI: `az login`
+- Owner or User Access Administrator role on the AI Foundry resource or subscription
+
+**For Local Development (Azure CLI Identity):**
+
+When developing locally with `DefaultAzureCredential`, the application uses your Azure CLI identity. Assign the role to your user account (run in **PowerShell**):
+
+```powershell
+# Get your current user's Object ID
+$USER_ID = az ad signed-in-user show --query id -o tsv
+
+# Get the AI Foundry (Azure OpenAI / Cognitive Services) resource ID
+$FOUNDRY_ID = az cognitiveservices account show `
+  --name yourFoundryResource `
+  --resource-group yourResourceGroup `
+  --query id -o tsv
+
+# Assign the data-plane role
+az role assignment create `
+  --assignee $USER_ID `
+  --role "Cognitive Services OpenAI User" `
+  --scope $FOUNDRY_ID
+```
+
+**For Service Principal (`AIFoundryConfig:RBACOverrideCredentials`):**
+
+If you've configured `RBACOverrideCredentials` to use a specific service principal, assign the role to that service principal instead:
+
+```powershell
+# Get the AI Foundry resource ID
+$FOUNDRY_ID = az cognitiveservices account show `
+  --name yourFoundryResource `
+  --resource-group yourResourceGroup `
+  --query id -o tsv
+
+# Assign the role to the service principal (replace with your Client ID)
+az role assignment create `
+  --assignee your-service-principal-client-id `
+  --role "Cognitive Services OpenAI User" `
+  --scope $FOUNDRY_ID
+```
+
+**For Production (Azure Managed Identity):**
+
+See the [Deployment Guide](DEPLOYMENT.md#assigning-the-ai-foundry-role) for instructions on assigning the role to the App Service Managed Identity.
+
+**Verify Role Assignments:**
+
+```powershell
+# List all role assignments for the AI Foundry resource
+az role assignment list --scope $FOUNDRY_ID --output table
+```
+
+> **Note**: RBAC role assignments can take up to 5 minutes to propagate. If you encounter `401`/`403` errors from AI Foundry immediately after assignment, wait a few minutes and try again.
 
 
 - **MicrosoftAppId**: Bot application ID (same as GraphConfig.ClientId)
