@@ -132,8 +132,13 @@ public class Program
         // SPA fallback: serve index.html for any unmatched non-file, non-api request so
         // client-side routes like /tabhome work when the user hits F5 or shares a deep
         // link. The regex constraint keeps /api/* returning a real 404 if it doesn't
-        // match a controller, rather than silently returning HTML.
-        app.MapFallbackToFile("{*path:regex(^(?!api/).*$)}", "index.html");
+        // match a controller, rather than silently returning HTML. The :nonfile
+        // constraint is critical: without it the fallback also intercepts requests for
+        // missing static assets (e.g. /assets/index-XXXX.js), returning index.html with
+        // a text/html MIME type which the browser refuses to execute as a module
+        // ("Failed to load module script: Expected a JavaScript-or-Wasm module script
+        // but the server responded with a MIME type of 'text/html'").
+        app.MapFallbackToFile("{*path:regex(^(?!api/).*$):nonfile}", "index.html");
 
         app.Run();
     }
