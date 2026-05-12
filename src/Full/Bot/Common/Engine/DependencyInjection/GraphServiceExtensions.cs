@@ -1,9 +1,9 @@
 using Azure.Identity;
-using Common.Engine.Config;
+using Engine.Config;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Graph;
 
-namespace Common.Engine.DependencyInjection;
+namespace Engine.DependencyInjection;
 
 /// <summary>
 /// Extension methods for registering Microsoft Graph services

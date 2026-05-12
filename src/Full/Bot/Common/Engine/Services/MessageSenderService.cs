@@ -1,8 +1,8 @@
-using Common.Engine.Notifications;
-using Common.Engine.Storage;
+using Engine.Notifications;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Service responsible for sending messages to recipients

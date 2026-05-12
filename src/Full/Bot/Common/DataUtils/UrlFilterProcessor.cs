@@ -1,4 +1,4 @@
-﻿namespace Common.DataUtils
+﻿namespace DataUtils
 {
     public class FilterUrlConfig
     {

@@ -2,10 +2,10 @@ using Azure.Data.Tables;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Queues;
-using Common.Engine.Config;
+using Engine.Config;
 using Microsoft.Extensions.Logging;
 
-namespace Common.Engine.Storage;
+namespace Engine.Storage;
 
 /// <summary>
 /// Factory for creating Azure Storage clients with support for both connection string and RBAC authentication.

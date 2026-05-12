@@ -6,7 +6,7 @@
 
 using Azure;
 using Azure.Data.Tables;
-using Common.Engine.Config;
+using Engine.Config;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -71,7 +71,7 @@ public abstract class AbstractTest
     {
         int maxRetries = 10;
         int retryDelayMs = 2000; // Start with 2 seconds for cloud environments
-        
+
         for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
             try
@@ -93,9 +93,9 @@ public abstract class AbstractTest
                         $"Table '{tableClient.Name}' is being deleted and did not become available after {maxRetries} retry attempts. " +
                         "This may indicate a naming collision in parallel test execution.", ex);
                 }
-                
+
                 _logger.LogWarning($"Table '{tableClient.Name}' is being deleted. Retry attempt {attempt + 1} of {maxRetries}...");
-                
+
                 // Wait with exponential backoff before retrying
                 await Task.Delay(retryDelayMs);
                 retryDelayMs *= 2; // Double the delay for next attempt

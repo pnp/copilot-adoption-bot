@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Identity.Client;
 using System.Security.Cryptography.X509Certificates;
 
-namespace Common.DataUtils.Http
+namespace DataUtils.Http
 {
 
     public class AuthHelper

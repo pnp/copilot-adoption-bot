@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Logging;
 using System.Net.Http.Headers;
 
-namespace Common.DataUtils.Http
+namespace DataUtils.Http
 {
     /// <summary>
     /// HttpClient that can handle HTTP 429s automatically

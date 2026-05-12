@@ -1,4 +1,4 @@
-namespace Common.Engine.Models;
+namespace Engine.Models;
 
 /// <summary>
 /// Bot user information with Azure AD identification.

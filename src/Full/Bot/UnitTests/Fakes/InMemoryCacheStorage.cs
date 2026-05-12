@@ -1,5 +1,5 @@
-using Common.Engine.Models;
-using Common.Engine.Services.UserCache;
+using Engine.Models;
+using Engine.Services.UserCache;
 using System.Collections.Concurrent;
 
 namespace UnitTests.Fakes;
@@ -52,9 +52,9 @@ public class InMemoryCacheStorage : ICacheStorage
     {
         var count = _userCache.Count;
         _userCache.Clear();
-        
+
         _metadata = new CacheSyncMetadata();
-        
+
         return Task.FromResult(count);
     }
 

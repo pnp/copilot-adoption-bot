@@ -1,12 +1,12 @@
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using Common.Engine.Config;
-using Common.Engine.Services;
-using Common.Engine.Storage;
+using Engine.Config;
+using Engine.Services;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
 
-namespace Common.Engine;
+namespace Engine;
 
 /// <summary>
 /// Manages message templates in Azure Storage (Table + Blob)
@@ -35,7 +35,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
     public async Task<MessageTemplateTableEntity> SaveTemplate(string templateName, string jsonPayload, string createdByUpn)
     {
         var templateId = Guid.NewGuid().ToString();
-        
+
         // Save JSON to blob storage
         var blobUrl = await SaveTemplateToBlobStorage(templateId, jsonPayload);
 
@@ -105,7 +105,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
         var containerClient = _blobServiceClient.GetBlobContainerClient(BLOB_CONTAINER_NAME);
         var blobName = $"{templateId}.json";
         var blobClient = containerClient.GetBlobClient(blobName);
-        
+
         var response = await blobClient.DownloadContentAsync();
         return response.Value.Content.ToString();
     }
@@ -170,7 +170,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
         // Explicitly use UTF-8 encoding to preserve emojis and special characters
         var utf8Bytes = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
         var content = new BinaryData(utf8Bytes);
-        
+
         var uploadOptions = new BlobUploadOptions
         {
             HttpHeaders = new BlobHttpHeaders
@@ -178,7 +178,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
                 ContentType = "application/json; charset=utf-8"
             }
         };
-        
+
         await blobClient.UploadAsync(content, overwrite: true);
 
         return blobClient.Uri.ToString();
@@ -194,7 +194,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
     public async Task<MessageBatchTableEntity> CreateBatch(string batchName, string templateId, string senderUpn)
     {
         var batchId = Guid.NewGuid().ToString();
-        
+
         var batchEntity = new MessageBatchTableEntity
         {
             RowKey = batchId,
@@ -321,7 +321,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
     /// </summary>
     public async Task<List<MessageLogTableEntity>> LogBatchMessages(string messageBatchId, List<string> recipientUpns)
     {
-        _logger.LogInformation("Creating {RecipientCount} message log entries in storage for batch {BatchId}", 
+        _logger.LogInformation("Creating {RecipientCount} message log entries in storage for batch {BatchId}",
             recipientUpns.Count, messageBatchId);
 
         var tableClient = await GetTableClient(LOGS_TABLE_NAME);
@@ -385,12 +385,12 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
 
         if (failureCount > 0)
         {
-            _logger.LogWarning("Created {SuccessCount}/{TotalCount} message logs for batch {BatchId}. {FailureCount} failed", 
+            _logger.LogWarning("Created {SuccessCount}/{TotalCount} message logs for batch {BatchId}. {FailureCount} failed",
                 successCount, recipientUpns.Count, messageBatchId, failureCount);
         }
         else
         {
-            _logger.LogInformation("Successfully created all {LogCount} message log entries for batch {BatchId}", 
+            _logger.LogInformation("Successfully created all {LogCount} message log entries for batch {BatchId}",
                 logEntities.Count, messageBatchId);
         }
 
@@ -403,7 +403,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
     public async Task UpdateMessageLogStatus(string logId, string status, string? lastError = null)
     {
         var tableClient = await GetTableClient(LOGS_TABLE_NAME);
-        
+
         try
         {
             var response = await tableClient.GetEntityAsync<MessageLogTableEntity>(

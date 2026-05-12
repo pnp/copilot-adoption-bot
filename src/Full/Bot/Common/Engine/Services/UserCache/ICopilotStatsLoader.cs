@@ -1,6 +1,6 @@
-using Common.Engine.Models;
+using Engine.Models;
 
-namespace Common.Engine.Services.UserCache;
+namespace Engine.Services.UserCache;
 
 /// <summary>
 /// Adapter interface for loading Copilot usage statistics from an external source.

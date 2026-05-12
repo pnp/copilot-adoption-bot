@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
-namespace Common.DataUtils
+namespace DataUtils
 {
     /// <summary>
     /// For tracking the time something takes

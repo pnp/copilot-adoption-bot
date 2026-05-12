@@ -1,11 +1,11 @@
 ﻿using Azure;
 using Azure.Data.Tables;
-using Common.Engine.Config;
-using Common.Engine.Storage;
+using Engine.Config;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
-namespace Common.Engine;
+namespace Engine;
 
 
 public abstract class TableStorageManager
@@ -29,13 +29,13 @@ public abstract class TableStorageManager
         }
 
         _logger.LogDebug("Creating new table client for {TableName}", tableName);
-        
+
         // Retry logic for table creation with exponential backoff
         // This handles the case where a table is being deleted and we need to wait
         // Cloud environments may need longer delays than local development
         int maxRetries = 10;
         int retryDelayMs = 2000; // Start with 2 seconds for cloud environments
-        
+
         for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
             try
@@ -60,10 +60,10 @@ public abstract class TableStorageManager
                         $"Table '{tableName}' is being deleted and did not become available after {maxRetries} retry attempts over {(retryDelayMs * (Math.Pow(2, maxRetries) - 1)) / 1000} seconds. " +
                         "This may indicate a naming collision or insufficient wait time for table deletion to complete.", ex);
                 }
-                
-                _logger.LogWarning("Table {TableName} is being deleted, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})", 
+
+                _logger.LogWarning("Table {TableName} is being deleted, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                     tableName, retryDelayMs, attempt + 1, maxRetries);
-                
+
                 // Wait with exponential backoff before retrying
                 await Task.Delay(retryDelayMs);
                 retryDelayMs *= 2; // Double the delay for next attempt

@@ -1,6 +1,6 @@
 using Azure.Data.Tables;
 
-namespace Common.Engine.Storage;
+namespace Engine.Storage;
 
 /// <summary>
 /// Helpers for batching Azure Table operations into <c>SubmitTransactionAsync</c> calls.

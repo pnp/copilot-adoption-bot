@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-namespace Common.DataUtils;
+namespace DataUtils;
 
 /// <summary>
 /// For caching lists of objects by ID. Threadsafe. 

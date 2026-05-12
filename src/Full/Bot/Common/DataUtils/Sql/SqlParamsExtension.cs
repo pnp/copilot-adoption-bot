@@ -1,6 +1,6 @@
 ﻿using System.Data;
 
-namespace Common.DataUtils.Sql
+namespace DataUtils.Sql
 {
     public static class SqlParamsExtension
     {

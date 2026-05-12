@@ -1,6 +1,6 @@
 using Microsoft.Graph.Models;
 
-namespace Common.Engine.Models;
+namespace Engine.Models;
 
 /// <summary>
 /// Result container for delta query operations.

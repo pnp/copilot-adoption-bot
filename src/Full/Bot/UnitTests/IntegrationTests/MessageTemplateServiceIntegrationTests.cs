@@ -1,8 +1,5 @@
-using Common.Engine;
-using Common.Engine.Services;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Engine;
+using Engine.Services;
 
 namespace UnitTests.IntegrationTests;
 
@@ -95,8 +92,8 @@ public class MessageTemplateServiceIntegrationTests : AbstractTest
 
         // Act
         var updatedTemplate = await _service.UpdateTemplate(
-            createdTemplate.Id, 
-            newTemplateName, 
+            createdTemplate.Id,
+            newTemplateName,
             newJsonPayload
         );
 
@@ -245,7 +242,7 @@ public class MessageTemplateServiceIntegrationTests : AbstractTest
 
         // Assert
         Assert.AreEqual(3, messageLogs.Count);
-        Assert.IsTrue(finalQueueLength >= initialQueueLength + 3, 
+        Assert.IsTrue(finalQueueLength >= initialQueueLength + 3,
             $"Expected queue length to increase by at least 3. Initial: {initialQueueLength}, Final: {finalQueueLength}");
 
         // Cleanup

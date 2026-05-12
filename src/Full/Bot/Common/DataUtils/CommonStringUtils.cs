@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-namespace Common.DataUtils;
+namespace DataUtils;
 
 public static class CommonStringUtils
 {

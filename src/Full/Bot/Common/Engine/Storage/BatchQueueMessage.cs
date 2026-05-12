@@ -1,4 +1,4 @@
-namespace Common.Engine.Storage;
+namespace Engine.Storage;
 
 /// <summary>
 /// Message queued for processing when a new batch is created

@@ -1,7 +1,7 @@
 using Azure;
 using Azure.Data.Tables;
 
-namespace Common.Engine.Storage;
+namespace Engine.Storage;
 
 /// <summary>
 /// Table storage entity for cached user data from Microsoft Graph.

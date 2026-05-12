@@ -1,4 +1,4 @@
-namespace Common.Engine.Models;
+namespace Engine.Models;
 
 /// <summary>
 /// Extended user information with metadata for AI-driven user matching.

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Default <see cref="IMessageLogStatusWriter"/> implementation that resolves the

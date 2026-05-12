@@ -1,7 +1,7 @@
 using Azure;
 using Azure.Data.Tables;
 
-namespace Common.Engine.Storage;
+namespace Engine.Storage;
 
 /// <summary>
 /// Table storage entity for message template metadata with blob reference
@@ -9,7 +9,7 @@ namespace Common.Engine.Storage;
 public class MessageTemplateTableEntity : ITableEntity
 {
     public static string PartitionKeyVal => "MessageTemplates";
-    
+
     public string PartitionKey { get => PartitionKeyVal; set { } }
 
     /// <summary>
@@ -47,7 +47,7 @@ public class MessageTemplateTableEntity : ITableEntity
 public class MessageBatchTableEntity : ITableEntity
 {
     public static string PartitionKeyVal => "MessageBatches";
-    
+
     public string PartitionKey { get => PartitionKeyVal; set { } }
 
     /// <summary>
@@ -85,7 +85,7 @@ public class MessageBatchTableEntity : ITableEntity
 public class MessageLogTableEntity : ITableEntity
 {
     public static string PartitionKeyVal => "MessageLogs";
-    
+
     public string PartitionKey { get => PartitionKeyVal; set { } }
 
     /// <summary>

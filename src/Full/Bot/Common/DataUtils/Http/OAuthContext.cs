@@ -2,7 +2,7 @@
 using Azure.Identity;
 using Microsoft.Extensions.Logging;
 
-namespace Common.DataUtils.Http
+namespace DataUtils.Http
 {
 
     /// <summary>

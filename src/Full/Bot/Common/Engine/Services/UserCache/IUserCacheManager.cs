@@ -1,6 +1,6 @@
-using Common.Engine.Models;
+using Engine.Models;
 
-namespace Common.Engine.Services.UserCache;
+namespace Engine.Services.UserCache;
 
 /// <summary>
 /// Interface for user cache management.

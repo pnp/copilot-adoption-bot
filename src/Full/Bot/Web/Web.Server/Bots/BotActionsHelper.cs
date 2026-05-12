@@ -1,6 +1,6 @@
-﻿using Common.Engine.Bot;
-using Common.Engine.Bot.Cards;
-using Common.Engine.Config;
+﻿using Engine.Bot;
+using Engine.Bot.Cards;
+using Engine.Config;
 using Microsoft.Bot.Builder;
 
 namespace Web.Server.Bots;

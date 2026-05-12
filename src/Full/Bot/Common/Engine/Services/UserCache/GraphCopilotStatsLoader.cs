@@ -1,10 +1,10 @@
 using Azure.Core;
 using Azure.Identity;
-using Common.Engine.Config;
-using Common.Engine.Models;
+using Engine.Config;
+using Engine.Models;
 using Microsoft.Extensions.Logging;
 
-namespace Common.Engine.Services.UserCache;
+namespace Engine.Services.UserCache;
 
 /// <summary>
 /// Loads Copilot usage statistics from Microsoft Graph API.

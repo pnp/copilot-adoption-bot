@@ -1,11 +1,10 @@
 using Azure.Data.Tables;
-using Common.Engine.Config;
-using Common.Engine.Models;
-using Common.Engine.Services;
-using Common.Engine.Services.UserCache;
-using Common.Engine.Storage;
+using Engine.Config;
+using Engine.Models;
+using Engine.Services;
+using Engine.Services.UserCache;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace UnitTests.IntegrationTests;
 
@@ -106,7 +105,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
         try
         {
             var stats = await _service.GetCopilotUsageStatsAsync();
-            
+
             // If we got here without exception, token acquisition worked
             Assert.IsNotNull(stats);
             _logger.LogInformation("Successfully acquired access token and retrieved Copilot stats");
@@ -134,10 +133,10 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
         {
             // Act - Make multiple calls that will use the same token
             var startTime = DateTime.UtcNow;
-            
+
             var stats1 = await _service.GetCopilotUsageStatsAsync();
             var firstCallTime = DateTime.UtcNow - startTime;
-            
+
             startTime = DateTime.UtcNow;
             var stats2 = await _service.GetCopilotUsageStatsAsync();
             var secondCallTime = DateTime.UtcNow - startTime;
@@ -145,9 +144,9 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
             // Assert - Second call should be faster or similar (using cached token)
             Assert.IsNotNull(stats1);
             Assert.IsNotNull(stats2);
-            
+
             _logger.LogInformation($"First call: {firstCallTime.TotalMilliseconds}ms, Second call: {secondCallTime.TotalMilliseconds}ms");
-            
+
             // Token caching should make subsequent calls faster or at least not significantly slower
             Assert.IsTrue(secondCallTime.TotalMilliseconds < firstCallTime.TotalMilliseconds * 2,
                 "Second call should benefit from cached token");
@@ -198,7 +197,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
             // Verify structure of first record
             var firstRecord = result.Records[0];
             Assert.IsFalse(string.IsNullOrEmpty(firstRecord.UserPrincipalName), "Record should have UserPrincipalName");
-            
+
             _logger.LogInformation($"Sample record: {firstRecord.UserPrincipalName}");
             _logger.LogInformation($"  Last Activity: {firstRecord.LastActivityDate}");
             _logger.LogInformation($"  Copilot Chat: {firstRecord.CopilotChatLastActivityDate}");
@@ -232,9 +231,9 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
 
             // Assert - Check that we can parse various activity types
             var recordsWithActivity = result.Records.Where(r => r.LastActivityDate.HasValue).ToList();
-            
+
             _logger.LogInformation($"Records with any activity: {recordsWithActivity.Count}/{result.Records.Count}");
-            
+
             if (recordsWithActivity.Count > 0)
             {
                 var sampleRecord = recordsWithActivity[0];
@@ -256,7 +255,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
                     _logger.LogInformation($"  {activity.Key}: {activity.Value}");
                 }
 
-                Assert.IsTrue(activityTypes.Values.Any(v => v.HasValue), 
+                Assert.IsTrue(activityTypes.Values.Any(v => v.HasValue),
                     "At least one activity type should have a date");
             }
         }
@@ -282,7 +281,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
 
             // Assert - Should return empty list, not null or throw
             Assert.IsNotNull(result);
-            
+
             if (result.Records.Count == 0)
             {
                 _logger.LogInformation("No Copilot usage data found - this is acceptable for tenants without active Copilot users");
@@ -337,7 +336,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
         // Assert
         var updatedUser = await tableClient.GetEntityAsync<UserCacheTableEntity>(
             UserCacheTableEntity.PartitionKeyVal, "testuser@contoso.com");
-        
+
         Assert.IsNotNull(updatedUser.Value.CopilotLastActivityDate);
         Assert.IsNotNull(updatedUser.Value.CopilotChatLastActivityDate);
         Assert.IsNotNull(updatedUser.Value.TeamscopilotLastActivityDate);
@@ -440,7 +439,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
         {
             var updatedUser = await tableClient.GetEntityAsync<UserCacheTableEntity>(
                 UserCacheTableEntity.PartitionKeyVal, stat.UserPrincipalName);
-            
+
             Assert.IsNotNull(updatedUser.Value.CopilotLastActivityDate);
             Assert.IsNotNull(updatedUser.Value.LastCopilotStatsUpdate);
         }
@@ -492,7 +491,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
         // Assert
         var updatedUser = await tableClient.GetEntityAsync<UserCacheTableEntity>(
             UserCacheTableEntity.PartitionKeyVal, "testuser@contoso.com");
-        
+
         Assert.IsNotNull(updatedUser.Value.CopilotLastActivityDate);
         Assert.IsNotNull(updatedUser.Value.CopilotChatLastActivityDate);
         Assert.IsNotNull(updatedUser.Value.TeamscopilotLastActivityDate);
@@ -596,7 +595,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
         // Verify user1 stats in table
         var updatedUser1 = await tableClient.GetEntityAsync<UserCacheTableEntity>(
             UserCacheTableEntity.PartitionKeyVal, "user1@contoso.com");
-        
+
         Assert.IsNotNull(updatedUser1.Value.CopilotLastActivityDate, "User1: CopilotLastActivityDate should be set");
         Assert.IsNotNull(updatedUser1.Value.CopilotChatLastActivityDate, "User1: CopilotChatLastActivityDate should be set");
         Assert.IsNotNull(updatedUser1.Value.TeamscopilotLastActivityDate, "User1: TeamscopilotLastActivityDate should be set");
@@ -622,7 +621,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
         // Verify user2 stats in table
         var updatedUser2 = await tableClient.GetEntityAsync<UserCacheTableEntity>(
             UserCacheTableEntity.PartitionKeyVal, "user2@contoso.com");
-        
+
         Assert.IsNotNull(updatedUser2.Value.CopilotLastActivityDate, "User2: CopilotLastActivityDate should be set");
         Assert.IsNotNull(updatedUser2.Value.CopilotChatLastActivityDate, "User2: CopilotChatLastActivityDate should be set");
         Assert.IsNotNull(updatedUser2.Value.TeamscopilotLastActivityDate, "User2: TeamscopilotLastActivityDate should be set");
@@ -761,16 +760,16 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
                 OneNoteCopilotLastActivityDate = entity.OneNoteCopilotLastActivityDate,
                 LoopCopilotLastActivityDate = entity.LoopCopilotLastActivityDate
             };
-            
+
             enrichedUsers.Add(enrichedUser);
-            
+
             // Log what the AI will see for this user
             _logger.LogInformation($"User summary for AI: {enrichedUser.ToAISummary()}");
         }
 
         // Create AI Foundry service
         var aiService = new AIFoundryService(
-            _config.AIFoundryConfig,
+            aiConfig!,
             GetLogger<AIFoundryService>(),
             null);
 
@@ -784,7 +783,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
         Assert.AreEqual(1, matches.Count, "Should find exactly one user with Word Copilot activity in last 30 days");
         Assert.AreEqual("activeuser@contoso.com", matches[0].UserPrincipalName);
         Assert.IsTrue(matches[0].ConfidenceScore > 0.7, "Confidence score should be high for clear match");
-        
+
         _logger.LogInformation($"AI Foundry successfully identified {matches.Count} user(s) with Word Copilot activity");
         _logger.LogInformation($"Matched user: {matches[0].UserPrincipalName} (Confidence: {matches[0].ConfidenceScore:P0})");
         _logger.LogInformation($"Reason: {matches[0].Reason}");
@@ -838,7 +837,7 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
             GetLogger<GraphCopilotStatsLoader>(),
             new UserCacheConfig(),
             invalidConfig);
-        
+
         var service = new CopilotStatsService(
             GetLogger<CopilotStatsService>(),
             loader);

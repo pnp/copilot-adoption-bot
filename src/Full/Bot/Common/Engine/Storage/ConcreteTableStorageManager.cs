@@ -1,11 +1,7 @@
-using Azure;
-using Azure.Data.Tables;
-using Common.Engine;
-using Common.Engine.Config;
+using Engine.Config;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
 
-namespace Common.Engine.Storage;
+namespace Engine.Storage;
 
 /// <summary>
 /// Concrete implementation of TableStorageManager for general use.

@@ -1,4 +1,4 @@
-namespace Common.Engine.Config;
+namespace Engine.Config;
 
 /// <summary>
 /// Configuration for user cache and synchronization behavior.

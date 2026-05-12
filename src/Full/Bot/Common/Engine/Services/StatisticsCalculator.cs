@@ -1,6 +1,6 @@
-using Common.Engine.Storage;
+using Engine.Storage;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Pure (no-IO) calculator for dashboard statistics. Extracted from <see cref="StatisticsService"/>

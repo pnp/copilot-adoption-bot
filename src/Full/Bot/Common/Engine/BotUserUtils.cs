@@ -1,10 +1,10 @@
-using Common.Engine.Config;
-using Common.Engine.Models;
+using Engine.Config;
+using Engine.Models;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Schema;
 using Microsoft.Graph;
 
-namespace Common.Engine;
+namespace Engine;
 
 /// <summary>
 /// Utility methods for working with bot users.
@@ -13,8 +13,8 @@ public static class BotUserUtils
 {
     public static BotUser ParseBotUserInfo(this ChannelAccount user)
     {
-        return string.IsNullOrEmpty(user.AadObjectId) 
-            ? new BotUser { IsAzureAdUserId = false, UserId = user.Id } 
+        return string.IsNullOrEmpty(user.AadObjectId)
+            ? new BotUser { IsAzureAdUserId = false, UserId = user.Id }
             : new BotUser { IsAzureAdUserId = true, UserId = user.AadObjectId };
     }
 
@@ -22,7 +22,7 @@ public static class BotUserUtils
     {
         return await GetBotUserAsync(context.Activity.From, botConfig, graphServiceClient);
     }
-    
+
     public static async Task<BotUser> GetBotUserAsync(ChannelAccount channelUser, BotConfig botConfig, GraphServiceClient graphServiceClient)
     {
         BotUser botUser = ParseBotUserInfo(channelUser);

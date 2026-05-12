@@ -1,13 +1,13 @@
-using System.ClientModel;
-using System.Text.Json;
 using Azure.AI.OpenAI;
 using Azure.Identity;
-using Common.Engine.Config;
-using Common.Engine.Models;
+using Engine.Config;
+using Engine.Models;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
+using System.ClientModel;
+using System.Text.Json;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Result of AI-based user matching
@@ -406,7 +406,7 @@ Which users match the group description? Return as JSON array.";
             var cleanedResponse = cleaned.ToString();
 
             var jsonResults = JsonSerializer.Deserialize<List<JsonElement>>(cleanedResponse);
-            
+
             if (jsonResults != null)
             {
                 // Use GroupBy to handle duplicate UPNs - take the first occurrence
@@ -439,34 +439,34 @@ Which users match the group description? Return as JSON array.";
     }
 
     private bool DetectConversationEnd(string userMessage, string aiResponse)
+    {
+        var endIndicators = new[]
         {
-            var endIndicators = new[]
-            {
                 "thank", "thanks", "got it", "ok", "okay", "understood",
                 "bye", "goodbye", "cheers", "perfect", "great", "awesome"
             };
 
-            var userLower = userMessage.ToLowerInvariant();
-            return endIndicators.Any(indicator => userLower.Contains(indicator) && userMessage.Length < 50);
+        var userLower = userMessage.ToLowerInvariant();
+        return endIndicators.Any(indicator => userLower.Contains(indicator) && userMessage.Length < 50);
+    }
+
+    /// <summary>
+    /// Get the effective follow-up chat system prompt (custom or default)
+    /// </summary>
+    private async Task<string> GetFollowUpChatSystemPromptAsync()
+    {
+        if (_settingsManager != null)
+        {
+            try
+            {
+                return await _settingsManager.GetEffectiveFollowUpChatSystemPrompt();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load custom system prompt, using default");
+            }
         }
 
-        /// <summary>
-        /// Get the effective follow-up chat system prompt (custom or default)
-        /// </summary>
-        private async Task<string> GetFollowUpChatSystemPromptAsync()
-        {
-            if (_settingsManager != null)
-            {
-                try
-                {
-                    return await _settingsManager.GetEffectiveFollowUpChatSystemPrompt();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to load custom system prompt, using default");
-                }
-            }
-        
-            return SettingsStorageManager.DefaultFollowUpChatSystemPrompt;
-        }
+        return SettingsStorageManager.DefaultFollowUpChatSystemPrompt;
     }
+}

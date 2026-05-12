@@ -1,9 +1,8 @@
 using Azure.Data.Tables;
-using Common.Engine.Models;
-using Common.Engine.Services.UserCache;
-using Common.Engine.Storage;
+using Engine.Models;
+using Engine.Services.UserCache;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using UnitTests.Fakes;
 
 namespace UnitTests.IntegrationTests;
@@ -26,8 +25,8 @@ public class CopilotStatsServiceTests : AbstractTest
         var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
         var random = new Random().Next(1000, 9999);
         _testTableName = $"copilotunittest{timestamp}{random}";
-        
-        
+
+
         var testStats = new List<CopilotUsageRecord>
         {
             new CopilotUsageRecord
@@ -130,12 +129,12 @@ public class CopilotStatsServiceTests : AbstractTest
         // Assert
         var updatedUser = await tableClient.GetEntityAsync<UserCacheTableEntity>(
             UserCacheTableEntity.PartitionKeyVal, "testuser1@contoso.com");
-        
+
         Assert.IsNotNull(updatedUser.Value.CopilotLastActivityDate);
         Assert.IsNotNull(updatedUser.Value.CopilotChatLastActivityDate);
         Assert.IsNotNull(updatedUser.Value.TeamscopilotLastActivityDate);
         Assert.IsNotNull(updatedUser.Value.LastCopilotStatsUpdate);
-        
+
         _logger.LogInformation("Successfully updated user with Copilot stats from fake loader");
     }
 
@@ -187,7 +186,7 @@ public class CopilotStatsServiceTests : AbstractTest
         // Assert
         var updatedUser = await tableClient.GetEntityAsync<UserCacheTableEntity>(
             UserCacheTableEntity.PartitionKeyVal, "testuser2@contoso.com");
-        
+
         Assert.IsNotNull(updatedUser.Value.CopilotLastActivityDate);
         Assert.IsNotNull(updatedUser.Value.WordCopilotLastActivityDate);
         Assert.IsNotNull(updatedUser.Value.ExcelCopilotLastActivityDate);
@@ -256,7 +255,7 @@ public class CopilotStatsServiceTests : AbstractTest
         {
             var updatedUser = await tableClient.GetEntityAsync<UserCacheTableEntity>(
                 UserCacheTableEntity.PartitionKeyVal, stat.UserPrincipalName);
-            
+
             Assert.IsNotNull(updatedUser.Value.CopilotLastActivityDate);
             Assert.IsNotNull(updatedUser.Value.LastCopilotStatsUpdate);
         }

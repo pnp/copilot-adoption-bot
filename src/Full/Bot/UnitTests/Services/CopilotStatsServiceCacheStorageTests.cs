@@ -1,7 +1,6 @@
-using Common.Engine.Models;
-using Common.Engine.Services.UserCache;
+using Engine.Models;
+using Engine.Services.UserCache;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using UnitTests.Fakes;
 
 namespace UnitTests.Services;

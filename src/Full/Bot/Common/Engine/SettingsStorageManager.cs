@@ -1,9 +1,9 @@
 using Azure.Data.Tables;
-using Common.Engine.Config;
-using Common.Engine.Storage;
+using Engine.Config;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
 
-namespace Common.Engine;
+namespace Engine;
 
 /// <summary>
 /// Manages application settings in Azure Table Storage
@@ -27,11 +27,11 @@ Your role:
 
 Keep responses brief and suitable for a Teams chat. Use markdown formatting sparingly.";
 
-public SettingsStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
-    : base(storageAuthConfig, logger)
-{
-    _logger = logger;
-}
+    public SettingsStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
+        : base(storageAuthConfig, logger)
+    {
+        _logger = logger;
+    }
 
     /// <summary>
     /// Get current application settings
@@ -39,11 +39,11 @@ public SettingsStorageManager(StorageAuthConfig storageAuthConfig, ILogger logge
     public async Task<AppSettingsTableEntity> GetSettings()
     {
         var tableClient = await GetTableClient(SETTINGS_TABLE_NAME);
-        
+
         try
         {
             var response = await tableClient.GetEntityAsync<AppSettingsTableEntity>(
-                AppSettingsTableEntity.PartitionKeyVal, 
+                AppSettingsTableEntity.PartitionKeyVal,
                 AppSettingsTableEntity.SingletonRowKey);
             return response.Value;
         }
@@ -63,13 +63,13 @@ public SettingsStorageManager(StorageAuthConfig storageAuthConfig, ILogger logge
     public async Task<AppSettingsTableEntity> UpdateSettings(string? followUpChatSystemPrompt, string modifiedByUpn)
     {
         var tableClient = await GetTableClient(SETTINGS_TABLE_NAME);
-        
+
         AppSettingsTableEntity entity;
-        
+
         try
         {
             var response = await tableClient.GetEntityAsync<AppSettingsTableEntity>(
-                AppSettingsTableEntity.PartitionKeyVal, 
+                AppSettingsTableEntity.PartitionKeyVal,
                 AppSettingsTableEntity.SingletonRowKey);
             entity = response.Value;
         }
@@ -94,12 +94,12 @@ public SettingsStorageManager(StorageAuthConfig storageAuthConfig, ILogger logge
     public async Task<string> GetEffectiveFollowUpChatSystemPrompt()
     {
         var settings = await GetSettings();
-        
+
         if (!string.IsNullOrWhiteSpace(settings.FollowUpChatSystemPrompt))
         {
             return settings.FollowUpChatSystemPrompt;
         }
-        
+
         return DefaultFollowUpChatSystemPrompt;
     }
 }

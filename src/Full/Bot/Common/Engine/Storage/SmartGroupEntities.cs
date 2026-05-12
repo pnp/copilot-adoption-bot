@@ -1,7 +1,7 @@
 using Azure;
 using Azure.Data.Tables;
 
-namespace Common.Engine.Storage;
+namespace Engine.Storage;
 
 /// <summary>
 /// Table storage entity for smart groups (AI-driven dynamic user groups).
@@ -10,7 +10,7 @@ namespace Common.Engine.Storage;
 public class SmartGroupTableEntity : ITableEntity
 {
     public static string PartitionKeyVal => "SmartGroups";
-    
+
     public string PartitionKey { get => PartitionKeyVal; set { } }
 
     /// <summary>

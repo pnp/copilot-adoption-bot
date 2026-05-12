@@ -1,6 +1,6 @@
-using Common.Engine.Models;
+using Engine.Models;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Interface for loading users directly from an external data source.

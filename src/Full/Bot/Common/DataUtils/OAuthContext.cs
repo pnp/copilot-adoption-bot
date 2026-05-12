@@ -1,7 +1,7 @@
-﻿using Common.DataUtils.Http;
+﻿using DataUtils.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Common.DataUtils
+namespace DataUtils
 {
     /// <summary>
     /// Context for Graph calls

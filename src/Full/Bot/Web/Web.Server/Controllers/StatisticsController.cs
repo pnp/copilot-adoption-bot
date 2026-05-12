@@ -1,4 +1,4 @@
-using Common.Engine.Services;
+using Engine.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,7 +23,7 @@ public class StatisticsController : ControllerBase
     public async Task<IActionResult> GetMessageStatusStats()
     {
         _logger.LogInformation("Getting message status statistics");
-        
+
         try
         {
             var stats = await _statisticsService.GetMessageStatusStats();
@@ -41,7 +41,7 @@ public class StatisticsController : ControllerBase
     public async Task<IActionResult> GetUserCoverageStats()
     {
         _logger.LogInformation("Getting user coverage statistics");
-        
+
         try
         {
             var stats = await _statisticsService.GetUserCoverageStats();

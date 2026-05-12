@@ -1,7 +1,7 @@
-﻿using Common.DataUtils;
+﻿using DataUtils;
 using System.Reflection;
 
-namespace Common.Engine;
+namespace Engine;
 
 public class Utils
 {

@@ -1,8 +1,8 @@
-using Common.Engine.Services;
+using Engine.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Common.Engine.BackgroundServices;
+namespace Engine.BackgroundServices;
 
 /// <summary>
 /// Background service that processes queued batch messages

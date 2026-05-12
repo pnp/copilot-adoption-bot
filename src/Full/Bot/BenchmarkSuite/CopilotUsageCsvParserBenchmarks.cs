@@ -1,8 +1,9 @@
-using System.Text;
 using BenchmarkDotNet.Attributes;
-using Common.Engine.Services.UserCache;
+using Engine.Services.UserCache;
+using System.Text;
 
-namespace Engine.Benchmarks;
+namespace BenchmarkSuite;
+
 public class CopilotUsageCsvParserBenchmarks
 {
     private string _csv = string.Empty;

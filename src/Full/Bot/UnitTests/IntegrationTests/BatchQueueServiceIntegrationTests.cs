@@ -1,7 +1,6 @@
-using Common.Engine.Services;
-using Common.Engine.Storage;
+using Engine.Services;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace UnitTests.IntegrationTests;
 
@@ -18,7 +17,7 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
         var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
         var random = new Random().Next(1000, 9999);
         _testQueueName = $"batchtest{timestamp}{random}";
-        
+
         _service = new BatchQueueService(
             GetStorageAuthConfig(),
             GetLogger<BatchQueueService>(),
@@ -58,10 +57,10 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
 
         // Act
         await _service.EnqueueMessageAsync(message);
-        
+
         // Wait a moment for the message to be available
         await Task.Delay(500);
-        
+
         var (dequeuedMessage, queueMessage) = await _service.DequeueMessageAsync();
 
         // Assert
@@ -109,10 +108,10 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
 
         // Act
         await _service.EnqueueBatchMessagesAsync(messages);
-        
+
         // Wait for messages to be available
         await Task.Delay(1000);
-        
+
         var finalLength = await _service.GetQueueLengthAsync();
 
         // Assert
@@ -152,14 +151,14 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
         var (_, queueMessage) = await _service.DequeueMessageAsync();
         Assert.IsNotNull(queueMessage);
         await _service.DeleteMessageAsync(queueMessage);
-        
+
         await Task.Delay(500);
         var lengthAfterDequeue = await _service.GetQueueLengthAsync();
 
         // Assert
-        Assert.IsTrue(lengthAfterEnqueue > initialLength, 
+        Assert.IsTrue(lengthAfterEnqueue > initialLength,
             $"Queue length should increase after enqueue. Initial: {initialLength}, After: {lengthAfterEnqueue}");
-        Assert.IsTrue(lengthAfterDequeue < lengthAfterEnqueue, 
+        Assert.IsTrue(lengthAfterDequeue < lengthAfterEnqueue,
             $"Queue length should decrease after dequeue. Before: {lengthAfterEnqueue}, After: {lengthAfterDequeue}");
     }
 
@@ -196,7 +195,7 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
 
         await _service.EnqueueMessageAsync(message);
         await Task.Delay(500);
-        
+
         var initialLength = await _service.GetQueueLengthAsync();
         var (_, queueMessage) = await _service.DequeueMessageAsync();
         Assert.IsNotNull(queueMessage);
@@ -204,7 +203,7 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
         // Act
         await _service.DeleteMessageAsync(queueMessage);
         await Task.Delay(500);
-        
+
         var finalLength = await _service.GetQueueLengthAsync();
 
         // Assert

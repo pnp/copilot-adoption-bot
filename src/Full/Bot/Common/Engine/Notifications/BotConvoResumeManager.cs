@@ -1,6 +1,6 @@
-﻿using Common.Engine.Config;
-using Common.Engine.Models;
-using Common.Engine.Services;
+﻿using Engine.Config;
+using Engine.Models;
+using Engine.Services;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Bot.Schema;
@@ -10,7 +10,7 @@ using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 
-namespace Common.Engine.Notifications;
+namespace Engine.Notifications;
 
 public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvoResumeManager,
     ILogger<BotAppInstallHelper> loggerBotAppInstallHelper,
@@ -47,7 +47,7 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
             _loggerBotConvoResumeManager.LogWarning(ex, message);
             return ConversationResumeResult.Failed(message, ex);
         }
-        
+
         if (graphUser?.Id == null)
         {
             var message = $"User {upn} not found or has no ID";
@@ -79,7 +79,7 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
             // Create a scope to resolve scoped services (like PendingCardLookupService)
             using var scope = serviceProvider.CreateScope();
             var conversationResumeHandler = scope.ServiceProvider.GetRequiredService<IConversationResumeHandler<PendingCardInfo>>();
-            
+
             // Continue conversation with the registered "resume conversation" service
             var (data, card) = await conversationResumeHandler.LoadDataAndResumeConversation(upn);
             var resumeActivity = MessageFactory.Attachment(card);
@@ -88,7 +88,7 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
                 .ContinueConversationAsync(config.GraphConfig.ClientId, previousConversationReference,
                 async (turnContext, cancellationToken) =>
                     await turnContext.SendActivityAsync(resumeActivity, cancellationToken), CancellationToken.None);
-            
+
             var result = ConversationResumeResult.MessageSent(upn);
             _loggerBotConvoResumeManager.LogInformation("Conversation resume result: {Status} for user {Upn}", result.Status, upn);
             return result;
@@ -120,7 +120,7 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
             // This will then be picked up by the bot and the conversation ID then cached for this user.
             await installManager.InstallBotForUser(userId, config.AppCatalogTeamAppId,
                 () => TriggerUserConversationUpdate(userId, config.AppCatalogTeamAppId, installManager));
-            
+
             var result = ConversationResumeResult.AppInstalled(upn);
             _loggerBotConvoResumeManager.LogInformation("Conversation resume result: {Status} for user {Upn}", result.Status, upn);
             return result;
@@ -182,12 +182,12 @@ public enum ConversationResumeStatus
     /// Message was sent successfully to the user
     /// </summary>
     MessageSent,
-    
+
     /// <summary>
     /// Bot app was installed; message will be sent when user opens Teams
     /// </summary>
     AppInstalledPending,
-    
+
     /// <summary>
     /// Operation failed due to an error
     /// </summary>
@@ -208,13 +208,13 @@ public class ConversationResumeResult
     /// </summary>
     public static ConversationResumeResult MessageSent(string upn) =>
         new() { Status = ConversationResumeStatus.MessageSent, Message = $"Message sent successfully to {upn}" };
-    
+
     /// <summary>
     /// Creates a result for when the bot app was installed and message is pending
     /// </summary>
     public static ConversationResumeResult AppInstalled(string upn) =>
         new() { Status = ConversationResumeStatus.AppInstalledPending, Message = $"Bot app installed for {upn}. Message will be sent when user opens the app." };
-    
+
     /// <summary>
     /// Creates a result for a failed operation
     /// </summary>

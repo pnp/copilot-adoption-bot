@@ -1,7 +1,7 @@
-﻿using Common.Engine;
-using Common.Engine.Config;
-using Common.Engine.Notifications;
-using Common.Engine.Services;
+﻿using Engine;
+using Engine.Config;
+using Engine.Notifications;
+using Engine.Services;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
@@ -60,7 +60,7 @@ public class TeamsBot<T>(ConversationState conversationState, UserState userStat
                     Logger.LogInformation($"Resuming conversation with user {userIdentity.UserId} by sending next card (card {card.TemplateName}).");
                     var resumeActivity = MessageFactory.Attachment(nextCardAttachmentToSend);
                     await turnContext.SendActivityAsync(resumeActivity, cancellationToken);
-                    
+
                     // Save card info to user state
                     await SaveCardInfoToUserState(turnContext, card);
                 }

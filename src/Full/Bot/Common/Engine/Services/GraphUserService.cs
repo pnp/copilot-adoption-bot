@@ -1,12 +1,11 @@
 using Azure.Identity;
-using Common.Engine.Config;
-using Common.Engine.Models;
-using Common.Engine.Services.UserCache;
+using Engine.Config;
+using Engine.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Service for loading users directly from Microsoft Graph API with extended metadata.
@@ -204,7 +203,7 @@ public class GraphUserService : IExternalUserService
             if (user != null)
             {
                 var enrichedUser = MapToEnrichedUser(user);
-                
+
                 // Try to get manager info
                 try
                 {
@@ -225,10 +224,10 @@ public class GraphUserService : IExternalUserService
                 {
                     const string copilotSkuId = "Microsoft_365_Copilot";
                     var licenses = await _graphClient.Users[user.Id].LicenseDetails.GetAsync();
-                    
+
                     if (licenses?.Value != null)
                     {
-                        enrichedUser.HasCopilotLicense = licenses.Value.Any(license => 
+                        enrichedUser.HasCopilotLicense = licenses.Value.Any(license =>
                             license.SkuPartNumber?.Equals(copilotSkuId, StringComparison.OrdinalIgnoreCase) == true);
                     }
                 }

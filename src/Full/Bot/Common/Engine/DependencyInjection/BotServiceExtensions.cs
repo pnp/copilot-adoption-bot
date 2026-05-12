@@ -2,7 +2,7 @@ using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Common.Engine.DependencyInjection;
+namespace Engine.DependencyInjection;
 
 /// <summary>
 /// Extension methods for registering Bot Framework services

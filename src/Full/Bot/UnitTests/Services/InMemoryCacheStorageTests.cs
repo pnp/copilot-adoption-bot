@@ -1,5 +1,5 @@
-using Common.Engine.Models;
-using Common.Engine.Services.UserCache;
+using Engine.Models;
+using Engine.Services.UserCache;
 using UnitTests.Fakes;
 
 namespace UnitTests.Services;
@@ -54,11 +54,15 @@ public class InMemoryCacheStorageTests
         var storage = new InMemoryCacheStorage();
         await storage.UpsertUserAsync(new EnrichedUserInfo
         {
-            Id = "a", UserPrincipalName = "a@contoso.com", DisplayName = "Original"
+            Id = "a",
+            UserPrincipalName = "a@contoso.com",
+            DisplayName = "Original"
         });
         await storage.UpsertUserAsync(new EnrichedUserInfo
         {
-            Id = "a", UserPrincipalName = "a@contoso.com", DisplayName = "Updated"
+            Id = "a",
+            UserPrincipalName = "a@contoso.com",
+            DisplayName = "Updated"
         });
 
         var user = await storage.GetUserByUpnAsync("a@contoso.com");

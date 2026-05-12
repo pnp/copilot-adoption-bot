@@ -1,7 +1,6 @@
-using Common.Engine;
-using Common.Engine.Services;
+using Engine;
+using Engine.Services;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace UnitTests.IntegrationTests;
 
@@ -109,7 +108,7 @@ public class StatisticsServiceIntegrationTests : AbstractTest
         Assert.IsTrue(stats.TotalUsersInTenant > 0, "Should have users in tenant");
         Assert.IsTrue(stats.UsersMessaged >= 0);
         Assert.AreEqual(stats.TotalUsersInTenant - stats.UsersMessaged, stats.UsersNotMessaged);
-        
+
         if (stats.TotalUsersInTenant > 0)
         {
             var expectedPercentage = Math.Round((double)stats.UsersMessaged / stats.TotalUsersInTenant * 100, 2);
@@ -153,7 +152,7 @@ public class StatisticsServiceIntegrationTests : AbstractTest
         // Assert
         Assert.IsTrue(updatedStats.UsersMessaged >= initialStats.UsersMessaged,
             "Users messaged count should not decrease");
-        
+
         _logger.LogInformation($"Initial users messaged: {initialStats.UsersMessaged}, " +
             $"After test: {updatedStats.UsersMessaged}");
 

@@ -1,9 +1,9 @@
 using Azure.Data.Tables;
-using Common.Engine.Storage;
+using Engine.Models;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
-using Common.Engine.Models;
 
-namespace Common.Engine.Services.UserCache;
+namespace Engine.Services.UserCache;
 
 /// <summary>
 /// Handles Copilot usage statistics retrieval and storage.

@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Net.Http.Headers;
 
-namespace Common.DataUtils.Http
+namespace DataUtils.Http
 {
     public static class HttpClientExtensions
     {

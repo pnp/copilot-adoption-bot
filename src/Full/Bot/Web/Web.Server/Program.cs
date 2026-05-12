@@ -1,6 +1,6 @@
-using Common.Engine;
-using Common.Engine.Notifications;
-using Common.Engine.Services;
+using Engine;
+using Engine.Notifications;
+using Engine.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Bot.Builder;
 using Microsoft.Identity.Web;

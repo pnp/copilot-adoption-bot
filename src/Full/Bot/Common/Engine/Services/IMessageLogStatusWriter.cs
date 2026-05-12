@@ -1,4 +1,4 @@
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Narrow abstraction for updating the status of a message log entry.

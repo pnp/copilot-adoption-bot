@@ -1,7 +1,7 @@
 using Azure;
 using Azure.Data.Tables;
 
-namespace Common.Engine.Storage;
+namespace Engine.Storage;
 
 /// <summary>
 /// Table storage entity for application settings.
@@ -11,7 +11,7 @@ public class AppSettingsTableEntity : ITableEntity
 {
     public static string PartitionKeyVal => "AppSettings";
     public static string SingletonRowKey => "Settings";
-    
+
     public string PartitionKey { get => PartitionKeyVal; set { } }
 
     /// <summary>

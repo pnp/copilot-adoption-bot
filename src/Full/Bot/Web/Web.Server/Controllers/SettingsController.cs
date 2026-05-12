@@ -1,5 +1,5 @@
-using Common.Engine;
-using Common.Engine.Config;
+using Engine;
+using Engine.Config;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -57,12 +57,12 @@ public class SettingsController : ControllerBase
         try
         {
             var userUpn = User.Identity?.Name ?? "unknown";
-            
+
             // Allow null/empty to reset to default
             var settings = await _settingsManager.UpdateSettings(
                 string.IsNullOrWhiteSpace(request.FollowUpChatSystemPrompt) ? null : request.FollowUpChatSystemPrompt.Trim(),
                 userUpn);
-            
+
             return Ok(new AppSettingsDto
             {
                 FollowUpChatSystemPrompt = settings.FollowUpChatSystemPrompt,
@@ -87,9 +87,9 @@ public class SettingsController : ControllerBase
         try
         {
             var userUpn = User.Identity?.Name ?? "unknown";
-            
+
             var settings = await _settingsManager.UpdateSettings(null, userUpn);
-            
+
             return Ok(new AppSettingsDto
             {
                 FollowUpChatSystemPrompt = null,
@@ -114,17 +114,17 @@ public class AppSettingsDto
     /// Custom follow-up chat system prompt (null means default is used)
     /// </summary>
     public string? FollowUpChatSystemPrompt { get; set; }
-    
+
     /// <summary>
     /// The default follow-up chat system prompt for reference
     /// </summary>
     public string DefaultFollowUpChatSystemPrompt { get; set; } = null!;
-    
+
     /// <summary>
     /// When settings were last modified
     /// </summary>
     public DateTime? LastModifiedDate { get; set; }
-    
+
     /// <summary>
     /// Who last modified the settings
     /// </summary>

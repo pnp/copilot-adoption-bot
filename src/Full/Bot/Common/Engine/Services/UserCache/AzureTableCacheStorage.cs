@@ -1,10 +1,10 @@
 using Azure.Data.Tables;
-using Common.Engine.Config;
-using Common.Engine.Models;
-using Common.Engine.Storage;
+using Engine.Config;
+using Engine.Models;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
 
-namespace Common.Engine.Services.UserCache;
+namespace Engine.Services.UserCache;
 
 /// <summary>
 /// Stores cached user data in Azure Table Storage.
@@ -207,7 +207,7 @@ public class AzureTableCacheStorage : ICacheStorage
                 if (response.Value != null && !response.Value.IsDeleted)
                 {
                     var user = response.Value;
-                    
+
                     // Update Copilot stats
                     user.CopilotLastActivityDate = userStats.LastActivityDate;
                     user.CopilotChatLastActivityDate = userStats.CopilotChatLastActivityDate;
@@ -254,7 +254,7 @@ public class AzureTableCacheStorage : ICacheStorage
                 if (response.Value != null && !response.Value.IsDeleted)
                 {
                     var user = response.Value;
-                    
+
                     // Update license info
                     user.HasCopilotLicense = hasCopilotLicense;
 

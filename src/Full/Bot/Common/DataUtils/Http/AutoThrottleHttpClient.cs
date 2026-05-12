@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 
-namespace Common.DataUtils.Http
+namespace DataUtils.Http
 {
     public class AutoThrottleHttpClient : HttpClient
     {

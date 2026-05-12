@@ -1,7 +1,6 @@
-using Common.Engine.Services;
+using Engine.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Text;
 
 namespace Web.Server.Controllers;
 
@@ -36,7 +35,7 @@ public class SendNudgeController : ControllerBase
         try
         {
             var upns = new List<string>();
-            
+
             using (var stream = file.OpenReadStream())
             using (var reader = new StreamReader(stream))
             {
@@ -203,12 +202,12 @@ public class CreateBatchAndSendRequest
 {
     public string BatchName { get; set; } = null!;
     public string TemplateId { get; set; } = null!;
-    
+
     /// <summary>
     /// Direct list of recipient UPNs
     /// </summary>
     public List<string>? RecipientUpns { get; set; }
-    
+
     /// <summary>
     /// Smart group IDs to resolve and include as recipients (requires Copilot Connected mode)
     /// </summary>

@@ -4,7 +4,7 @@ using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 using System.Net;
 
-namespace Common.Engine.Notifications;
+namespace Engine.Notifications;
 
 /// <summary>
 /// Bot functionality

@@ -1,6 +1,6 @@
-﻿using Common.Engine;
-using Common.Engine.Config;
-using Common.Engine.Services;
+﻿using Engine;
+using Engine.Config;
+using Engine.Services;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Web.Server.Bots.Dialogues.Abstract;
@@ -31,7 +31,7 @@ public class MainDialogue : CommonBotDialogue
         _userState = userState;
         _aiFoundryService = aiFoundryService;
         _logger = logger;
-        
+
         AddDialog(new TextPrompt(nameof(TextPrompt)));
 
         AddDialog(new WaterfallDialog(nameof(WaterfallDialog),
@@ -57,10 +57,10 @@ public class MainDialogue : CommonBotDialogue
             try
             {
                 _logger.LogInformation($"Processing follow-up chat via AI Foundry: {userMessage.Substring(0, Math.Min(50, userMessage.Length))}...");
-                
+
                 // Build conversation history from state
                 var conversationHistory = convoState.ConversationHistory ?? new List<(string role, string message)>();
-                
+
                 // Get AI response
                 var aiResponse = await _aiFoundryService.HandleFollowUpChatAsync(
                     stepContext.Context.Activity.From.Id,
@@ -72,7 +72,7 @@ public class MainDialogue : CommonBotDialogue
                 // Update conversation history
                 conversationHistory.Add(("user", userMessage));
                 conversationHistory.Add(("assistant", aiResponse.Response));
-                
+
                 // Keep only last 10 exchanges to avoid token limits
                 if (conversationHistory.Count > 20)
                 {
@@ -121,12 +121,12 @@ public class MainDialogue : CommonBotDialogue
 }
 
 internal class MainDialogueConvoState
-{       
+{
     /// <summary>
     /// Conversation history for AI follow-up (role, message pairs)
     /// </summary>
     public List<(string role, string message)>? ConversationHistory { get; set; }
-    
+
     /// <summary>
     /// Information about the last card sent to this user
     /// </summary>

@@ -1,7 +1,7 @@
-using Common.Engine.Storage;
+using Engine.Storage;
 using Microsoft.Bot.Schema;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Pure helper that turns a batch of pending message logs into <see cref="PendingCardInfo"/>

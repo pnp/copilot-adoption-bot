@@ -1,7 +1,5 @@
-using Common.Engine;
-using Common.Engine.Storage;
-using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Engine;
+using Engine.Storage;
 
 namespace UnitTests.IntegrationTests;
 
@@ -288,7 +286,7 @@ public class StorageManagerIntegrationTests : AbstractTest
     {
         // Arrange
         var group = await _smartGroupStorage.CreateSmartGroup($"Group {Guid.NewGuid()}", "Test", "test@example.com");
-        
+
         var members = new List<SmartGroupMemberCacheEntity>
         {
             new SmartGroupMemberCacheEntity

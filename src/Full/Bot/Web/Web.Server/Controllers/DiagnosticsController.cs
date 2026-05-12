@@ -1,5 +1,5 @@
-using Common.Engine.Config;
-using Common.Engine.Services;
+using Engine.Config;
+using Engine.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,7 +35,7 @@ public class DiagnosticsController : ControllerBase
     public async Task<IActionResult> TestGraphConnection()
     {
         _logger.LogInformation("Testing Graph API connection");
-        
+
         try
         {
             var userCount = await _graphService.GetTotalUserCount();
@@ -65,7 +65,7 @@ public class DiagnosticsController : ControllerBase
     public async Task<IActionResult> QueueStatus()
     {
         _logger.LogInformation("Checking queue status");
-        
+
         try
         {
             var queueLength = await _queueService.GetQueueLengthAsync();
@@ -93,15 +93,15 @@ public class DiagnosticsController : ControllerBase
     public IActionResult StorageConfig()
     {
         _logger.LogInformation("Getting storage configuration");
-        
+
         try
         {
             var storageConfig = _appConfig.StorageAuthConfig;
-            
+
             // Check if we're using fallback to legacy ConnectionStrings.Storage
-            var isUsingLegacy = storageConfig == null || 
+            var isUsingLegacy = storageConfig == null ||
                                 (!storageConfig.UseRBAC && string.IsNullOrEmpty(storageConfig.ConnectionString));
-            
+
             if (isUsingLegacy)
             {
                 // Using legacy configuration
@@ -117,11 +117,11 @@ public class DiagnosticsController : ControllerBase
                     configurationSource = "ConnectionStrings:Storage"
                 });
             }
-            
+
             // Using StorageAuthConfig
             var authMethod = storageConfig!.UseRBAC
-                ? (storageConfig.RBACOverrideCredentials != null 
-                    ? "RBAC with Service Principal" 
+                ? (storageConfig.RBACOverrideCredentials != null
+                    ? "RBAC with Service Principal"
                     : "RBAC with DefaultAzureCredential")
                 : "Connection String";
 

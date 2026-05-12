@@ -1,6 +1,6 @@
 ﻿using Microsoft.Bot.Schema;
 
-namespace Common.Engine.Notifications;
+namespace Engine.Notifications;
 
 public interface IConversationResumeHandler<T>
 {

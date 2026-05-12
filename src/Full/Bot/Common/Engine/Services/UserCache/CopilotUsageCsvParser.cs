@@ -1,6 +1,6 @@
-using Common.Engine.Models;
+using Engine.Models;
 
-namespace Common.Engine.Services.UserCache;
+namespace Engine.Services.UserCache;
 
 /// <summary>
 /// Pure CSV parser for Microsoft 365 Copilot Usage User Detail reports.

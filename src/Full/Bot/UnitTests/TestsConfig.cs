@@ -1,5 +1,5 @@
-﻿using Common.DataUtils.Config;
-using Common.Engine.Config;
+﻿using DataUtils.Config;
+using Engine.Config;
 using Microsoft.Extensions.Configuration;
 
 namespace UnitTests;

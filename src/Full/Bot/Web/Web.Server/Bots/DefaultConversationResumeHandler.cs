@@ -1,4 +1,4 @@
-using Common.Engine.Notifications;
+using Engine.Notifications;
 using Microsoft.Bot.Schema;
 
 namespace Web.Server.Bots;

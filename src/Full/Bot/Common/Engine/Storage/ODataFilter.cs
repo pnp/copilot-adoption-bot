@@ -1,4 +1,4 @@
-namespace Common.Engine.Storage;
+namespace Engine.Storage;
 
 /// <summary>
 /// Helpers for safely composing OData filter clauses used against Azure Table Storage.

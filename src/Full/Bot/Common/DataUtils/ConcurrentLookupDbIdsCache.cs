@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 
-namespace Common.DataUtils;
+namespace DataUtils;
 
 /// <summary>
 /// Cache IDs for a 1 or more database record types. Threadsafe.

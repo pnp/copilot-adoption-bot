@@ -1,9 +1,7 @@
-using Common.Engine.Storage;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
 
-using Common.Engine.Models;
-
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// DTO for smart group data
@@ -41,10 +39,10 @@ public class SmartGroupMemberDto
     public string? EmployeeType { get; set; }
     public DateTimeOffset? HireDate { get; set; }
     public double? ConfidenceScore { get; set; }
-    
+
     // License information
     public bool HasCopilotLicense { get; set; }
-    
+
     // Copilot usage statistics
     public DateTime? CopilotLastActivityDate { get; set; }
     public DateTime? CopilotChatLastActivityDate { get; set; }
@@ -189,12 +187,12 @@ public class SmartGroupService
 
         // Get all users with metadata from Graph
         var users = await _userService.GetAllUsersWithMetadataAsync();
-        
+
         // Call AI to match users
         var matches = await _aiFoundryService.ResolveSmartGroupMembersAsync(group.Description, users);
 
         // Cache the results
-        var memberCacheEntities = matches.Select(m => 
+        var memberCacheEntities = matches.Select(m =>
         {
             var user = users.FirstOrDefault(u => u.UserPrincipalName.Equals(m.UserPrincipalName, StringComparison.OrdinalIgnoreCase));
             return new SmartGroupMemberCacheEntity
@@ -261,11 +259,11 @@ public class SmartGroupService
 
         // Get users with metadata from Graph
         var users = await _userService.GetAllUsersWithMetadataAsync(maxUsers);
-        
+
         // Call AI to match users
         var matches = await _aiFoundryService.ResolveSmartGroupMembersAsync(description, users);
 
-        return matches.Select(m => 
+        return matches.Select(m =>
         {
             var user = users.FirstOrDefault(u => u.UserPrincipalName.Equals(m.UserPrincipalName, StringComparison.OrdinalIgnoreCase));
             return new SmartGroupMemberDto
@@ -310,7 +308,7 @@ public class SmartGroupService
     public async Task<List<string>> GetSmartGroupUpns(string groupId)
     {
         _logger.LogInformation($"Getting UPNs for smart group {groupId}");
-        
+
         var group = await _storageManager.GetSmartGroup(groupId);
         if (group == null)
         {
@@ -318,7 +316,7 @@ public class SmartGroupService
         }
 
         // Check if we need to resolve (never resolved, or cache is older than 1 hour)
-        bool needsResolve = !group.LastResolvedDate.HasValue || 
+        bool needsResolve = !group.LastResolvedDate.HasValue ||
                            (DateTime.UtcNow - group.LastResolvedDate.Value).TotalHours >= 1;
 
         if (needsResolve)

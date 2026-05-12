@@ -1,4 +1,4 @@
-﻿namespace Common.Engine.Bot.Cards;
+﻿namespace Engine.Bot.Cards;
 
 public abstract class BaseBotIntroductionCard : BaseAdaptiveCard
 {

@@ -1,4 +1,4 @@
-﻿namespace Common.Engine;
+﻿namespace Engine;
 
 public static class VersionConstants
 {

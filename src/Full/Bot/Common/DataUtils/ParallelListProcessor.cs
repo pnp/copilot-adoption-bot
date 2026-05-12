@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 
-namespace Common.DataUtils
+namespace DataUtils
 {
     /// <summary>
     /// Process a big list of objects in parallel, via configurable chunk sizes.

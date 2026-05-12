@@ -1,11 +1,11 @@
-using Common.Engine.Models;
-using Common.Engine.Services.UserCache;
+using Engine.Models;
+using Engine.Services.UserCache;
 
 namespace UnitTests.Fakes;
 
 /// <summary>
 /// In-memory fake for <see cref="IUserCacheManager"/> for pure unit tests of
-/// <see cref="Common.Engine.Services.CachedUserService"/>.
+/// <see cref="Engine.Services.CachedUserService"/>.
 /// </summary>
 public class FakeUserCacheManager : IUserCacheManager
 {

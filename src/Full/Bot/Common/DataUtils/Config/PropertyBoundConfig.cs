@@ -1,7 +1,7 @@
 ﻿using System.Reflection;
 using System.Runtime.CompilerServices;
 
-namespace Common.DataUtils.Config;
+namespace DataUtils.Config;
 
 public abstract class PropertyBoundConfig
 {

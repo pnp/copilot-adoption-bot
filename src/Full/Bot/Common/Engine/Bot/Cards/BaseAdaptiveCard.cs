@@ -1,10 +1,10 @@
 ﻿using AdaptiveCards;
-using Common.DataUtils;
+using DataUtils;
 using Microsoft.Bot.Schema;
 using Newtonsoft.Json;
 using System.Reflection;
 
-namespace Common.Engine.Bot.Cards;
+namespace Engine.Bot.Cards;
 
 /// <summary>
 /// Base implementation for any of the adaptive cards sent

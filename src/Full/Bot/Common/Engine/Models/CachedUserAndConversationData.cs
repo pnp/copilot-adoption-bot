@@ -1,7 +1,7 @@
 using Azure;
 using Azure.Data.Tables;
 
-namespace Common.Engine.Models;
+namespace Engine.Models;
 
 /// <summary>
 /// Table storage entity for cached user and conversation data.

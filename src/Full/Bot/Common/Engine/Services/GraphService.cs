@@ -1,9 +1,9 @@
-using Common.Engine.Config;
+using Engine.Config;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Service for interacting with Microsoft Graph API

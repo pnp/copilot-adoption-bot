@@ -1,10 +1,10 @@
-using Common.Engine.Services;
+using Engine.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 
-namespace Common.Engine.BackgroundServices;
+namespace Engine.BackgroundServices;
 
 /// <summary>
 /// Background service that initializes default nudge templates on application startup
@@ -31,9 +31,9 @@ public class DefaultTemplateInitializationService : IHostedService
         {
             using var scope = _serviceProvider.CreateScope();
             var templateService = scope.ServiceProvider.GetRequiredService<MessageTemplateService>();
-            
+
             var existingTemplates = await templateService.GetAllTemplates();
-            
+
             // Only create default templates if storage is completely empty
             if (existingTemplates.Count == 0)
             {
@@ -119,9 +119,9 @@ public class DefaultTemplateInitializationService : IHostedService
     private static async Task<string> ReadEmbeddedResourceAsync(string resourceName)
     {
         var assembly = Assembly.GetExecutingAssembly();
-        
+
         await using var stream = assembly.GetManifestResourceStream(resourceName);
-        
+
         if (stream == null)
         {
             throw new FileNotFoundException($"Embedded resource '{resourceName}' not found.");

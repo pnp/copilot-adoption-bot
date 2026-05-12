@@ -1,10 +1,10 @@
-using Common.Engine.Config;
-using Common.Engine.Models;
+using Engine.Config;
+using Engine.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
 
-namespace Common.Engine.Services.UserCache;
+namespace Engine.Services.UserCache;
 
 /// <summary>
 /// Loads user data from Microsoft Graph API with delta query support.

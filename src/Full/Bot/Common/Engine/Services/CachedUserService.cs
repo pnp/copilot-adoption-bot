@@ -1,8 +1,8 @@
-using Common.Engine.Models;
-using Common.Engine.Services.UserCache;
+using Engine.Models;
+using Engine.Services.UserCache;
 using Microsoft.Extensions.Logging;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Service for loading user data with cache-first logic.
@@ -36,12 +36,12 @@ public class CachedUserService
         {
             _logger.LogInformation("Fetching users from cache...");
             var cachedUsers = await _cacheManager.GetAllCachedUsersAsync(forceRefresh);
-            
+
             if (maxUsers < int.MaxValue)
             {
                 cachedUsers = cachedUsers.Take(maxUsers).ToList();
             }
-            
+
             _logger.LogInformation($"Retrieved {cachedUsers.Count} users from cache");
             return cachedUsers;
         }
@@ -66,7 +66,7 @@ public class CachedUserService
                 _logger.LogDebug($"Retrieved user {upn} from cache");
                 return cachedUser;
             }
-            
+
             // User not in cache, fetch from external source
             _logger.LogDebug($"User {upn} not in cache, fetching from external source");
             return await _externalUserService.GetUserAsync(upn);

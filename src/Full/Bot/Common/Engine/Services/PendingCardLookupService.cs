@@ -1,10 +1,9 @@
-using Azure.Data.Tables;
-using Common.Engine.Storage;
+using Engine.Storage;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Service for looking up pending cards to send to users from Azure Table Storage

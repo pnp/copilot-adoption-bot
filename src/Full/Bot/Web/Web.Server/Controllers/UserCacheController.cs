@@ -1,4 +1,4 @@
-using Common.Engine.Services.UserCache;
+using Engine.Services.UserCache;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -86,12 +86,12 @@ public class UserCacheController : ControllerBase
         {
             _logger.LogInformation("Copilot stats update requested by {User}", User.Identity?.Name);
             await _cacheManager.UpdateCopilotStatsAsync();
-            
+
             // Get the updated metadata to return status information
             var metadata = await _cacheManager.GetSyncMetadataAsync();
-            
-            return Ok(new 
-            { 
+
+            return Ok(new
+            {
                 message = "Copilot statistics updated successfully for cached users.",
                 lastUpdate = metadata.LastCopilotStatsUpdate,
                 success = true
@@ -100,7 +100,7 @@ public class UserCacheController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating Copilot stats");
-            
+
             // Return detailed error information
             return StatusCode(500, new
             {
@@ -120,12 +120,12 @@ public class UserCacheController : ControllerBase
         try
         {
             _logger.LogInformation("Copilot stats clear requested by {User}", User.Identity?.Name);
-            
+
             // Get current metadata and clear the last update timestamp
             var metadata = await _cacheManager.GetSyncMetadataAsync();
             metadata.LastCopilotStatsUpdate = null;
             await _cacheManager.UpdateSyncMetadataAsync(metadata);
-            
+
             return Ok(new { message = "Copilot statistics cleared. Next update will fetch fresh data." });
         }
         catch (Exception ex)

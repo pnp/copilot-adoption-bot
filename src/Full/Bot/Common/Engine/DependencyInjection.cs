@@ -1,11 +1,11 @@
-﻿using Common.Engine.Config;
-using Common.Engine.DependencyInjection;
-using Common.Engine.Services;
-using Common.Engine.Services.UserCache;
+﻿using Engine.Config;
+using Engine.DependencyInjection;
+using Engine.Services;
+using Engine.Services.UserCache;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Common.Engine;
+namespace Engine;
 
 /// <summary>
 /// Main dependency injection configuration for Common.Engine services.

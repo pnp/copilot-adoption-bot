@@ -1,7 +1,7 @@
-﻿using Common.DataUtils.Config;
+﻿using DataUtils.Config;
 using Microsoft.Extensions.Configuration;
 
-namespace Common.Engine.Config;
+namespace Engine.Config;
 
 public class TeamsAppConfig : AppConfig
 {

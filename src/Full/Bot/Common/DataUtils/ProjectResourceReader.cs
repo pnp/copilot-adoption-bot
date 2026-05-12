@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-namespace Common.DataUtils;
+namespace DataUtils;
 
 
 public class ProjectResourceReader

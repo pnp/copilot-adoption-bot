@@ -1,10 +1,9 @@
-using Common.Engine.Services;
-using Common.Engine.Services.UserCache;
-using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Azure.Identity;
+using Engine.Config;
+using Engine.Services;
+using Engine.Services.UserCache;
+using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
-using Common.Engine.Config;
 using UnitTests.Fakes;
 
 namespace UnitTests.IntegrationTests;
@@ -63,7 +62,7 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         // Assert
         Assert.IsNotNull(users);
         Assert.IsTrue(users.Count > 0, "Should return at least one user");
-        
+
         var firstUser = users.First();
         Assert.IsFalse(string.IsNullOrEmpty(firstUser.UserPrincipalName));
         Assert.IsFalse(string.IsNullOrEmpty(firstUser.DisplayName));
@@ -81,7 +80,7 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         Assert.IsTrue(users.Count > 0, "Should return at least one user");
 
         var user = users.First();
-        
+
         // Required properties
         Assert.IsFalse(string.IsNullOrEmpty(user.Id));
         Assert.IsFalse(string.IsNullOrEmpty(user.UserPrincipalName));
@@ -139,7 +138,7 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         // Arrange - First find a department that exists (force refresh)
         var allUsers = await _service.GetAllUsersWithMetadataAsync(maxUsers: 50, forceRefresh: true);
         var usersWithDepartments = allUsers.Where(u => !string.IsNullOrEmpty(u.Department)).ToList();
-        
+
         if (usersWithDepartments.Count == 0)
         {
             Assert.Inconclusive("No users with department information found in tenant");
@@ -170,9 +169,9 @@ public class GraphUserServiceIntegrationTests : AbstractTest
 
         // Assert
         var usersWithManagers = users.Where(u => !string.IsNullOrEmpty(u.ManagerUpn)).ToList();
-        
+
         _logger.LogInformation($"Out of {users.Count} users, {usersWithManagers.Count} have manager information");
-        
+
         foreach (var user in usersWithManagers)
         {
             _logger.LogInformation($"User {user.DisplayName} has manager: {user.ManagerDisplayName} ({user.ManagerUpn})");
@@ -185,7 +184,7 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         // Arrange - Force refresh to load from Graph
         var users = await _service.GetAllUsersWithMetadataAsync(maxUsers: 1, forceRefresh: true);
         Assert.IsTrue(users.Count > 0, "Need at least one user");
-        
+
         await _service.EnrichUsersWithManagersAsync(users);
         var user = users.First();
 
@@ -210,7 +209,7 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         var users = await _service.GetAllUsersWithMetadataAsync(maxUsers, forceRefresh: true);
 
         // Assert
-        Assert.IsTrue(users.Count <= maxUsers, 
+        Assert.IsTrue(users.Count <= maxUsers,
             $"Should not exceed max users limit. Got {users.Count}, expected max {maxUsers}");
     }
 
@@ -228,7 +227,7 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         // Assert
         Assert.IsNotNull(users);
         _logger.LogInformation($"Retrieved {users.Count} users in {stopwatch.ElapsedMilliseconds}ms");
-        
+
         // Ensure paging worked if tenant has more users than limit
         Assert.IsTrue(users.Count <= maxUsers);
     }
@@ -242,7 +241,7 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         // Assert
         Assert.IsNotNull(users);
         Assert.IsTrue(users.Count > 0, "Should return at least one user");
-        
+
         var firstUser = users.First();
         Assert.IsFalse(string.IsNullOrEmpty(firstUser.UserPrincipalName));
         Assert.IsFalse(string.IsNullOrEmpty(firstUser.DisplayName));
@@ -263,7 +262,7 @@ public class GraphUserServiceIntegrationTests : AbstractTest
         // HasCopilotLicense property should be set (either true or false)
         var licensedUsers = users.Count(u => u.HasCopilotLicense);
         var unlicensedUsers = users.Count - licensedUsers;
-        
+
         _logger.LogInformation($"Out of {users.Count} users:");
         _logger.LogInformation($"  {licensedUsers} have Copilot licenses");
         _logger.LogInformation($"  {unlicensedUsers} do not have Copilot licenses");

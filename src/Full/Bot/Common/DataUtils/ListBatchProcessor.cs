@@ -1,4 +1,4 @@
-﻿namespace Common.DataUtils;
+﻿namespace DataUtils;
 
 /// <summary>
 /// Process list items into batches. 

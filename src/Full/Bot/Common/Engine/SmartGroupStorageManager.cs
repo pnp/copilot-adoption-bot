@@ -1,9 +1,9 @@
 using Azure.Data.Tables;
-using Common.Engine.Config;
-using Common.Engine.Storage;
+using Engine.Config;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
 
-namespace Common.Engine;
+namespace Engine;
 
 /// <summary>
 /// Manages smart groups in Azure Table Storage
@@ -28,7 +28,7 @@ public class SmartGroupStorageManager : TableStorageManager
     public async Task<SmartGroupTableEntity> CreateSmartGroup(string name, string description, string createdByUpn)
     {
         var groupId = Guid.NewGuid().ToString();
-        
+
         var entity = new SmartGroupTableEntity
         {
             RowKey = groupId,

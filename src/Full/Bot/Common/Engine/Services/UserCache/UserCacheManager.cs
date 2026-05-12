@@ -1,8 +1,8 @@
-using Common.Engine.Config;
-using Common.Engine.Models;
+using Engine.Config;
+using Engine.Models;
 using Microsoft.Extensions.Logging;
 
-namespace Common.Engine.Services.UserCache;
+namespace Engine.Services.UserCache;
 
 /// <summary>
 /// Manages user caching with pluggable data loader and storage adapters.
@@ -127,7 +127,7 @@ public class UserCacheManager : IUserCacheManager
         {
             // Update Copilot stats
             var stats = await _dataLoader.GetCopilotStatsAsync();
-            
+
             if (stats.Count == 0)
             {
                 _logger.LogWarning("No Copilot stats retrieved - stats dictionary is empty. This may indicate an API error or no Copilot activity data available.");
@@ -141,7 +141,7 @@ public class UserCacheManager : IUserCacheManager
 
             // Update license information
             var licenseInfo = await _dataLoader.GetLicenseInfoAsync();
-            
+
             if (licenseInfo.Count > 0)
             {
                 var licenseUpdateCount = await _storage.UpdateUsersWithLicenseInfoAsync(licenseInfo);

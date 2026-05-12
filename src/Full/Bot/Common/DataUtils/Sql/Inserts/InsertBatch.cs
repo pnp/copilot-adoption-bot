@@ -1,8 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using System.Reflection;
 
-namespace Common.DataUtils.Sql.Inserts;
+namespace DataUtils.Sql.Inserts;
 
 
 /// <summary>

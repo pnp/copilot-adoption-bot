@@ -1,12 +1,11 @@
-using Azure.Identity;
 using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
-using Common.Engine.Config;
-using Common.Engine.Storage;
+using Engine.Config;
+using Engine.Storage;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Service for managing Azure Storage Queue operations for batch message processing
@@ -160,9 +159,9 @@ public class BatchQueueService
     {
         var properties = await _queueClient.GetPropertiesAsync();
         var count = properties.Value.ApproximateMessagesCount;
-        
+
         _logger.LogDebug("Queue '{QueueName}' has approximately {MessageCount} messages", _queueName, count);
-        
+
         return count;
     }
 

@@ -1,7 +1,6 @@
-using Common.Engine.Config;
-using Common.Engine.Services.UserCache;
+using Engine.Config;
+using Engine.Services.UserCache;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace UnitTests.IntegrationTests;
 
@@ -66,7 +65,7 @@ public class GraphCopilotStatsLoaderIntegrationTests : AbstractTest
 
             var firstRecord = result.Records[0];
             Assert.IsFalse(string.IsNullOrEmpty(firstRecord.UserPrincipalName), "Record should have UserPrincipalName");
-            
+
             _logger.LogInformation($"Sample record: {firstRecord.UserPrincipalName}");
             _logger.LogInformation($"  Last Activity: {firstRecord.LastActivityDate}");
             _logger.LogInformation($"  Copilot Chat: {firstRecord.CopilotChatLastActivityDate}");
@@ -95,10 +94,10 @@ public class GraphCopilotStatsLoaderIntegrationTests : AbstractTest
         {
             // Act - Make multiple calls that will use the same token
             var startTime = DateTime.UtcNow;
-            
+
             var stats1 = await _loader.GetCopilotUsageStatsAsync();
             var firstCallTime = DateTime.UtcNow - startTime;
-            
+
             startTime = DateTime.UtcNow;
             var stats2 = await _loader.GetCopilotUsageStatsAsync();
             var secondCallTime = DateTime.UtcNow - startTime;
@@ -106,9 +105,9 @@ public class GraphCopilotStatsLoaderIntegrationTests : AbstractTest
             // Assert - Second call should be faster or similar (using cached token)
             Assert.IsNotNull(stats1);
             Assert.IsNotNull(stats2);
-            
+
             _logger.LogInformation($"First call: {firstCallTime.TotalMilliseconds}ms, Second call: {secondCallTime.TotalMilliseconds}ms");
-            
+
             Assert.IsTrue(secondCallTime.TotalMilliseconds < firstCallTime.TotalMilliseconds * 2,
                 "Second call should benefit from cached token");
         }
@@ -144,9 +143,9 @@ public class GraphCopilotStatsLoaderIntegrationTests : AbstractTest
 
             // Assert - Check that we can parse various activity types
             var recordsWithActivity = result.Records.Where(r => r.LastActivityDate.HasValue).ToList();
-            
+
             _logger.LogInformation($"Records with any activity: {recordsWithActivity.Count}/{result.Records.Count}");
-            
+
             if (recordsWithActivity.Count > 0)
             {
                 var sampleRecord = recordsWithActivity[0];
@@ -168,7 +167,7 @@ public class GraphCopilotStatsLoaderIntegrationTests : AbstractTest
                     _logger.LogInformation($"  {activity.Key}: {activity.Value}");
                 }
 
-                Assert.IsTrue(activityTypes.Values.Any(v => v.HasValue), 
+                Assert.IsTrue(activityTypes.Values.Any(v => v.HasValue),
                     "At least one activity type should have a date");
             }
         }
@@ -194,7 +193,7 @@ public class GraphCopilotStatsLoaderIntegrationTests : AbstractTest
 
             // Assert - Should return empty list, not null or throw
             Assert.IsNotNull(result);
-            
+
             if (result.Records.Count == 0)
             {
                 _logger.LogInformation("No Copilot usage data found - this is acceptable for tenants without active Copilot users");
@@ -229,10 +228,10 @@ public class GraphCopilotStatsLoaderIntegrationTests : AbstractTest
             // Assert - All records should have valid UPNs
             foreach (var record in result.Records.Take(10))
             {
-                Assert.IsFalse(string.IsNullOrWhiteSpace(record.UserPrincipalName), 
+                Assert.IsFalse(string.IsNullOrWhiteSpace(record.UserPrincipalName),
                     "Every record should have a non-empty UserPrincipalName");
-                
-                Assert.IsTrue(record.UserPrincipalName.Contains("@"), 
+
+                Assert.IsTrue(record.UserPrincipalName.Contains("@"),
                     "UserPrincipalName should be in email format");
             }
 
@@ -270,7 +269,7 @@ public class GraphCopilotStatsLoaderIntegrationTests : AbstractTest
                     _config.GraphConfig);
 
                 var result = await loader.GetCopilotUsageStatsAsync();
-                
+
                 Assert.IsNotNull(result);
                 _logger.LogInformation($"Period {period}: Retrieved {result.Records.Count} records");
             }
@@ -366,7 +365,7 @@ public class GraphCopilotStatsLoaderIntegrationTests : AbstractTest
 
             // Assert - All dates should be UTC
             var recordsWithDates = result.Records.Where(r => r.LastActivityDate.HasValue).ToList();
-            
+
             if (recordsWithDates.Count > 0)
             {
                 foreach (var record in recordsWithDates.Take(5))

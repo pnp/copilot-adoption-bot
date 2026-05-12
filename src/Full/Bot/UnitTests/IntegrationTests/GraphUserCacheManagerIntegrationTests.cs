@@ -1,9 +1,7 @@
-using Common.Engine.Config;
-using Common.Engine.Services.UserCache;
+using Engine.Config;
+using Engine.Services.UserCache;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using UnitTests.Fakes;
 
 namespace UnitTests.IntegrationTests;
 
@@ -30,7 +28,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
         var random = new Random().Next(1000, 9999);
         _testTablePrefix = $"test{timestamp}{random}";
-        
+
         _cacheConfig = new UserCacheConfig
         {
             CacheExpiration = TimeSpan.FromMinutes(5),
@@ -42,9 +40,9 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         try
         {
             // Create Graph client for tests
-            var options = new Azure.Identity.TokenCredentialOptions 
-            { 
-                AuthorityHost = Azure.Identity.AzureAuthorityHosts.AzurePublicCloud 
+            var options = new Azure.Identity.TokenCredentialOptions
+            {
+                AuthorityHost = Azure.Identity.AzureAuthorityHosts.AzurePublicCloud
             };
             var scopes = new[] { "https://graph.microsoft.com/.default" };
             var clientSecretCredential = new Azure.Identity.ClientSecretCredential(
@@ -54,7 +52,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
                 options);
 
             _graphClient = new GraphServiceClient(clientSecretCredential, scopes);
-            
+
             // Create adapters
             var copilotStatsLoader = new GraphCopilotStatsLoader(
                 GetLogger<GraphCopilotStatsLoader>(),
@@ -62,7 +60,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
                 _config.GraphConfig);
             var dataLoader = new GraphUserDataLoader(_graphClient, GetLogger<GraphUserDataLoader>(), copilotStatsLoader, _cacheConfig);
             _storage = new AzureTableCacheStorage(GetStorageAuthConfig(), GetLogger<AzureTableCacheStorage>(), _cacheConfig);
-            
+
             _cacheManager = new UserCacheManager(dataLoader, _storage, _cacheConfig, GetLogger<UserCacheManager>());
         }
         catch (Exception ex)
@@ -97,7 +95,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
                 _logger.LogWarning($"Error during cleanup: {ex.Message}");
             }
         }
-        
+
         // Reset for next test
         _testPassed = false;
     }
@@ -116,7 +114,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         // Arrange - Perform initial sync to populate cache
         await _cacheManager.SyncUsersAsync();
         var initialUsers = await _cacheManager.GetAllCachedUsersAsync();
-        
+
         if (initialUsers.Count == 0)
         {
             Assert.Inconclusive("No users returned from Graph API to test with");
@@ -131,7 +129,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         Assert.IsTrue(initialUsers.Count > 0, "Should have had users before clear");
         Assert.AreEqual(0, usersAfterClear.Count, "Cache should be empty after clear");
         _logger.LogInformation($"Cleared {initialUsers.Count} users from cache");
-        
+
         _testPassed = true;
     }
 
@@ -147,7 +145,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         // Arrange - Sync to populate cache
         await _cacheManager.SyncUsersAsync();
         var allUsers = await _cacheManager.GetAllCachedUsersAsync();
-        
+
         if (allUsers.Count == 0)
         {
             Assert.Inconclusive("No users returned from Graph API to test with");
@@ -164,7 +162,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         Assert.AreEqual(testUser.UserPrincipalName, retrieved.UserPrincipalName);
         Assert.AreEqual(testUser.DisplayName, retrieved.DisplayName);
         _logger.LogInformation($"Successfully retrieved user: {retrieved.UserPrincipalName}");
-        
+
         _testPassed = true;
     }
 
@@ -182,7 +180,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
 
         // Assert
         Assert.IsNull(result);
-        
+
         _testPassed = true;
     }
 
@@ -211,7 +209,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         var firstUser = users.First();
         Assert.IsFalse(string.IsNullOrEmpty(firstUser.Id));
         Assert.IsFalse(string.IsNullOrEmpty(firstUser.UserPrincipalName));
-        
+
         _testPassed = true;
     }
 
@@ -239,12 +237,12 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         // Assert - Verify core properties are stored
         Assert.IsNotNull(user.Id);
         Assert.IsNotNull(user.UserPrincipalName);
-        
+
         _logger.LogInformation($"User properties validated for: {user.UserPrincipalName}");
         _logger.LogInformation($"  Display Name: {user.DisplayName}");
         _logger.LogInformation($"  Department: {user.Department}");
         _logger.LogInformation($"  Job Title: {user.JobTitle}");
-        
+
         _testPassed = true;
     }
 
@@ -288,7 +286,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
             // Assert
             Assert.IsTrue(users.Count > 0, "Custom tables should contain synced users");
             _logger.LogInformation($"Custom table names working: {customConfig.UserCacheTableName}");
-            
+
             _testPassed = true;
         }
         finally
@@ -312,7 +310,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         var timestamp1 = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
         var random1 = new Random().Next(1000, 9999);
         var cache1Prefix = $"iso1{timestamp1}{random1}";
-        
+
         // Ensure unique timestamp for second cache
         await Task.Delay(10);
         var timestamp2 = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
@@ -369,7 +367,7 @@ public class UserCacheManagerIntegrationTests : AbstractTest
             Assert.AreEqual(cache2Users.Count, cache2AfterClear.Count, "Cache 2 should be unaffected");
 
             _logger.LogInformation($"Cache isolation verified - Cache 1: {cache1AfterClear.Count}, Cache 2: {cache2AfterClear.Count}");
-            
+
             _testPassed = true;
         }
         finally
@@ -406,9 +404,9 @@ public class UserCacheManagerIntegrationTests : AbstractTest
         // Assert
         Assert.IsTrue(users.Count > 0, "Should have users in cache");
         Assert.IsTrue(duration.TotalSeconds < 30, $"Query took {duration.TotalSeconds:F2} seconds, expected < 30");
-        
+
         _logger.LogInformation($"Retrieved {users.Count} users in {duration.TotalMilliseconds:F0}ms");
-        
+
         _testPassed = true;
     }
 

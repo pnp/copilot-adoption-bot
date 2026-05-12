@@ -1,6 +1,6 @@
-using Common.Engine.Storage;
+using Engine.Storage;
 
-namespace Common.Engine.Services;
+namespace Engine.Services;
 
 /// <summary>
 /// Narrow read-only abstraction over message logs used by <see cref="StatisticsService"/>.

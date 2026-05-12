@@ -1,10 +1,8 @@
-using Common.Engine;
-using Common.Engine.Config;
-using Common.Engine.Services;
-using Common.Engine.Services.UserCache;
-using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Azure.Identity;
+using Engine;
+using Engine.Config;
+using Engine.Services;
+using Engine.Services.UserCache;
 using Microsoft.Graph;
 using UnitTests.Fakes;
 

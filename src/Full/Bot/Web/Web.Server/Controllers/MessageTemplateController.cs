@@ -1,4 +1,4 @@
-using Common.Engine.Services;
+using Engine.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -33,7 +33,7 @@ public class MessageTemplateController : ControllerBase
     {
         _logger.LogInformation($"Getting template {id}");
         var template = await _templateService.GetTemplate(id);
-        
+
         if (template == null)
         {
             return NotFound();
@@ -63,7 +63,7 @@ public class MessageTemplateController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateTemplateRequest request)
     {
         _logger.LogInformation($"Creating template '{request.TemplateName}'");
-        
+
         if (string.IsNullOrWhiteSpace(request.TemplateName) || string.IsNullOrWhiteSpace(request.JsonPayload))
         {
             return BadRequest("TemplateName and JsonPayload are required");
@@ -89,7 +89,7 @@ public class MessageTemplateController : ControllerBase
     public async Task<IActionResult> Update(string id, [FromBody] UpdateTemplateRequest request)
     {
         _logger.LogInformation($"Updating template {id}");
-        
+
         if (string.IsNullOrWhiteSpace(request.TemplateName) || string.IsNullOrWhiteSpace(request.JsonPayload))
         {
             return BadRequest("TemplateName and JsonPayload are required");
@@ -116,7 +116,7 @@ public class MessageTemplateController : ControllerBase
     public async Task<IActionResult> Delete(string id)
     {
         _logger.LogInformation($"Deleting template {id}");
-        
+
         try
         {
             await _templateService.DeleteTemplate(id);
@@ -166,7 +166,7 @@ public class MessageTemplateController : ControllerBase
     {
         _logger.LogInformation($"Getting batch {id}");
         var batch = await _templateService.GetBatch(id);
-        
+
         if (batch == null)
         {
             return NotFound();
@@ -189,7 +189,7 @@ public class MessageTemplateController : ControllerBase
     public async Task<IActionResult> DeleteBatch(string id)
     {
         _logger.LogInformation($"Deleting batch {id}");
-        
+
         try
         {
             await _templateService.DeleteBatch(id);
