@@ -655,14 +655,15 @@ public class CopilotStatsServiceIntegrationTests : AbstractTest
             return;
         }
 
-        // Check if AI Foundry is configured. Either an API key or RBAC (with a deployment +
-        // endpoint) is enough to call the service; only bail if neither auth path is set up.
+        // Check if AI Foundry is configured. AI Foundry only supports Azure RBAC authentication,
+        // so we just need an endpoint and a deployment name. DefaultAzureCredential (or the
+        // optional service principal override) handles the actual auth.
         var aiConfig = _config.AIFoundryConfig;
         var hasEndpoint = !string.IsNullOrEmpty(aiConfig?.Endpoint);
-        var hasAuth = aiConfig != null && (aiConfig.UseRBAC || !string.IsNullOrEmpty(aiConfig.ApiKey));
-        if (!hasEndpoint || !hasAuth)
+        var hasDeployment = !string.IsNullOrEmpty(aiConfig?.DeploymentName);
+        if (!hasEndpoint || !hasDeployment)
         {
-            Assert.Inconclusive("AI Foundry is not configured - set AIFoundryConfig:Endpoint plus either AIFoundryConfig:UseRBAC=true or AIFoundryConfig:ApiKey in user secrets");
+            Assert.Inconclusive("AI Foundry is not configured - set AIFoundryConfig:Endpoint and AIFoundryConfig:DeploymentName in user secrets (RBAC is used automatically)");
             return;
         }
 

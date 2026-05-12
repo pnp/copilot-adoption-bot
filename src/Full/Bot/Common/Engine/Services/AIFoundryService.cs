@@ -1,4 +1,3 @@
-using System.ClientModel;
 using System.Text.Json;
 using Azure.AI.OpenAI;
 using Azure.Identity;
@@ -45,27 +44,10 @@ public class AIFoundryService
         _logger = logger;
         _settingsManager = settingsManager;
 
-        AzureOpenAIClient azureClient;
-        if (config.UseRBAC)
-        {
-            _logger.LogDebug("Creating AzureOpenAIClient using RBAC authentication for endpoint {Endpoint}", config.Endpoint);
-            var credential = GetCredential(config);
-            azureClient = new AzureOpenAIClient(new Uri(config.Endpoint), credential);
-            _logger.LogInformation("Successfully created AzureOpenAIClient using RBAC for {Endpoint}", config.Endpoint);
-        }
-        else
-        {
-            if (string.IsNullOrEmpty(config.ApiKey))
-            {
-                _logger.LogError("ApiKey is required when UseRBAC is false but was not provided");
-                throw new InvalidOperationException("AIFoundryConfig.ApiKey is required when UseRBAC is false");
-            }
-
-            _logger.LogDebug("Creating AzureOpenAIClient using API key authentication");
-            azureClient = new AzureOpenAIClient(
-                new Uri(config.Endpoint),
-                new ApiKeyCredential(config.ApiKey));
-        }
+        _logger.LogDebug("Creating AzureOpenAIClient using RBAC authentication for endpoint {Endpoint}", config.Endpoint);
+        var credential = GetCredential(config);
+        var azureClient = new AzureOpenAIClient(new Uri(config.Endpoint), credential);
+        _logger.LogInformation("Successfully created AzureOpenAIClient using RBAC for {Endpoint}", config.Endpoint);
 
         _chatClient = azureClient.GetChatClient(config.DeploymentName);
     }

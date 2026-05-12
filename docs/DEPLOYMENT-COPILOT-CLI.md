@@ -197,8 +197,10 @@ Walk me through it step-by-step:
         - StorageAuthConfig__StorageAccountName (if RBAC)
         - WebAuthConfig__ClientId, WebAuthConfig__TenantId,
           WebAuthConfig__ApiAudience (if web admin panel)
-        - AIFoundryConfig__Endpoint, AIFoundryConfig__DeploymentName,
-          AIFoundryConfig__ApiKey (if AI Foundry)
+        - AIFoundryConfig__Endpoint, AIFoundryConfig__DeploymentName (if AI
+          Foundry — auth is Azure RBAC only, so grant the App Service Managed
+          Identity a role such as `Cognitive Services OpenAI User` on the AI
+          Foundry resource; no API key)
         - APPLICATIONINSIGHTS_CONNECTION_STRING (if App Insights)
    g. Tell me to set the bot messaging endpoint in the Teams Developer Portal to
       https://<app-name>.azurewebsites.net/api/messages (this can't be reliably
@@ -270,7 +272,7 @@ resource group <resource-group>:
 
 The agent will skip Azure resource creation and just rebuild & redeploy. App settings, RBAC roles, and the Entra app registration are preserved.
 
-> **App settings changed?** If you added a new config key (e.g., enabling AI Foundry), include it in the prompt: *"...and set AIFoundryConfig\_\_Endpoint, AIFoundryConfig\_\_DeploymentName, AIFoundryConfig\_\_ApiKey on the app before redeploying."*
+> **App settings changed?** If you added a new config key (e.g., enabling AI Foundry), include it in the prompt: *"...and set AIFoundryConfig\_\_Endpoint and AIFoundryConfig\_\_DeploymentName on the app before redeploying, and grant the App Service Managed Identity `Cognitive Services OpenAI User` on the AI Foundry resource (AI Foundry uses Azure RBAC only — no API key)."*
 
 ---
 

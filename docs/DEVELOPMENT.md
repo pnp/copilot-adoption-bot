@@ -88,9 +88,10 @@ dotnet user-secrets set "ConnectionStrings:Storage" "DefaultEndpointsProtocol=ht
 dotnet user-secrets set "APPLICATIONINSIGHTS_CONNECTION_STRING" "your-connection-string"
 
 # Azure AI Foundry (for Copilot Connected mode)
+# Authentication is always Azure RBAC - use `az login` locally and grant your
+# user/SP a role such as `Cognitive Services OpenAI User` on the AI Foundry resource.
 dotnet user-secrets set "AIFoundryConfig:Endpoint" "https://your-resource.openai.azure.com/"
 dotnet user-secrets set "AIFoundryConfig:DeploymentName" "gpt-4o-mini"
-dotnet user-secrets set "AIFoundryConfig:ApiKey" "your-api-key"
 
 # Development mode
 dotnet user-secrets set "DevMode" "true"

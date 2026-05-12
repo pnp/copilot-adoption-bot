@@ -269,12 +269,13 @@ Smart Groups use Azure AI Foundry to create dynamic user groups using natural la
 
 ### Configuration
 
+Authentication to Azure AI Foundry uses **Azure RBAC only**. Grant the application's identity (Managed Identity in Azure, your user via `az login` locally) a role such as `Cognitive Services OpenAI User` on the AI Foundry resource.
+
 ```json
 {
   "AIFoundryConfig": {
     "Endpoint": "https://your-resource.openai.azure.com/",
     "DeploymentName": "gpt-4o-mini",
-    "ApiKey": "your-api-key",
     "MaxTokens": 2000,
     "Temperature": 0.7
   }

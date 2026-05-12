@@ -31,23 +31,9 @@ public class AIFoundryConfig : PropertyBoundConfig
     public string DeploymentName { get; set; } = null!;
 
     /// <summary>
-    /// If true, use Azure RBAC authentication (DefaultAzureCredential or override credentials).
-    /// If false, use API key authentication.
-    /// </summary>
-    [ConfigValue(true)]
-    public bool UseRBAC { get; set; } = false;
-
-    /// <summary>
-    /// The API key for authentication.
-    /// Required when UseRBAC is false. Ignored when UseRBAC is true.
-    /// </summary>
-    [ConfigValue(true)]
-    public string? ApiKey { get; set; }
-
-    /// <summary>
     /// Optional: Override the default Azure credentials with specific service principal credentials.
-    /// Only used when UseRBAC is true.
-    /// If not provided, DefaultAzureCredential will be used (Managed Identity, Azure CLI, etc.)
+    /// If not provided, DefaultAzureCredential will be used (Managed Identity, Azure CLI, etc.).
+    /// Authentication to AI Foundry always uses Azure RBAC; API key authentication is not supported.
     /// </summary>
     [ConfigSection(Optional = true)]
     public AzureADAuthConfig? RBACOverrideCredentials { get; set; }

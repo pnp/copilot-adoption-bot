@@ -29,7 +29,9 @@ Quick reference of every supported setting. Required = needed for the app to sta
 | `AppCatalogTeamAppId` | `AppCatalogTeamAppId` | No |
 | `AIFoundryConfig:Endpoint` | `AIFoundryConfig__Endpoint` | If using AI features |
 | `AIFoundryConfig:DeploymentName` | `AIFoundryConfig__DeploymentName` | If using AI features |
-| `AIFoundryConfig:ApiKey` | `AIFoundryConfig__ApiKey` | If using AI features |
+| `AIFoundryConfig:RBACOverrideCredentials:ClientId` | `AIFoundryConfig__RBACOverrideCredentials__ClientId` | No |
+| `AIFoundryConfig:RBACOverrideCredentials:ClientSecret` | `AIFoundryConfig__RBACOverrideCredentials__ClientSecret` | No |
+| `AIFoundryConfig:RBACOverrideCredentials:TenantId` | `AIFoundryConfig__RBACOverrideCredentials__TenantId` | No |
 | `AIFoundryConfig:MaxTokens` | `AIFoundryConfig__MaxTokens` | No (default `2000`) |
 | `AIFoundryConfig:Temperature` | `AIFoundryConfig__Temperature` | No (default `0.7`) |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | `APPLICATIONINSIGHTS_CONNECTION_STRING` | No |
@@ -201,25 +203,48 @@ This is used to install the bot app for users who haven't interacted with it yet
 
 Enables "Copilot Connected" mode with AI-powered features including smart groups and follow-up conversations.
 
+Authentication to Azure AI Foundry always uses **Azure RBAC**. API key authentication is not supported. The application uses `DefaultAzureCredential` by default (Managed Identity in Azure, Azure CLI locally, etc.); you can optionally override this with a specific service principal via `AIFoundryConfig:RBACOverrideCredentials`.
+
+The identity used must have a role that grants data-plane access to the AI Foundry / Azure OpenAI resource, for example:
+
+- `Cognitive Services OpenAI User`
+- `Azure AI Developer`
+
 | Setting | Description | Required | Default | Example |
 |---------|-------------|----------|---------|---------|
 | `AIFoundryConfig:Endpoint` | Azure AI Foundry endpoint URL | Yes* | - | `https://your-resource.openai.azure.com/` |
 | `AIFoundryConfig:DeploymentName` | Model deployment name | Yes* | - | `gpt-4o-mini` |
-| `AIFoundryConfig:ApiKey` | API key for authentication | Yes* | - | `your-api-key` |
+| `AIFoundryConfig:RBACOverrideCredentials:ClientId` | Service principal client ID (optional override) | No | - | `sp-client-id` |
+| `AIFoundryConfig:RBACOverrideCredentials:ClientSecret` | Service principal secret (optional override) | No | - | `sp-secret` |
+| `AIFoundryConfig:RBACOverrideCredentials:TenantId` | Service principal tenant ID (optional override) | No | - | `tenant-id` |
 | `AIFoundryConfig:MaxTokens` | Maximum tokens for responses | No | `2000` | `4000` |
 | `AIFoundryConfig:Temperature` | Response creativity (0.0-1.0) | No | `0.7` | `0.5` |
 
 \* Required only if enabling AI features.
 
-**JSON Example:**
+**JSON Example (Managed Identity / Azure CLI - recommended):**
 ```json
 {
   "AIFoundryConfig": {
     "Endpoint": "https://your-resource.openai.azure.com/",
     "DeploymentName": "gpt-4o-mini",
-    "ApiKey": "your-api-key",
     "MaxTokens": 2000,
     "Temperature": "0.7"
+  }
+}
+```
+
+**JSON Example (with service principal override):**
+```json
+{
+  "AIFoundryConfig": {
+    "Endpoint": "https://your-resource.openai.azure.com/",
+    "DeploymentName": "gpt-4o-mini",
+    "RBACOverrideCredentials": {
+      "ClientId": "sp-client-id",
+      "ClientSecret": "sp-secret",
+      "TenantId": "tenant-id"
+    }
   }
 }
 ```
@@ -314,10 +339,9 @@ dotnet user-secrets set "ConnectionStrings:Storage" "DefaultEndpointsProtocol=ht
 dotnet user-secrets set "DevMode" "true"
 dotnet user-secrets set "TestUPN" "your-email@company.com"
 
-# Optional: AI Foundry
+# Optional: AI Foundry (RBAC only - uses Azure CLI / Managed Identity)
 dotnet user-secrets set "AIFoundryConfig:Endpoint" "https://your-resource.openai.azure.com/"
 dotnet user-secrets set "AIFoundryConfig:DeploymentName" "gpt-4o-mini"
-dotnet user-secrets set "AIFoundryConfig:ApiKey" "your-api-key"
 ```
 
 ### Production (Azure App Service)
@@ -342,7 +366,6 @@ Add these as **Application settings** (not Connection strings):
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | `@Microsoft.KeyVault(SecretUri=https://your-kv.vault.azure.net/secrets/AppInsightsConnectionString/)` |
 | `AIFoundryConfig__Endpoint` | `https://your-resource.openai.azure.com/` |
 | `AIFoundryConfig__DeploymentName` | `gpt-4o-mini` |
-| `AIFoundryConfig__ApiKey` | `@Microsoft.KeyVault(SecretUri=https://your-kv.vault.azure.net/secrets/AIFoundryApiKey/)` |
 
 > **Note**: Use double underscores (`__`) for nested settings in App Service configuration. This works on both Windows and Linux App Services.
 
@@ -444,7 +467,7 @@ az webapp config appsettings set \
 }
 ```
 
-> **Note**: Secrets like `MicrosoftAppPassword`, `GraphConfig:ClientSecret`, `AIFoundryConfig:ApiKey` should be stored in Azure Key Vault and referenced via App Service configuration.
+> **Note**: Secrets like `MicrosoftAppPassword` and `GraphConfig:ClientSecret` should be stored in Azure Key Vault and referenced via App Service configuration. `AIFoundryConfig` uses Azure RBAC, so the App Service Managed Identity should be granted a role such as `Cognitive Services OpenAI User` on the AI Foundry resource - no AI Foundry secret is needed.
 
 ---
 

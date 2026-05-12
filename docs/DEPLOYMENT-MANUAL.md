@@ -182,13 +182,15 @@ az webapp config appsettings set \
     APPLICATIONINSIGHTS_CONNECTION_STRING="your-appinsights-connection-string"
 
 # Azure AI Foundry (if using)
+# Authentication is Azure RBAC only - grant the App Service Managed Identity
+# a role such as `Cognitive Services OpenAI User` on the AI Foundry resource.
+# No API key is supported.
 az webapp config appsettings set \
   --name copilot-adoption-bot-app \
   --resource-group rg-copilot-adoption-bot \
   --settings \
     AIFoundryConfig__Endpoint="https://your-resource.openai.azure.com/" \
     AIFoundryConfig__DeploymentName="gpt-4o-mini" \
-    AIFoundryConfig__ApiKey="your-api-key" \
     AIFoundryConfig__MaxTokens="2000" \
     AIFoundryConfig__Temperature="0.7"
 ```

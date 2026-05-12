@@ -180,11 +180,18 @@ dotnet user-secrets set "MicrosoftAppPassword" "your-bot-app-password"
 dotnet user-secrets set "AppCatalogTeamAppId" "your-teams-app-catalog-id"
 
 # AI Foundry Configuration (Optional - for Copilot Connected mode)
+# Authentication is always Azure RBAC. Locally this uses your Azure CLI sign-in
+# (`az login`); in Azure it uses Managed Identity. Assign a role such as
+# `Cognitive Services OpenAI User` to your identity on the AI Foundry resource.
 dotnet user-secrets set "AIFoundryConfig:Endpoint" "https://your-project.openai.azure.com/"
 dotnet user-secrets set "AIFoundryConfig:DeploymentName" "your-deployment-name"
-dotnet user-secrets set "AIFoundryConfig:ApiKey" "your-api-key"
 dotnet user-secrets set "AIFoundryConfig:MaxTokens" "2000"
 dotnet user-secrets set "AIFoundryConfig:Temperature" "0.7"
+
+# AI Foundry RBAC Override Credentials (Optional - use a specific service principal instead of DefaultAzureCredential)
+# dotnet user-secrets set "AIFoundryConfig:RBACOverrideCredentials:ClientId" "your-service-principal-client-id"
+# dotnet user-secrets set "AIFoundryConfig:RBACOverrideCredentials:ClientSecret" "your-service-principal-client-secret"
+# dotnet user-secrets set "AIFoundryConfig:RBACOverrideCredentials:TenantId" "your-tenant-id"
 
 # Application Insights (Optional)
 dotnet user-secrets set "APPLICATIONINSIGHTS_CONNECTION_STRING" "InstrumentationKey=your-key;IngestionEndpoint=https://..."
@@ -327,9 +334,10 @@ az role assignment list --scope $STORAGE_ID --output table
 
 - **AIFoundryConfig**: Azure AI Foundry configuration for Copilot Connected mode
   - Enables smart groups and AI-powered conversations
+  - Authentication is **Azure RBAC only** (API key authentication is not supported). Uses `DefaultAzureCredential` by default - Managed Identity in Azure, Azure CLI locally. Assign a role such as `Cognitive Services OpenAI User` to the identity on the AI Foundry resource.
   - `Endpoint`: Azure AI Foundry endpoint URL
   - `DeploymentName`: AI model deployment name
-  - `ApiKey`: API key for authentication
+  - `RBACOverrideCredentials` (optional): Service principal credentials to use instead of `DefaultAzureCredential`
   - `MaxTokens`: Maximum tokens for AI responses (default: 2000)
   - `Temperature`: Temperature for AI responses 0.0-1.0 (default: 0.7)
 

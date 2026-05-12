@@ -158,7 +158,9 @@ For AI-powered bot conversations, you need an Azure AI Foundry deployment:
 3. **Note the following values** for configuration:
    - Endpoint URL (e.g., `https://your-resource.openai.azure.com/`)
    - Deployment name
-   - API key
+4. **Grant the App Service Managed Identity (or your local identity) access** to the AI Foundry resource. Azure AI Foundry is configured to use **Azure RBAC only** - API key authentication is not supported. Assign a role such as:
+   - `Cognitive Services OpenAI User` (data-plane access to call the deployed model), or
+   - `Azure AI Developer`
 
 **Configuration:**
 ```json
@@ -166,7 +168,6 @@ For AI-powered bot conversations, you need an Azure AI Foundry deployment:
   "AIFoundryConfig": {
     "Endpoint": "https://your-resource.openai.azure.com/",
     "DeploymentName": "gpt-4o-mini",
-    "ApiKey": "your-api-key",
     "MaxTokens": 2000,
     "Temperature": "0.7"
   }
@@ -219,8 +220,10 @@ az keyvault secret set --vault-name my-copilot-bot-kv \
   --name StorageConnectionString --value "<your-connection-string>"
 az keyvault secret set --vault-name my-copilot-bot-kv \
   --name ApplicationInsightsConnectionString --value "<your-appinsights-connection-string>"
-az keyvault secret set --vault-name my-copilot-bot-kv \
-  --name AIFoundryApiKey --value "<your-ai-foundry-api-key>"
+
+# Note: Azure AI Foundry uses Azure RBAC only and does NOT use an API key.
+# Grant the App Service Managed Identity a role such as "Cognitive Services OpenAI User"
+# on the AI Foundry resource instead of storing a key here.
 ```
 
 ### 3. Enable Managed Identity
@@ -267,8 +270,10 @@ In the Azure Portal, configure your App Service application settings:
 GraphConfig__ClientSecret=@Microsoft.KeyVault(SecretUri=https://my-copilot-bot-kv.vault.azure.net/secrets/GraphClientSecret/)
 MicrosoftAppPassword=@Microsoft.KeyVault(SecretUri=https://my-copilot-bot-kv.vault.azure.net/secrets/BotAppPassword/)
 APPLICATIONINSIGHTS_CONNECTION_STRING=@Microsoft.KeyVault(SecretUri=https://my-copilot-bot-kv.vault.azure.net/secrets/ApplicationInsightsConnectionString/)
-AIFoundryConfig__ApiKey=@Microsoft.KeyVault(SecretUri=https://my-copilot-bot-kv.vault.azure.net/secrets/AIFoundryApiKey/)
 ```
+
+> **Note**: Azure AI Foundry uses Azure RBAC only - configure `AIFoundryConfig__Endpoint` and `AIFoundryConfig__DeploymentName` directly as App Service application settings and grant the App Service Managed Identity a role such as `Cognitive Services OpenAI User` on the AI Foundry resource. No AI Foundry secret needs to be stored in Key Vault.
+
 
 ---
 
