@@ -343,18 +343,42 @@ Which users match the group description? Return as JSON array.";
 
         try
         {
-            // Clean up the response - remove markdown code blocks if present
-            var cleanedResponse = responseText.Trim();
-            if (cleanedResponse.StartsWith("```"))
+            // Clean up the response - remove markdown code blocks if present.
+            // Span-based: avoid Split → List<string> → Join allocations on every AI response.
+            var cleaned = responseText.AsSpan().Trim();
+            if (cleaned.StartsWith("```"))
             {
-                var lines = cleanedResponse.Split('\n').ToList();
-                lines.RemoveAt(0); // Remove opening ```json or ```
-                if (lines.Count > 0 && lines[^1].StartsWith("```"))
+                // Drop the opening fence line (```json or ```).
+                var firstNewline = cleaned.IndexOf('\n');
+                if (firstNewline >= 0)
                 {
-                    lines.RemoveAt(lines.Count - 1); // Remove closing ```
+                    cleaned = cleaned.Slice(firstNewline + 1);
                 }
-                cleanedResponse = string.Join("\n", lines);
+                else
+                {
+                    cleaned = default;
+                }
+
+                // Drop a trailing fence line if present (last line starting with ```).
+                if (!cleaned.IsEmpty)
+                {
+                    // Strip trailing newline(s) so we can locate the final line cleanly.
+                    var trimmedEnd = cleaned.TrimEnd();
+                    var lastNewline = trimmedEnd.LastIndexOf('\n');
+                    var lastLineStart = lastNewline + 1;
+                    var lastLine = trimmedEnd.Slice(lastLineStart);
+                    if (lastLine.TrimStart().StartsWith("```"))
+                    {
+                        cleaned = trimmedEnd.Slice(0, lastNewline < 0 ? 0 : lastNewline);
+                    }
+                    else
+                    {
+                        cleaned = trimmedEnd;
+                    }
+                }
             }
+
+            var cleanedResponse = cleaned.ToString();
 
             var jsonResults = JsonSerializer.Deserialize<List<JsonElement>>(cleanedResponse);
             

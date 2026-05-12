@@ -43,15 +43,19 @@ public class SendNudgeController : ControllerBase
                 string? line;
                 while ((line = await reader.ReadLineAsync()) != null)
                 {
-                    var trimmedLine = line.Trim();
-                    if (!string.IsNullOrWhiteSpace(trimmedLine))
+                    var trimmedLine = line.AsSpan().Trim();
+                    if (trimmedLine.IsEmpty)
                     {
-                        // Handle CSV - take first column if comma-separated
-                        var upn = trimmedLine.Split(',')[0].Trim();
-                        if (!string.IsNullOrWhiteSpace(upn))
-                        {
-                            upns.Add(upn);
-                        }
+                        continue;
+                    }
+
+                    // Handle CSV - take first column if comma-separated. Span-based to avoid
+                    // allocating a string[] per line just to read index 0.
+                    var comma = trimmedLine.IndexOf(',');
+                    var upn = (comma < 0 ? trimmedLine : trimmedLine.Slice(0, comma)).Trim();
+                    if (!upn.IsEmpty)
+                    {
+                        upns.Add(upn.ToString());
                     }
                 }
             }
