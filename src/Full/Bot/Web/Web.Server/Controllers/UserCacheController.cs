@@ -1,3 +1,4 @@
+using Engine.Config;
 using Engine.Services.UserCache;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,14 +11,59 @@ namespace Web.Server.Controllers;
 public class UserCacheController : ControllerBase
 {
     private readonly IUserCacheManager _cacheManager;
+    private readonly UserCacheConfig _config;
     private readonly ILogger<UserCacheController> _logger;
 
     public UserCacheController(
         IUserCacheManager cacheManager,
+        UserCacheConfig config,
         ILogger<UserCacheController> logger)
     {
         _cacheManager = cacheManager;
+        _config = config;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Get user cache status: sync metadata, freshness flags, configured TTLs and counts.
+    /// Designed for the UI's "cache status" panel — returns quickly without triggering a sync.
+    /// </summary>
+    [HttpGet("Status")]
+    public async Task<IActionResult> GetStatus()
+    {
+        try
+        {
+            var metadata = await _cacheManager.GetSyncMetadataAsync();
+            var users = await _cacheManager.GetAllCachedUsersAsync(forceRefresh: false, skipAutoSync: true);
+            var now = DateTime.UtcNow;
+
+            bool isUserCacheFresh = metadata.LastDeltaSyncDate.HasValue &&
+                                    now - metadata.LastDeltaSyncDate.Value < _config.CacheExpiration;
+            bool isCopilotStatsFresh = metadata.LastCopilotStatsUpdate.HasValue &&
+                                       now - metadata.LastCopilotStatsUpdate.Value < _config.CopilotStatsRefreshInterval;
+
+            return Ok(new CacheStatusDto
+            {
+                CachedUserCount = users.Count,
+                LastDeltaSyncDate = metadata.LastDeltaSyncDate,
+                LastFullSyncDate = metadata.LastFullSyncDate,
+                LastCopilotStatsUpdate = metadata.LastCopilotStatsUpdate,
+                LastSyncStatus = metadata.LastSyncStatus,
+                LastSyncError = metadata.LastSyncError,
+                LastSyncUserCount = metadata.LastSyncUserCount,
+                UserCacheTtlSeconds = (int)_config.CacheExpiration.TotalSeconds,
+                CopilotStatsTtlSeconds = (int)_config.CopilotStatsRefreshInterval.TotalSeconds,
+                FullSyncIntervalSeconds = (int)_config.FullSyncInterval.TotalSeconds,
+                IsUserCacheFresh = isUserCacheFresh,
+                IsCopilotStatsFresh = isCopilotStatsFresh,
+                IsSyncInProgress = string.Equals(metadata.LastSyncStatus, "InProgress", StringComparison.OrdinalIgnoreCase)
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting user cache status");
+            return StatusCode(500, "Error getting user cache status");
+        }
     }
 
     /// <summary>
@@ -134,4 +180,24 @@ public class UserCacheController : ControllerBase
             return StatusCode(500, $"Error clearing Copilot stats: {ex.Message}");
         }
     }
+}
+
+/// <summary>
+/// Snapshot of user-cache state used by the UI status panel.
+/// </summary>
+public class CacheStatusDto
+{
+    public int CachedUserCount { get; set; }
+    public DateTime? LastDeltaSyncDate { get; set; }
+    public DateTime? LastFullSyncDate { get; set; }
+    public DateTime? LastCopilotStatsUpdate { get; set; }
+    public string? LastSyncStatus { get; set; }
+    public string? LastSyncError { get; set; }
+    public int LastSyncUserCount { get; set; }
+    public int UserCacheTtlSeconds { get; set; }
+    public int CopilotStatsTtlSeconds { get; set; }
+    public int FullSyncIntervalSeconds { get; set; }
+    public bool IsUserCacheFresh { get; set; }
+    public bool IsCopilotStatsFresh { get; set; }
+    public bool IsSyncInProgress { get; set; }
 }

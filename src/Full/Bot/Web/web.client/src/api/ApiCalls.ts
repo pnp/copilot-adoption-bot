@@ -1,4 +1,4 @@
-import { MessageTemplateDto, MessageLogDto, CreateTemplateRequest, UpdateTemplateRequest, MessageBatchDto, CreateBatchAndSendRequest, UpdateLogStatusRequest, ParseFileResponse, MessageStatusStatsDto, UserCoverageStatsDto, QueueStatusDto, CopilotConnectedStatusDto, SmartGroupDto, SmartGroupResolutionResult, CreateSmartGroupRequest, UpdateSmartGroupRequest, PreviewSmartGroupRequest, PreviewSmartGroupResponse, SmartGroupUpnsResponse, AppSettingsDto, UpdateSettingsRequest, CopilotStatsUpdateResponse, CacheOperationResponse, StorageConfigDto } from "../apimodels/Models";
+import { MessageTemplateDto, MessageLogDto, CreateTemplateRequest, UpdateTemplateRequest, MessageBatchDto, CreateBatchAndSendRequest, UpdateLogStatusRequest, ParseFileResponse, MessageStatusStatsDto, UserCoverageStatsDto, BotInteractionStatsDto, QueueStatusDto, CopilotConnectedStatusDto, SmartGroupDto, SmartGroupResolutionResult, CreateSmartGroupRequest, UpdateSmartGroupRequest, PreviewSmartGroupRequest, PreviewSmartGroupResponse, SmartGroupUpnsResponse, AppSettingsDto, UpdateSettingsRequest, CopilotStatsUpdateResponse, CacheOperationResponse, StorageConfigDto, CacheStatusDto, SmartGroupStatusDto, ResolveJobAcceptedDto, ResolveJobStatusDto } from "../apimodels/Models";
 import { BaseAxiosApiLoader } from "./AxiosApiLoader";
 
 
@@ -74,6 +74,10 @@ export const getMessageStatusStats = async (loader: BaseAxiosApiLoader): Promise
 
 export const getUserCoverageStats = async (loader: BaseAxiosApiLoader): Promise<UserCoverageStatsDto> => {
   return loader.loadFromApi('api/Statistics/GetUserCoverageStats', 'GET');
+}
+
+export const getBotInteractionStats = async (loader: BaseAxiosApiLoader): Promise<BotInteractionStatsDto> => {
+  return loader.loadFromApi('api/Statistics/GetBotInteractionStats', 'GET');
 }
 
 // Diagnostics API calls
@@ -154,5 +158,21 @@ export const updateCopilotStats = async (loader: BaseAxiosApiLoader): Promise<Co
 
 export const clearCopilotStats = async (loader: BaseAxiosApiLoader): Promise<CacheOperationResponse> => {
   return loader.loadFromApi('api/UserCache/ClearCopilotStats', 'POST');
+}
+
+export const getUserCacheStatus = async (loader: BaseAxiosApiLoader): Promise<CacheStatusDto> => {
+  return loader.loadFromApi('api/UserCache/Status', 'GET');
+}
+
+export const getSmartGroupStatus = async (loader: BaseAxiosApiLoader): Promise<SmartGroupStatusDto> => {
+  return loader.loadFromApi('api/SmartGroup/Status', 'GET');
+}
+
+export const resolveSmartGroupMembersAsync = async (loader: BaseAxiosApiLoader, id: string, forceRefresh: boolean = false): Promise<ResolveJobAcceptedDto> => {
+  return loader.loadFromApi(`api/SmartGroup/ResolveMembersAsync/${id}?forceRefresh=${forceRefresh}`, 'POST');
+}
+
+export const getResolveJobStatus = async (loader: BaseAxiosApiLoader, jobId: string): Promise<ResolveJobStatusDto> => {
+  return loader.loadFromApi(`api/SmartGroup/ResolveStatus/${jobId}`, 'GET');
 }
 

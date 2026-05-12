@@ -53,4 +53,22 @@ public class StatisticsController : ControllerBase
             return StatusCode(500, "Error getting user coverage statistics");
         }
     }
+
+    // GET: api/Statistics/GetBotInteractionStats
+    [HttpGet(nameof(GetBotInteractionStats))]
+    public async Task<IActionResult> GetBotInteractionStats()
+    {
+        _logger.LogInformation("Getting bot interaction statistics");
+
+        try
+        {
+            var stats = await _statisticsService.GetBotInteractionStats();
+            return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting bot interaction statistics");
+            return StatusCode(500, "Error getting bot interaction statistics");
+        }
+    }
 }

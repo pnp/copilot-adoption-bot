@@ -1,6 +1,8 @@
+using Engine.Services;
 using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Engine.DependencyInjection;
 
@@ -24,6 +26,11 @@ public static class BotServiceExtensions
 
         // Bot conversation cache and management
         services.AddSingleton<BotConversationCache>();
+
+        // The conversation cache also serves as the engagement-stats source. Register it as
+        // the IBotInteractionSource here so it wins over the Null fallback registered by
+        // AddStatisticsServices when both are present.
+        services.AddSingleton<IBotInteractionSource>(sp => sp.GetRequiredService<BotConversationCache>());
 
         return services;
     }

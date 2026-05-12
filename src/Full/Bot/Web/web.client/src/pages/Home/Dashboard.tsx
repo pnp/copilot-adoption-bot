@@ -1,12 +1,13 @@
 import React from 'react';
+import moment from 'moment';
 import 'chartjs-adapter-date-fns'
-import { MessageStatusStatsDto, UserCoverageStatsDto, CopilotConnectedStatusDto } from '../../apimodels/Models';
-import { Badge, Button, Caption1, Card, CardHeader, Spinner, Text } from '@fluentui/react-components';
+import { MessageStatusStatsDto, UserCoverageStatsDto, BotInteractionStatsDto, CopilotConnectedStatusDto } from '../../apimodels/Models';
+import { Badge, Caption1, Card, CardHeader, Spinner, Text } from '@fluentui/react-components';
 import { ChartContainer } from '../../components/app/ChartContainer';
-import { MoreHorizontal20Regular, Sparkle20Regular, PlugDisconnected20Regular } from "@fluentui/react-icons";
+import { Sparkle20Regular, PlugDisconnected20Regular, ChatMultiple20Regular } from "@fluentui/react-icons";
 import { BaseAxiosApiLoader } from '../../api/AxiosApiLoader';
 import { useStyles } from '../../utils/styles';
-import { getMessageStatusStats, getUserCoverageStats, getCopilotConnectedStatus } from '../../api/ApiCalls';
+import { getMessageStatusStats, getUserCoverageStats, getBotInteractionStats, getCopilotConnectedStatus } from '../../api/ApiCalls';
 import { MessageStatusChart } from './MessageStatusChart';
 import { UserCoverageChart } from './UserCoverageChart';
 
@@ -15,6 +16,7 @@ export const Dashboard: React.FC<{ loader?: BaseAxiosApiLoader }> = (props) => {
 
     const [messageStats, setMessageStats] = React.useState<MessageStatusStatsDto | null>(null);
     const [userStats, setUserStats] = React.useState<UserCoverageStatsDto | null>(null);
+    const [interactionStats, setInteractionStats] = React.useState<BotInteractionStatsDto | null>(null);
     const [copilotStatus, setCopilotStatus] = React.useState<CopilotConnectedStatusDto | null>(null);
     const [error, setError] = React.useState<string | null>(null);
     const [loadingStats, setLoadingStats] = React.useState(true);
@@ -32,13 +34,15 @@ export const Dashboard: React.FC<{ loader?: BaseAxiosApiLoader }> = (props) => {
 
         try {
             setLoadingStats(true);
-            const [msgStats, usrStats, copilotConnected] = await Promise.all([
+            const [msgStats, usrStats, engagement, copilotConnected] = await Promise.all([
                 getMessageStatusStats(props.loader),
                 getUserCoverageStats(props.loader),
+                getBotInteractionStats(props.loader),
                 getCopilotConnectedStatus(props.loader)
             ]);
             setMessageStats(msgStats);
             setUserStats(usrStats);
+            setInteractionStats(engagement);
             setCopilotStatus(copilotConnected);
         } catch (e: any) {
             console.error("Error loading statistics: ", e);
@@ -90,18 +94,11 @@ export const Dashboard: React.FC<{ loader?: BaseAxiosApiLoader }> = (props) => {
                                         <div className='nav'>
                                             <ul>
                                                 <li>
-                                                    <Card className={styles.card}>
+                                                    <Card className={styles.card} style={{ width: '100%', maxWidth: 'none', height: '100%' }}>
                                                         <CardHeader
                                                             header={<Text weight="semibold">Message Status</Text>}
                                                             description={
                                                                 <Caption1 className={styles.caption}>Sent, Failed, and Pending Messages</Caption1>
-                                                            }
-                                                            action={
-                                                                <Button
-                                                                    appearance="transparent"
-                                                                    icon={<MoreHorizontal20Regular />}
-                                                                    aria-label="More options"
-                                                                />
                                                             }
                                                         />
 
@@ -123,18 +120,11 @@ export const Dashboard: React.FC<{ loader?: BaseAxiosApiLoader }> = (props) => {
                                                     </Card>
                                                 </li>
                                                 <li>
-                                                    <Card className={styles.card}>
+                                                    <Card className={styles.card} style={{ width: '100%', maxWidth: 'none', height: '100%' }}>
                                                         <CardHeader
                                                             header={<Text weight="semibold">User Coverage</Text>}
                                                             description={
                                                                 <Caption1 className={styles.caption}>Users Messaged vs Total Users in Tenant</Caption1>
-                                                            }
-                                                            action={
-                                                                <Button
-                                                                    appearance="transparent"
-                                                                    icon={<MoreHorizontal20Regular />}
-                                                                    aria-label="More options"
-                                                                />
                                                             }
                                                         />
 
@@ -148,6 +138,36 @@ export const Dashboard: React.FC<{ loader?: BaseAxiosApiLoader }> = (props) => {
                                                                     <strong>Coverage:</strong> {userStats.coveragePercentage.toFixed(2)}%
                                                                 </p>
                                                                 <UserCoverageChart stats={userStats} />
+                                                            </>
+                                                        ) : (
+                                                            <p className={styles.text}>No data available</p>
+                                                        )}
+                                                    </Card>
+                                                </li>
+                                                <li>
+                                                    <Card className={styles.card} style={{ width: '100%', maxWidth: 'none', height: '100%' }}>
+                                                        <CardHeader
+                                                            image={<ChatMultiple20Regular />}
+                                                            header={<Text weight="semibold">Bot Engagement</Text>}
+                                                            description={
+                                                                <Caption1 className={styles.caption}>Users who have replied to the bot</Caption1>
+                                                            }
+                                                        />
+
+                                                        {loadingStats ? (
+                                                            <Spinner label="Loading statistics..." />
+                                                        ) : interactionStats ? (
+                                                            <>
+                                                                <p className={styles.text}>
+                                                                    <strong>Users the bot has chatted with:</strong> {interactionStats.usersWithConversation}<br />
+                                                                    <strong>Replied at least once:</strong> {interactionStats.usersInteracted}<br />
+                                                                    <strong>Engagement rate:</strong> {interactionStats.interactionRatePercentage.toFixed(2)}%
+                                                                </p>
+                                                                <Caption1 className={styles.caption}>
+                                                                    {interactionStats.lastInteractionUtc
+                                                                        ? `Last reply ${moment.utc(interactionStats.lastInteractionUtc).fromNow()}`
+                                                                        : 'No replies yet'}
+                                                                </Caption1>
                                                             </>
                                                         ) : (
                                                             <p className={styles.text}>No data available</p>

@@ -1,9 +1,11 @@
-﻿using Engine.Config;
+﻿using Engine.BackgroundServices;
+using Engine.Config;
 using Engine.DependencyInjection;
 using Engine.Services;
 using Engine.Services.UserCache;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Engine;
 
@@ -72,6 +74,10 @@ public static class ServiceCollectionExtensions
         // can be unit-tested without touching Azure Table Storage or Microsoft Graph.
         services.AddSingleton<ITenantUserCounter>(sp => sp.GetRequiredService<GraphService>());
         services.AddSingleton<IMessageLogReader>(sp => sp.GetRequiredService<MessageTemplateStorageManager>());
+        // Teams-only apps don't register BotConversationCache (no bot framework). Provide a
+        // no-op fallback so StatisticsService can resolve. AddBotFrameworkServices overrides
+        // this with the real cache-backed source when bot services are present.
+        services.TryAddSingleton<IBotInteractionSource, NullBotInteractionSource>();
 
         services.AddScoped<StatisticsService>();
 
@@ -183,6 +189,13 @@ public static class ServiceCollectionExtensions
             var aiFoundryService = sp.GetService<AIFoundryService>(); // Optional - may be null
             return new SmartGroupService(storageManager, userService, logger, aiFoundryService);
         });
+
+        // Singleton tracker for asynchronous smart group resolution jobs.
+        services.AddSingleton<SmartGroupResolutionJobTracker>();
+
+        // Periodically warm up the user/Copilot-stats cache so interactive callers rarely
+        // hit a cold path. Self-throttling against UserCacheConfig TTLs, so safe to always register.
+        services.AddHostedService<CacheWarmupHostedService>();
 
         return services;
     }

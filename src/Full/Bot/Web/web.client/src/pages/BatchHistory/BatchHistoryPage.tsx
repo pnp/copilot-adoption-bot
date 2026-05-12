@@ -13,7 +13,6 @@ import {
     TableRow,
     TableHeader,
     TableHeaderCell,
-    TableCellLayout,
     Dialog,
     DialogTrigger,
     DialogSurface,
@@ -50,12 +49,19 @@ const useStyles = makeStyles({
         display: 'flex',
         gap: tokens.spacingHorizontalS,
     },
-    truncatedText: {
+    table: {
+        tableLayout: 'fixed',
+        width: '100%',
+    },
+    cellEllipsis: {
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        maxWidth: '200px',
         display: 'block',
+    },
+    mutedText: {
+        color: tokens.colorNeutralForeground3,
+        fontStyle: 'italic',
     },
     emptyState: {
         padding: tokens.spacingVerticalXXL,
@@ -200,91 +206,100 @@ export const BatchHistoryPage: React.FC<BatchHistoryPageProps> = ({ loader }) =>
                         <Text>Create your first batch from the Send Nudge page</Text>
                     </div>
                 ) : (
-                    <Table>
+                    <Table className={styles.table}>
                         <TableHeader>
                             <TableRow>
-                                <TableHeaderCell>Batch Name</TableHeaderCell>
-                                <TableHeaderCell>Template</TableHeaderCell>
-                                <TableHeaderCell>Sender</TableHeaderCell>
-                                <TableHeaderCell>Created Date</TableHeaderCell>
-                                <TableHeaderCell>Actions</TableHeaderCell>
+                                <TableHeaderCell style={{ width: '22%' }}>Batch Name</TableHeaderCell>
+                                <TableHeaderCell style={{ width: '22%' }}>Template</TableHeaderCell>
+                                <TableHeaderCell style={{ width: '22%' }}>Sender</TableHeaderCell>
+                                <TableHeaderCell style={{ width: '18%' }}>Created Date</TableHeaderCell>
+                                <TableHeaderCell style={{ width: '140px' }}>Actions</TableHeaderCell>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {batches.map((batch) => {
                                 const template = templates.get(batch.templateId);
+                                const templateLabel = template?.templateName;
+                                const created = new Date(batch.createdDate);
                                 return (
                                     <TableRow key={batch.id}>
                                         <TableCell>
-                                            <TableCellLayout>{batch.batchName}</TableCellLayout>
+                                            <span className={styles.cellEllipsis} title={batch.batchName}>
+                                                {batch.batchName}
+                                            </span>
                                         </TableCell>
                                         <TableCell>
-                                            <TableCellLayout>
-                                                {template?.templateName || batch.templateId}
-                                            </TableCellLayout>
+                                            {templateLabel ? (
+                                                <span className={styles.cellEllipsis} title={templateLabel}>
+                                                    {templateLabel}
+                                                </span>
+                                            ) : (
+                                                <span
+                                                    className={`${styles.cellEllipsis} ${styles.mutedText}`}
+                                                    title={`Template ${batch.templateId} not found (it may have been deleted)`}
+                                                >
+                                                    (template deleted)
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
-                                            <TableCellLayout>
-                                                <div className={styles.truncatedText} title={batch.senderUpn}>
-                                                    {batch.senderUpn}
-                                                </div>
-                                            </TableCellLayout>
+                                            <span className={styles.cellEllipsis} title={batch.senderUpn}>
+                                                {batch.senderUpn}
+                                            </span>
                                         </TableCell>
                                         <TableCell>
-                                            <TableCellLayout>
-                                                {new Date(batch.createdDate).toLocaleString()}
-                                            </TableCellLayout>
+                                            <span className={styles.cellEllipsis} title={created.toLocaleString()}>
+                                                {created.toLocaleDateString()} {created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
                                         </TableCell>
                                         <TableCell>
-                                            <TableCellLayout>
-                                                <div className={styles.actionButtons}>
-                                                    <Button
-                                                        size="small"
-                                                        icon={<Eye20Regular />}
-                                                        onClick={() => handleViewBatch(batch.id)}
-                                                        title="View Progress"
-                                                    />
-                                                    <Button
-                                                        size="small"
-                                                        icon={<Copy20Regular />}
-                                                        onClick={() => handleCopyBatch(batch)}
-                                                        disabled={copyingBatchId === batch.id}
-                                                        title="Copy Batch"
-                                                    />
-                                                    <Dialog>
-                                                        <DialogTrigger disableButtonEnhancement>
-                                                            <Button
-                                                                size="small"
-                                                                icon={<Delete20Regular />}
-                                                                onClick={() => setBatchToDelete(batch)}
-                                                                disabled={deletingBatchId === batch.id}
-                                                                title="Delete Batch"
-                                                            />
-                                                        </DialogTrigger>
-                                                        <DialogSurface>
-                                                            <DialogBody>
-                                                                <DialogTitle>Delete Batch</DialogTitle>
-                                                                <DialogContent>
-                                                                    Are you sure you want to delete the batch "{batch.batchName}"? 
-                                                                    This will also delete all associated message logs. This action cannot be undone.
-                                                                </DialogContent>
-                                                                <DialogActions>
-                                                                    <DialogTrigger disableButtonEnhancement>
-                                                                        <Button appearance="secondary">Cancel</Button>
-                                                                    </DialogTrigger>
-                                                                    <Button 
-                                                                        appearance="primary" 
-                                                                        onClick={handleDeleteBatch}
-                                                                        disabled={deletingBatchId === batch.id}
-                                                                    >
-                                                                        {deletingBatchId === batch.id ? 'Deleting...' : 'Delete'}
-                                                                    </Button>
-                                                                </DialogActions>
-                                                            </DialogBody>
-                                                        </DialogSurface>
-                                                    </Dialog>
-                                                </div>
-                                            </TableCellLayout>
+                                            <div className={styles.actionButtons}>
+                                                <Button
+                                                    size="small"
+                                                    icon={<Eye20Regular />}
+                                                    onClick={() => handleViewBatch(batch.id)}
+                                                    title="View Progress"
+                                                />
+                                                <Button
+                                                    size="small"
+                                                    icon={<Copy20Regular />}
+                                                    onClick={() => handleCopyBatch(batch)}
+                                                    disabled={copyingBatchId === batch.id}
+                                                    title="Copy Batch"
+                                                />
+                                                <Dialog>
+                                                    <DialogTrigger disableButtonEnhancement>
+                                                        <Button
+                                                            size="small"
+                                                            icon={<Delete20Regular />}
+                                                            onClick={() => setBatchToDelete(batch)}
+                                                            disabled={deletingBatchId === batch.id}
+                                                            title="Delete Batch"
+                                                        />
+                                                    </DialogTrigger>
+                                                    <DialogSurface>
+                                                        <DialogBody>
+                                                            <DialogTitle>Delete Batch</DialogTitle>
+                                                            <DialogContent>
+                                                                Are you sure you want to delete the batch "{batch.batchName}"?
+                                                                This will also delete all associated message logs. This action cannot be undone.
+                                                            </DialogContent>
+                                                            <DialogActions>
+                                                                <DialogTrigger disableButtonEnhancement>
+                                                                    <Button appearance="secondary">Cancel</Button>
+                                                                </DialogTrigger>
+                                                                <Button
+                                                                    appearance="primary"
+                                                                    onClick={handleDeleteBatch}
+                                                                    disabled={deletingBatchId === batch.id}
+                                                                >
+                                                                    {deletingBatchId === batch.id ? 'Deleting...' : 'Delete'}
+                                                                </Button>
+                                                            </DialogActions>
+                                                        </DialogBody>
+                                                    </DialogSurface>
+                                                </Dialog>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 );

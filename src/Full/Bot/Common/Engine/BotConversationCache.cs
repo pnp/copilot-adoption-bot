@@ -1,6 +1,7 @@
 using Azure;
 using Engine.Config;
 using Engine.Models;
+using Engine.Services;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
@@ -9,7 +10,7 @@ using System.Collections.Concurrent;
 namespace Engine;
 
 
-public class BotConversationCache : TableStorageManager
+public class BotConversationCache : TableStorageManager, IBotInteractionSource
 {
     const string TABLE_NAME = "ConversationCache";
     private readonly GraphServiceClient _graphServiceClient;
@@ -125,6 +126,9 @@ public class BotConversationCache : TableStorageManager
         return _userIdConversationCache.Values.ToList();
     }
 
+    /// <inheritdoc />
+    public Task<List<CachedUserAndConversationData>> GetCachedUsersAsync() => GetCachedUsers();
+
     public CachedUserAndConversationData? GetCachedUser(string aadObjectId)
     {
         // Use direct dictionary lookup (O(1)) instead of a linear scan over Values.
@@ -134,6 +138,38 @@ public class BotConversationCache : TableStorageManager
     public bool ContainsUserId(string aadId)
     {
         return _userIdConversationCache.ContainsKey(aadId);
+    }
+
+    /// <summary>
+    /// Records that the user with the given AAD object id has sent a message to the bot.
+    /// Updates the entity's <see cref="CachedUserAndConversationData.LastInteractionUtc"/>
+    /// in both table storage and the in-memory cache. No-op if the user is not yet cached
+    /// (the welcome flow caches them first).
+    /// </summary>
+    public async Task RecordUserInteractionAsync(string aadObjectId)
+    {
+        if (string.IsNullOrWhiteSpace(aadObjectId)) return;
+
+        await PopulateMemCacheIfEmpty();
+
+        if (!_userIdConversationCache.TryGetValue(aadObjectId, out var existing) || existing == null)
+        {
+            // User isn't cached yet (e.g. a message before the welcome flow finished). Skip.
+            return;
+        }
+
+        existing.LastInteractionUtc = DateTime.UtcNow;
+
+        try
+        {
+            var client = await base.GetTableClient(TABLE_NAME);
+            await client.UpdateEntityAsync(existing, ETag.All, Azure.Data.Tables.TableUpdateMode.Merge);
+            _userIdConversationCache.AddOrUpdate(aadObjectId, existing, (_, _) => existing);
+        }
+        catch (RequestFailedException ex)
+        {
+            _logger.LogWarning(ex, "Failed to record user interaction for {AadObjectId}", aadObjectId);
+        }
     }
 }
 

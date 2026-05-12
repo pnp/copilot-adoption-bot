@@ -30,13 +30,16 @@ import {
     deleteSmartGroup,
     previewSmartGroup,
     getCopilotConnectedStatus,
-    resolveSmartGroupMembers,
+    getSmartGroupStatus,
+    resolveSmartGroupMembersAsync,
+    getResolveJobStatus,
 } from '../../api/ApiCalls';
-import { SmartGroupDto, SmartGroupMemberDto, CopilotConnectedStatusDto } from '../../apimodels/Models';
+import { SmartGroupDto, SmartGroupMemberDto, CopilotConnectedStatusDto, SmartGroupStatusItemDto, ResolveJobStatusDto } from '../../apimodels/Models';
 import { CreateSmartGroupDialog } from '../SendNudge/components/CreateSmartGroupDialog';
 import { EditSmartGroupDialog } from '../SendNudge/components/EditSmartGroupDialog';
 import { AISummaryHelpDialog } from '../SendNudge/components/AISummaryHelpDialog';
 import { SmartGroupMembersDialog } from './components/SmartGroupMembersDialog';
+import { CacheStatusBadge } from '../../components/common/controls/CacheStatusBadge';
 
 const useStyles = makeStyles({
     container: {
@@ -77,6 +80,15 @@ const useStyles = makeStyles({
     tableContainer: {
         marginTop: tokens.spacingVerticalM,
         overflowX: 'auto',
+    },
+    tableRow: {
+        verticalAlign: 'middle',
+    },
+    cellStack: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalXXS,
+        alignItems: 'flex-start',
     },
     truncatedText: {
         overflow: 'hidden',
@@ -154,6 +166,13 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
     const [selectedGroupForMembers, setSelectedGroupForMembers] = useState<SmartGroupDto | null>(null);
     const [resolvingGroupId, setResolvingGroupId] = useState<string | null>(null);
 
+    // Per-group status (staleness + ttl) loaded in parallel with the groups themselves.
+    const [groupStatuses, setGroupStatuses] = useState<Record<string, SmartGroupStatusItemDto>>({});
+    const [statusTtlSeconds, setStatusTtlSeconds] = useState<number>(60 * 60);
+
+    // Per-group active resolution job progress (for live "step" text).
+    const [activeJobs, setActiveJobs] = useState<Record<string, ResolveJobStatusDto>>({});
+
     useEffect(() => {
         loadCopilotConnectedStatus();
     }, [loader]);
@@ -187,8 +206,20 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
                 setLoading(true);
             }
             setError(null);
-            const groups = await getAllSmartGroups(loader);
+            const [groups, status] = await Promise.all([
+                getAllSmartGroups(loader),
+                getSmartGroupStatus(loader).catch((e) => {
+                    console.warn('Smart group status fetch failed; staleness badges will be hidden', e);
+                    return null;
+                }),
+            ]);
             setSmartGroups(groups);
+            if (status) {
+                setStatusTtlSeconds(status.ttlSeconds);
+                const map: Record<string, SmartGroupStatusItemDto> = {};
+                status.groups.forEach(g => { map[g.id] = g; });
+                setGroupStatuses(map);
+            }
         } catch (err: any) {
             console.error('Error loading smart groups:', err);
             setError(err.message || 'Failed to load smart groups');
@@ -353,24 +384,58 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
             setResolvingGroupId(group.id);
             setError(null);
 
-            // Call the resolve API with forceRefresh=true to get fresh data
-            const result = await resolveSmartGroupMembers(loader, group.id, true);
+            // Kick off async resolution: returns 202 immediately with a job id.
+            const accepted = await resolveSmartGroupMembersAsync(loader, group.id, true);
 
-            // Update the group in the list with the new member count and resolved date
+            // Poll until terminal state. Initial step: queued.
+            let lastStatus: ResolveJobStatusDto | null = null;
+            const maxAttempts = 120; // ~4 minutes at 2s
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                await new Promise((r) => setTimeout(r, 2000));
+                let status: ResolveJobStatusDto;
+                try {
+                    status = await getResolveJobStatus(loader, accepted.jobId);
+                } catch (e) {
+                    console.warn('Poll for job status failed; retrying', e);
+                    continue;
+                }
+                lastStatus = status;
+                setActiveJobs((prev) => ({ ...prev, [group.id]: status }));
+                if (status.state === 'Succeeded' || status.state === 'Failed') break;
+            }
+
+            if (!lastStatus) {
+                throw new Error('No status received from server');
+            }
+
+            if (lastStatus.state === 'Failed') {
+                throw new Error(lastStatus.error || 'Resolution failed');
+            }
+
+            // Update the group in the list with the new member count and resolved date.
             const updatedGroups = smartGroups.map(g => {
                 if (g.id === group.id) {
                     return {
                         ...g,
-                        lastResolvedMemberCount: result.members.length,
-                        lastResolvedDate: result.resolvedAt
+                        lastResolvedMemberCount: lastStatus!.memberCount ?? g.lastResolvedMemberCount,
+                        lastResolvedDate: lastStatus!.resolvedAt ?? lastStatus!.completedAt ?? g.lastResolvedDate,
                     };
                 }
                 return g;
             });
             setSmartGroups(updatedGroups);
 
-            setSuccess(`Smart group "${group.name}" resolved successfully with ${result.members.length} member${result.members.length !== 1 ? 's' : ''}!`);
-            
+            // Refresh status badges in the background so staleness updates.
+            getSmartGroupStatus(loader).then((status) => {
+                setStatusTtlSeconds(status.ttlSeconds);
+                const map: Record<string, SmartGroupStatusItemDto> = {};
+                status.groups.forEach(g => { map[g.id] = g; });
+                setGroupStatuses(map);
+            }).catch(() => { /* non-fatal */ });
+
+            const count = lastStatus.memberCount ?? 0;
+            setSuccess(`Smart group "${group.name}" resolved successfully with ${count} member${count !== 1 ? 's' : ''}!`);
+
             // Clear success message after 5 seconds
             setTimeout(() => setSuccess(null), 5000);
         } catch (err: any) {
@@ -378,6 +443,12 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
             console.error('Error resolving smart group:', err);
         } finally {
             setResolvingGroupId(null);
+            // Clear the active job entry shortly after so the row goes back to its idle state.
+            setActiveJobs((prev) => {
+                const copy = { ...prev };
+                delete copy[group.id];
+                return copy;
+            });
         }
     };
 
@@ -485,8 +556,12 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {smartGroups.map((group) => (
-                                <TableRow key={group.id}>
+                            {smartGroups.map((group) => {
+                                const status = groupStatuses[group.id];
+                                const activeJob = activeJobs[group.id];
+                                const isResolvingThis = resolvingGroupId === group.id;
+                                return (
+                                <TableRow key={group.id} className={styles.tableRow}>
                                     <TableCell>
                                         <Text weight="semibold">{group.name}</Text>
                                     </TableCell>
@@ -508,16 +583,33 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
                                             <Button
                                                 size="small"
                                                 appearance="subtle"
-                                                icon={<ArrowSyncRegular />}
+                                                icon={isResolvingThis ? <Spinner size="tiny" /> : <ArrowSyncRegular />}
                                                 onClick={() => handleResolveGroup(group)}
-                                                disabled={resolvingGroupId === group.id}
+                                                disabled={isResolvingThis}
                                             >
-                                                {resolvingGroupId === group.id ? 'Resolving...' : 'Resolve Now'}
+                                                {isResolvingThis ? (activeJob?.currentStep ?? 'Resolving…') : 'Resolve Now'}
                                             </Button>
+                                        )}
+                                        {isResolvingThis && group.lastResolvedMemberCount != null && (
+                                            <div style={{ marginTop: tokens.spacingVerticalXS }}>
+                                                <Text size={100} italic>{activeJob?.currentStep ?? 'Resolving…'}</Text>
+                                            </div>
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <Text size={200}>{formatDate(group.lastResolvedDate)}</Text>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS, flexWrap: 'wrap' }}>
+                                            <Text size={200}>{formatDate(group.lastResolvedDate)}</Text>
+                                            {status && (
+                                                <CacheStatusBadge
+                                                    compact
+                                                    label={group.name}
+                                                    lastUpdate={status.lastResolvedDate ?? null}
+                                                    isFresh={status.isResolved && !status.isStale}
+                                                    status={!status.isResolved ? 'never' : (status.isStale ? 'stale' : 'fresh')}
+                                                    tooltipDetail={`Cached results are reused for ${Math.round(statusTtlSeconds / 60)} min before AI Foundry is re-queried.`}
+                                                />
+                                            )}
+                                        </div>
                                     </TableCell>
                                     <TableCell>
                                         <div className={styles.truncatedText} title={group.createdByUpn}>
@@ -526,6 +618,16 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
                                     </TableCell>
                                     <TableCell>
                                         <div className={styles.actionButtons}>
+                                            {group.lastResolvedMemberCount != null && (
+                                                <Button
+                                                    size="small"
+                                                    appearance="subtle"
+                                                    icon={isResolvingThis ? <Spinner size="tiny" /> : <ArrowSyncRegular />}
+                                                    onClick={() => handleResolveGroup(group)}
+                                                    disabled={isResolvingThis}
+                                                    title={isResolvingThis ? (activeJob?.currentStep ?? 'Resolving…') : 'Re-resolve members now'}
+                                                />
+                                            )}
                                             <Button
                                                 size="small"
                                                 appearance="subtle"
@@ -544,7 +646,8 @@ export const SmartGroupsPage: React.FC<SmartGroupsPageProps> = ({ loader }) => {
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 </div>

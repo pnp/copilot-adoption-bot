@@ -1,3 +1,4 @@
+using Engine.Models;
 using Engine.Services;
 using Engine.Storage;
 
@@ -30,5 +31,20 @@ public class FakeTenantUserCounter : ITenantUserCounter
     {
         CallCount++;
         return Task.FromResult(Count);
+    }
+}
+
+/// <summary>
+/// In-memory <see cref="IBotInteractionSource"/> returning a configurable list of cached users.
+/// </summary>
+public class FakeBotInteractionSource : IBotInteractionSource
+{
+    public List<CachedUserAndConversationData> Users { get; set; } = new();
+    public int CallCount { get; private set; }
+
+    public Task<List<CachedUserAndConversationData>> GetCachedUsersAsync()
+    {
+        CallCount++;
+        return Task.FromResult(Users);
     }
 }

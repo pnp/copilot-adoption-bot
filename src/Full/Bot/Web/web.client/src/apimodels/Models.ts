@@ -65,6 +65,14 @@ export interface UserCoverageStatsDto {
   coveragePercentage: number;
 }
 
+export interface BotInteractionStatsDto {
+  usersWithConversation: number;
+  usersInteracted: number;
+  usersNotInteracted: number;
+  interactionRatePercentage: number;
+  lastInteractionUtc: string | null;
+}
+
 export interface QueueStatusDto {
   success: boolean;
   queueLength: number;
@@ -179,6 +187,59 @@ export interface CacheOperationResponse {
   message: string;
   success?: boolean;
   error?: string;
+}
+
+export interface CacheStatusDto {
+  cachedUserCount: number;
+  lastDeltaSyncDate?: string;
+  lastFullSyncDate?: string;
+  lastCopilotStatsUpdate?: string;
+  lastSyncStatus?: string;
+  lastSyncError?: string;
+  lastSyncUserCount: number;
+  userCacheTtlSeconds: number;
+  copilotStatsTtlSeconds: number;
+  fullSyncIntervalSeconds: number;
+  isUserCacheFresh: boolean;
+  isCopilotStatsFresh: boolean;
+  isSyncInProgress: boolean;
+}
+
+export interface SmartGroupStatusItemDto {
+  id: string;
+  name: string;
+  lastResolvedDate?: string;
+  lastResolvedMemberCount?: number;
+  isResolved: boolean;
+  isStale: boolean;
+}
+
+export interface SmartGroupStatusDto {
+  ttlSeconds: number;
+  groups: SmartGroupStatusItemDto[];
+}
+
+export interface ResolveJobAcceptedDto {
+  jobId: string;
+  smartGroupId: string;
+  statusUrl: string;
+}
+
+export type ResolveJobState = "Queued" | "Running" | "Succeeded" | "Failed";
+
+export interface ResolveJobStatusDto {
+  jobId: string;
+  smartGroupId: string;
+  state: ResolveJobState;
+  currentStep?: string;
+  error?: string;
+  memberCount?: number;
+  fromCache: boolean;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  resolvedAt?: string;
+  members?: SmartGroupMemberDto[];
 }
 
 // Storage Configuration Models

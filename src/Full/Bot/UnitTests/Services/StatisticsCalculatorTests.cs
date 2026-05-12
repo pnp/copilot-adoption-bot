@@ -1,3 +1,4 @@
+using Engine.Models;
 using Engine.Services;
 using Engine.Storage;
 
@@ -149,5 +150,72 @@ public class StatisticsCalculatorTests
 
         // 1 / 3 * 100 = 33.3333... -> rounded to 33.33
         Assert.AreEqual(33.33d, stats.CoveragePercentage);
+    }
+
+    private static CachedUserAndConversationData CachedUser(string id, DateTime? lastInteraction = null) =>
+        new()
+        {
+            RowKey = id,
+            ConversationId = $"conv-{id}",
+            UserPrincipalName = $"{id}@x.com",
+            ServiceUrl = "https://example",
+            LastInteractionUtc = lastInteraction
+        };
+
+    [TestMethod]
+    public void ComputeBotInteractionStats_NullThrows()
+    {
+        Assert.ThrowsException<ArgumentNullException>(
+            () => StatisticsCalculator.ComputeBotInteractionStats(null!));
+    }
+
+    [TestMethod]
+    public void ComputeBotInteractionStats_Empty_ReturnsZeroes()
+    {
+        var stats = StatisticsCalculator.ComputeBotInteractionStats(Array.Empty<CachedUserAndConversationData>());
+
+        Assert.AreEqual(0, stats.UsersWithConversation);
+        Assert.AreEqual(0, stats.UsersInteracted);
+        Assert.AreEqual(0, stats.UsersNotInteracted);
+        Assert.AreEqual(0d, stats.InteractionRatePercentage);
+        Assert.IsNull(stats.LastInteractionUtc);
+    }
+
+    [TestMethod]
+    public void ComputeBotInteractionStats_CountsAndMostRecent()
+    {
+        var latest = DateTime.UtcNow.AddMinutes(-1);
+        var older = DateTime.UtcNow.AddDays(-3);
+
+        var users = new[]
+        {
+            CachedUser("a", older),
+            CachedUser("b", latest),
+            CachedUser("c"),
+            CachedUser("d")
+        };
+
+        var stats = StatisticsCalculator.ComputeBotInteractionStats(users);
+
+        Assert.AreEqual(4, stats.UsersWithConversation);
+        Assert.AreEqual(2, stats.UsersInteracted);
+        Assert.AreEqual(2, stats.UsersNotInteracted);
+        Assert.AreEqual(50d, stats.InteractionRatePercentage);
+        Assert.AreEqual(latest, stats.LastInteractionUtc);
+    }
+
+    [TestMethod]
+    public void ComputeBotInteractionStats_AllInteracted_HundredPercent()
+    {
+        var users = new[]
+        {
+            CachedUser("a", DateTime.UtcNow),
+            CachedUser("b", DateTime.UtcNow.AddMinutes(-30))
+        };
+
+        var stats = StatisticsCalculator.ComputeBotInteractionStats(users);
+
+        Assert.AreEqual(2, stats.UsersInteracted);
+        Assert.AreEqual(100d, stats.InteractionRatePercentage);
     }
 }

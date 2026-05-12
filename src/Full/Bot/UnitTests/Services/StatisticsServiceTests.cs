@@ -1,3 +1,4 @@
+using Engine.Models;
 using Engine.Services;
 using Engine.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -34,7 +35,8 @@ public class StatisticsServiceTests
             }
         };
         var counter = new FakeTenantUserCounter();
-        var service = new StatisticsService(reader, counter, NullLogger<StatisticsService>.Instance);
+        var interactions = new FakeBotInteractionSource();
+        var service = new StatisticsService(reader, counter, interactions, NullLogger<StatisticsService>.Instance);
 
         var stats = await service.GetMessageStatusStats();
 
@@ -44,6 +46,7 @@ public class StatisticsServiceTests
         Assert.AreEqual(6, stats.TotalCount);
         Assert.AreEqual(1, reader.CallCount);
         Assert.AreEqual(0, counter.CallCount, "Status stats must not touch the tenant user counter");
+        Assert.AreEqual(0, interactions.CallCount, "Status stats must not touch the interaction source");
     }
 
     [TestMethod]
@@ -59,7 +62,8 @@ public class StatisticsServiceTests
             }
         };
         var counter = new FakeTenantUserCounter { Count = 10 };
-        var service = new StatisticsService(reader, counter, NullLogger<StatisticsService>.Instance);
+        var interactions = new FakeBotInteractionSource();
+        var service = new StatisticsService(reader, counter, interactions, NullLogger<StatisticsService>.Instance);
 
         var stats = await service.GetUserCoverageStats();
 
@@ -74,9 +78,38 @@ public class StatisticsServiceTests
     {
         var reader = new ThrowingReader();
         var counter = new FakeTenantUserCounter();
-        var service = new StatisticsService(reader, counter, NullLogger<StatisticsService>.Instance);
+        var interactions = new FakeBotInteractionSource();
+        var service = new StatisticsService(reader, counter, interactions, NullLogger<StatisticsService>.Instance);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.GetMessageStatusStats());
+    }
+
+    [TestMethod]
+    public async Task GetBotInteractionStats_UsesInteractionSource()
+    {
+        var reader = new FakeMessageLogReader();
+        var counter = new FakeTenantUserCounter();
+        var interactions = new FakeBotInteractionSource
+        {
+            Users =
+            {
+                new CachedUserAndConversationData { RowKey = "u1", ConversationId = "c1", LastInteractionUtc = DateTime.UtcNow.AddHours(-2) },
+                new CachedUserAndConversationData { RowKey = "u2", ConversationId = "c2", LastInteractionUtc = null },
+                new CachedUserAndConversationData { RowKey = "u3", ConversationId = "c3", LastInteractionUtc = DateTime.UtcNow.AddMinutes(-5) }
+            }
+        };
+        var service = new StatisticsService(reader, counter, interactions, NullLogger<StatisticsService>.Instance);
+
+        var stats = await service.GetBotInteractionStats();
+
+        Assert.AreEqual(3, stats.UsersWithConversation);
+        Assert.AreEqual(2, stats.UsersInteracted);
+        Assert.AreEqual(1, stats.UsersNotInteracted);
+        Assert.IsTrue(stats.InteractionRatePercentage > 66.0 && stats.InteractionRatePercentage < 67.0);
+        Assert.IsNotNull(stats.LastInteractionUtc);
+        Assert.AreEqual(1, interactions.CallCount);
+        Assert.AreEqual(0, reader.CallCount, "Interaction stats must not touch message logs");
+        Assert.AreEqual(0, counter.CallCount, "Interaction stats must not touch the tenant user counter");
     }
 
     private sealed class ThrowingReader : IMessageLogReader

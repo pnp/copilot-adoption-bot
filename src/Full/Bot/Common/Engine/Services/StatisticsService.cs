@@ -9,15 +9,18 @@ public class StatisticsService
 {
     private readonly IMessageLogReader _logReader;
     private readonly ITenantUserCounter _tenantUserCounter;
+    private readonly IBotInteractionSource _interactionSource;
     private readonly ILogger<StatisticsService> _logger;
 
     public StatisticsService(
         IMessageLogReader logReader,
         ITenantUserCounter tenantUserCounter,
+        IBotInteractionSource interactionSource,
         ILogger<StatisticsService> logger)
     {
         _logReader = logReader;
         _tenantUserCounter = tenantUserCounter;
+        _interactionSource = interactionSource;
         _logger = logger;
     }
 
@@ -69,6 +72,30 @@ public class StatisticsService
             throw;
         }
     }
+
+    /// <summary>
+    /// Get bot interaction (engagement) statistics: how many users the bot has spoken to
+    /// have ever sent a message back.
+    /// </summary>
+    public async Task<BotInteractionStatsDto> GetBotInteractionStats()
+    {
+        try
+        {
+            var users = await _interactionSource.GetCachedUsersAsync();
+            var stats = StatisticsCalculator.ComputeBotInteractionStats(users);
+
+            _logger.LogInformation(
+                "Bot interaction - Cached: {Cached}, Interacted: {Interacted}",
+                stats.UsersWithConversation, stats.UsersInteracted);
+
+            return stats;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calculating bot interaction stats");
+            throw;
+        }
+    }
 }
 
 public class MessageStatusStatsDto
@@ -85,4 +112,33 @@ public class UserCoverageStatsDto
     public int TotalUsersInTenant { get; set; }
     public int UsersNotMessaged { get; set; }
     public double CoveragePercentage { get; set; }
+}
+
+public class BotInteractionStatsDto
+{
+    /// <summary>
+    /// Number of users the bot has at least once held a conversation reference for
+    /// (i.e. the bot has been installed for / spoken to them).
+    /// </summary>
+    public int UsersWithConversation { get; set; }
+
+    /// <summary>
+    /// Number of those users who have sent at least one message back to the bot.
+    /// </summary>
+    public int UsersInteracted { get; set; }
+
+    /// <summary>
+    /// Convenience: <see cref="UsersWithConversation"/> minus <see cref="UsersInteracted"/>.
+    /// </summary>
+    public int UsersNotInteracted { get; set; }
+
+    /// <summary>
+    /// Percentage of cached users who have replied at least once.
+    /// </summary>
+    public double InteractionRatePercentage { get; set; }
+
+    /// <summary>
+    /// UTC timestamp of the most recent reply from any user (null if no replies yet).
+    /// </summary>
+    public DateTime? LastInteractionUtc { get; set; }
 }

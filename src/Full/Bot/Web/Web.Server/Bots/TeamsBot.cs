@@ -83,6 +83,29 @@ public class TeamsBot<T>(ConversationState conversationState, UserState userStat
     }
 
     /// <summary>
+    /// Records the user's reply timestamp on the cached conversation entity (used for
+    /// engagement statistics) before delegating to the standard dialog pipeline.
+    /// </summary>
+    protected override async Task OnMessageActivityAsync(ITurnContext<IMessageActivity> turnContext, CancellationToken cancellationToken)
+    {
+        var aadObjectId = turnContext.Activity?.From?.AadObjectId;
+        if (!string.IsNullOrWhiteSpace(aadObjectId))
+        {
+            try
+            {
+                await botConversationCache.RecordUserInteractionAsync(aadObjectId);
+            }
+            catch (Exception ex)
+            {
+                // Engagement tracking must never break the conversation - swallow and log.
+                Logger.LogWarning(ex, "Failed to record user interaction for {AadObjectId}", aadObjectId);
+            }
+        }
+
+        await base.OnMessageActivityAsync(turnContext, cancellationToken);
+    }
+
+    /// <summary>
     /// Save card information to user state for access in MainDialogue
     /// </summary>
     private async Task SaveCardInfoToUserState(ITurnContext turnContext, PendingCardInfo card)

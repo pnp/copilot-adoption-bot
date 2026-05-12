@@ -24,7 +24,7 @@ export const UserCoverageChart: React.FC<UserCoverageChartProps> = ({ stats }) =
   };
 
   return (
-    <div>
+    <div style={{ position: 'relative', width: '100%', height: '140px' }}>
       <Pie 
         data={data} 
         options={{ 

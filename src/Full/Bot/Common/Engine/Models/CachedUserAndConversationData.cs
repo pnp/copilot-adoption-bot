@@ -25,4 +25,10 @@ public class CachedUserAndConversationData : ITableEntity
 
     public string ConversationId { get; set; } = null!;
     public string? UserPrincipalName { get; set; } = null;
+
+    /// <summary>
+    /// UTC timestamp of the last user-initiated message to the bot, or null if the user
+    /// has never replied. Used to compute "engaged users" statistics.
+    /// </summary>
+    public DateTime? LastInteractionUtc { get; set; }
 }

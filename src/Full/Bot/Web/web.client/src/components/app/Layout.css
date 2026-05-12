@@ -61,9 +61,18 @@
   padding: 0; /* Remove default padding */
   margin: 0; /* Remove default margin */
   display: flex; /* Display items in a row */
+  flex-wrap: wrap; /* Stack cards when there isn't horizontal room */
+  align-items: stretch; /* Equal-height children on the same row */
+  gap: 15px;
 }
 .nav ul li {
-  margin-right: 15px; /* Add some space between items */
+  flex: 1 1 280px; /* Equal-width siblings, wrap below ~280px each */
+  min-width: 0; /* Allow flex items to shrink below their intrinsic content width */
+  display: flex;
+}
+.nav ul li > * {
+  flex: 1; /* Card fills the li so heights match */
+  min-width: 0; /* Same: don't let Card content force overflow */
 }
 
 pre,

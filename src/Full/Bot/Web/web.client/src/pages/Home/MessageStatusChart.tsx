@@ -25,7 +25,7 @@ export const MessageStatusChart: React.FC<MessageStatusChartProps> = ({ stats })
   };
 
   return (
-    <div>
+    <div style={{ position: 'relative', width: '100%', height: '140px' }}>
       <Pie 
         data={data} 
         options={{ 

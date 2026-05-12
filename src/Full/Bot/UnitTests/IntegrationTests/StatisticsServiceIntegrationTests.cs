@@ -46,6 +46,7 @@ public class StatisticsServiceIntegrationTests : AbstractTest
         _service = new StatisticsService(
             _storageManager,
             _graphService,
+            new NullBotInteractionSource(),
             GetLogger<StatisticsService>()
         );
     }

@@ -73,6 +73,12 @@ public class SmartGroupResolutionResult
 /// </summary>
 public class SmartGroupService
 {
+    /// <summary>
+    /// How long cached smart group member resolutions are considered fresh before
+    /// a new call into AI Foundry is required.
+    /// </summary>
+    public static readonly TimeSpan ResolutionCacheTtl = TimeSpan.FromHours(1);
+
     private readonly SmartGroupStorageManager _storageManager;
     private readonly AIFoundryService? _aiFoundryService;
     private readonly CachedUserService _userService;
@@ -155,11 +161,11 @@ public class SmartGroupService
             throw new InvalidOperationException($"Smart group {groupId} not found");
         }
 
-        // Check if we have cached results and they're recent enough (less than 1 hour old)
+        // Check if we have cached results and they're recent enough
         if (!forceRefresh && group.LastResolvedDate.HasValue)
         {
             var cacheAge = DateTime.UtcNow - group.LastResolvedDate.Value;
-            if (cacheAge.TotalHours < 1)
+            if (cacheAge < ResolutionCacheTtl)
             {
                 var cachedMembers = await _storageManager.GetCachedSmartGroupMembers(groupId);
                 if (cachedMembers.Count > 0)
@@ -315,9 +321,9 @@ public class SmartGroupService
             throw new InvalidOperationException($"Smart group {groupId} not found");
         }
 
-        // Check if we need to resolve (never resolved, or cache is older than 1 hour)
+        // Check if we need to resolve (never resolved, or cache is stale)
         bool needsResolve = !group.LastResolvedDate.HasValue ||
-                           (DateTime.UtcNow - group.LastResolvedDate.Value).TotalHours >= 1;
+                           (DateTime.UtcNow - group.LastResolvedDate.Value) >= ResolutionCacheTtl;
 
         if (needsResolve)
         {
