@@ -1,3 +1,4 @@
+using System.ClientModel;
 using System.Text.Json;
 using Azure.AI.OpenAI;
 using Azure.Identity;
@@ -243,9 +244,33 @@ Which users match the group description? Return as JSON array.";
                 return ParseUserMatchResponse(responseText, chunkUsers);
             }
         }
+        catch (ClientResultException ex)
+        {
+            // Surface the actual HTTP response from Azure OpenAI (status code + body) so we can
+            // diagnose throttling (429), auth (401/403), wrong deployment (404), payload size (413),
+            // content-filter blocks, etc. The default ToString only includes the message.
+            string? responseBody = null;
+            try
+            {
+                responseBody = ex.GetRawResponse()?.Content?.ToString();
+            }
+            catch
+            {
+                // Ignore - response body may not be readable.
+            }
+
+            _logger.LogError(
+                ex,
+                "Azure OpenAI request failed for smart group resolution chunk (Status={Status}, Users={UserCount}, Deployment={Deployment}). Response body: {ResponseBody}",
+                ex.Status,
+                chunkUsers.Count,
+                _config.DeploymentName,
+                responseBody);
+            throw;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling AI Foundry for smart group resolution chunk");
+            _logger.LogError(ex, "Error calling AI Foundry for smart group resolution chunk (Users={UserCount}, Deployment={Deployment})", chunkUsers.Count, _config.DeploymentName);
             throw;
         }
 
