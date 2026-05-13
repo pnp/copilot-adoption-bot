@@ -6,6 +6,7 @@ import { App } from './App';
 import { PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig } from './authConfig';
 import { MsalProvider } from '@azure/msal-react';
+import { BrandingProvider } from './branding/BrandingContext';
 
 const msalInstance = new PublicClientApplication(msalConfig);
 
@@ -14,7 +15,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <BrowserRouter basename={import.meta.env.BASE_URL}>
     <LocalizationProvider dateAdapter={AdapterMoment}>
       <MsalProvider instance={msalInstance}>
-        <App />
+        <BrandingProvider>
+          <App />
+        </BrandingProvider>
       </MsalProvider>
     </LocalizationProvider>
   </BrowserRouter>

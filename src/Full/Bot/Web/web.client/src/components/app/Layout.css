@@ -2,6 +2,20 @@
   margin: 0 auto;
 }
 
+.brand-banner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+  overflow: hidden;
+}
+
+.brand-banner img {
+  max-width: 100%;
+  object-fit: contain;
+}
+
 .page-padding {
   padding: 4rem;
 }

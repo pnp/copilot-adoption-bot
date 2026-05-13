@@ -13,11 +13,34 @@ import { BatchProgressPage } from './pages/BatchProgress/BatchProgressPage';
 import { BatchHistoryPage } from './pages/BatchHistory/BatchHistoryPage';
 import { SettingsPage } from './pages/Settings/SettingsPage';
 import { SmartGroupsPage } from './pages/SmartGroups/SmartGroupsPage';
+import { useBranding } from './branding/BrandingContext';
 
 export const AppRoutes: React.FC<PropsWithChildren<AppRoutesProps>> = (props) => {
 
+    const branding = useBranding();
+
+    const brandedTheme: Theme = React.useMemo(() => ({
+        ...teamsLightTheme,
+        colorBrandBackground: branding.themeColor,
+        colorBrandBackgroundHover: branding.themeColor,
+        colorBrandBackgroundPressed: branding.themeColor,
+        colorBrandBackgroundSelected: branding.themeColor,
+        colorCompoundBrandBackground: branding.themeColor,
+        colorCompoundBrandBackgroundHover: branding.themeColor,
+        colorCompoundBrandBackgroundPressed: branding.themeColor,
+        colorBrandStroke1: branding.themeColor,
+        colorCompoundBrandStroke: branding.themeColor,
+        colorCompoundBrandStrokeHover: branding.themeColor,
+        colorCompoundBrandStrokePressed: branding.themeColor,
+        colorBrandForeground1: branding.themeColor,
+        colorBrandForeground2: branding.themeColor,
+        colorBrandForegroundLink: branding.themeColor,
+        colorBrandForegroundLinkHover: branding.themeColor,
+        colorBrandForegroundLinkPressed: branding.themeColor,
+    }), [branding.themeColor]);
+
     return (
-        <FluentProvider theme={teamsLightTheme}>
+        <FluentProvider theme={brandedTheme}>
             {props.apiLoader ?
                 (
                     <Layout apiLoader={props.apiLoader}>
