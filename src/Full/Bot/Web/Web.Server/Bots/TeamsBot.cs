@@ -106,7 +106,9 @@ public class TeamsBot<T>(ConversationState conversationState, UserState userStat
     }
 
     /// <summary>
-    /// Save card information to user state for access in MainDialogue
+    /// Save card information to user state for access in MainDialogue, and persist the
+    /// same card JSON to <see cref="BotConversationCache"/> so it survives app restarts
+    /// (in-memory <c>UserState</c> is wiped by <c>MemoryStorage</c>).
     /// </summary>
     private async Task SaveCardInfoToUserState(ITurnContext turnContext, PendingCardInfo card)
     {
@@ -128,5 +130,25 @@ public class TeamsBot<T>(ConversationState conversationState, UserState userStat
 
         await convoStateProp.SetAsync(turnContext, convoState);
         await UserState.SaveChangesAsync(turnContext);
+
+        // Persist to table storage too. UserState lives in MemoryStorage and is lost on
+        // restart / scale-out; the BotConversationCache row is the durable copy.
+        var aadObjectId = turnContext.Activity?.From?.AadObjectId;
+        if (!string.IsNullOrWhiteSpace(aadObjectId) && !string.IsNullOrEmpty(card.CardJson))
+        {
+            try
+            {
+                await botConversationCache.SetLastCardAsync(
+                    aadObjectId,
+                    card.TemplateId,
+                    card.TemplateName,
+                    card.CardJson,
+                    card.SentDate);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to persist last card for {AadObjectId}", aadObjectId);
+            }
+        }
     }
 }

@@ -171,5 +171,94 @@ public class BotConversationCache : TableStorageManager, IBotInteractionSource
             _logger.LogWarning(ex, "Failed to record user interaction for {AadObjectId}", aadObjectId);
         }
     }
+
+    /// <summary>
+    /// Persists the JSON of the most recent adaptive card the bot sent to this user.
+    /// Only the latest card is kept (overwritten on every call) so the row stays small
+    /// and the AI follow-up context remains bounded and scalable. Survives app restarts
+    /// and scale-out unlike the in-memory <c>UserState</c>.
+    /// </summary>
+    /// <param name="aadObjectId">AAD object id of the recipient.</param>
+    /// <param name="templateId">Template id of the card that was sent.</param>
+    /// <param name="templateName">Template display name of the card that was sent.</param>
+    /// <param name="cardJson">Raw adaptive-card JSON that was sent.</param>
+    /// <param name="sentUtc">UTC timestamp at which the card was sent.</param>
+    public async Task SetLastCardAsync(string aadObjectId, string templateId, string templateName, string cardJson, DateTime sentUtc)
+    {
+        if (string.IsNullOrWhiteSpace(aadObjectId)) return;
+        ArgumentException.ThrowIfNullOrEmpty(cardJson);
+
+        await PopulateMemCacheIfEmpty();
+
+        if (!_userIdConversationCache.TryGetValue(aadObjectId, out var existing) || existing == null)
+        {
+            // No conversation reference yet - the welcome flow hasn't run. Without a
+            // ConversationId we can't address this user from a hosted service anyway,
+            // so skip persisting the card until they've been cached.
+            _logger.LogDebug("Skipped SetLastCardAsync for {AadObjectId}: user not yet in conversation cache", aadObjectId);
+            return;
+        }
+
+        existing.LastCardJson = cardJson;
+        existing.LastCardTemplateId = templateId;
+        existing.LastCardTemplateName = templateName;
+        existing.LastCardSentUtc = sentUtc;
+
+        try
+        {
+            var client = await base.GetTableClient(TABLE_NAME);
+            await client.UpdateEntityAsync(existing, ETag.All, Azure.Data.Tables.TableUpdateMode.Merge);
+            _userIdConversationCache.AddOrUpdate(aadObjectId, existing, (_, _) => existing);
+        }
+        catch (RequestFailedException ex)
+        {
+            // Persistence failure must never break the user-facing send path; log and
+            // keep the updated in-memory copy so the current process at least benefits.
+            _logger.LogWarning(ex, "Failed to persist last card for {AadObjectId}", aadObjectId);
+            _userIdConversationCache.AddOrUpdate(aadObjectId, existing, (_, _) => existing);
+        }
+    }
+
+    /// <summary>
+    /// Persists the trimmed conversation history (role, message pairs) used as LLM
+    /// context for AI follow-up. Survives app restarts / scale-out so users keep their
+    /// thread continuity. The history is expected to already be bounded by the caller
+    /// (the dialog caps it at 20 entries) to keep the row small and scalable.
+    /// </summary>
+    /// <param name="aadObjectId">AAD object id of the recipient.</param>
+    /// <param name="history">
+    /// Trimmed conversation history. Null or empty clears the persisted value.
+    /// </param>
+    public async Task SetConversationHistoryAsync(string aadObjectId, IEnumerable<(string role, string message)>? history)
+    {
+        if (string.IsNullOrWhiteSpace(aadObjectId)) return;
+
+        await PopulateMemCacheIfEmpty();
+
+        if (!_userIdConversationCache.TryGetValue(aadObjectId, out var existing) || existing == null)
+        {
+            // No conversation reference yet - the welcome flow hasn't cached this user.
+            _logger.LogDebug("Skipped SetConversationHistoryAsync for {AadObjectId}: user not yet in conversation cache", aadObjectId);
+            return;
+        }
+
+        existing.ConversationHistoryJson = history == null || !history.Any()
+            ? null
+            : ConversationHistoryCodec.Serialize(history);
+
+        try
+        {
+            var client = await base.GetTableClient(TABLE_NAME);
+            await client.UpdateEntityAsync(existing, ETag.All, Azure.Data.Tables.TableUpdateMode.Merge);
+            _userIdConversationCache.AddOrUpdate(aadObjectId, existing, (_, _) => existing);
+        }
+        catch (RequestFailedException ex)
+        {
+            // Persistence failure must never break the chat; log and keep the updated
+            // in-memory copy so the current process at least benefits.
+            _logger.LogWarning(ex, "Failed to persist conversation history for {AadObjectId}", aadObjectId);
+            _userIdConversationCache.AddOrUpdate(aadObjectId, existing, (_, _) => existing);
+        }
+    }
 }
 

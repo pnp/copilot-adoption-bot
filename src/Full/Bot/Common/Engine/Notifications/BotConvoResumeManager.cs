@@ -89,6 +89,26 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
                 async (turnContext, cancellationToken) =>
                     await turnContext.SendActivityAsync(resumeActivity, cancellationToken), CancellationToken.None);
 
+            // Persist the JSON of what we just sent so AI follow-up still has the card as
+            // context after a restart / scale-out (in-memory UserState is volatile).
+            if (data != null && !string.IsNullOrEmpty(data.CardJson))
+            {
+                try
+                {
+                    await botConversationCache.SetLastCardAsync(
+                        userId,
+                        data.TemplateId,
+                        data.TemplateName,
+                        data.CardJson,
+                        data.SentDate);
+                }
+                catch (Exception persistEx)
+                {
+                    _loggerBotConvoResumeManager.LogWarning(persistEx,
+                        "Failed to persist last card for {UserId} after proactive send", userId);
+                }
+            }
+
             var result = ConversationResumeResult.MessageSent(upn);
             _loggerBotConvoResumeManager.LogInformation("Conversation resume result: {Status} for user {Upn}", result.Status, upn);
             return result;

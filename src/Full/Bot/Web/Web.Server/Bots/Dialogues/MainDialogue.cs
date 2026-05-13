@@ -50,6 +50,7 @@ public class MainDialogue : CommonBotDialogue
         // Get/set state
         var convoState = await GetConvoStateAsync(stepContext.Context);
         var userMessage = stepContext.Context.Activity.Text;
+        var aadObjectId = stepContext.Context.Activity?.From?.AadObjectId;
 
         // Check if Copilot Connected mode is enabled for AI follow-up
         if (_aiFoundryService != null && !string.IsNullOrEmpty(userMessage))
@@ -58,14 +59,49 @@ public class MainDialogue : CommonBotDialogue
             {
                 _logger.LogInformation($"Processing follow-up chat via AI Foundry: {userMessage.Substring(0, Math.Min(50, userMessage.Length))}...");
 
-                // Build conversation history from state
-                var conversationHistory = convoState.ConversationHistory ?? new List<(string role, string message)>();
+                // The dialogue/UserState live in MemoryStorage and are wiped on app restart
+                // or scale-out. Both the card JSON and the conversation history are
+                // mirrored to BotConversationCache (table-backed) so AI follow-up keeps
+                // context after a restart.
+                var lastCardJson = convoState.LastCardSent?.CardJson;
+                var conversationHistory = convoState.ConversationHistory;
+
+                if ((string.IsNullOrEmpty(lastCardJson) || conversationHistory == null)
+                    && !string.IsNullOrWhiteSpace(aadObjectId))
+                {
+                    await _botConversationCache.PopulateMemCacheIfEmpty();
+                    var persisted = _botConversationCache.GetCachedUser(aadObjectId);
+                    if (persisted != null)
+                    {
+                        if (string.IsNullOrEmpty(lastCardJson) && !string.IsNullOrEmpty(persisted.LastCardJson))
+                        {
+                            lastCardJson = persisted.LastCardJson;
+                            convoState.LastCardSent = new LastCardInfo
+                            {
+                                TemplateName = persisted.LastCardTemplateName,
+                                TemplateId = persisted.LastCardTemplateId,
+                                CardJson = persisted.LastCardJson,
+                                SentDate = persisted.LastCardSentUtc
+                            };
+                            _logger.LogDebug("Rehydrated LastCardSent for {AadObjectId} from BotConversationCache", aadObjectId);
+                        }
+
+                        if (conversationHistory == null && !string.IsNullOrEmpty(persisted.ConversationHistoryJson))
+                        {
+                            conversationHistory = ConversationHistoryCodec.Deserialize(persisted.ConversationHistoryJson);
+                            convoState.ConversationHistory = conversationHistory;
+                            _logger.LogDebug("Rehydrated ConversationHistory ({Count} entries) for {AadObjectId} from BotConversationCache", conversationHistory.Count, aadObjectId);
+                        }
+                    }
+                }
+
+                conversationHistory ??= new List<(string role, string message)>();
 
                 // Get AI response
                 var aiResponse = await _aiFoundryService.HandleFollowUpChatAsync(
-                    stepContext.Context.Activity.From.Id,
+                    stepContext.Context.Activity?.From?.Id ?? string.Empty,
                     userMessage,
-                    convoState.LastCardSent?.CardJson,
+                    lastCardJson,
                     conversationHistory
                 );
 
@@ -87,6 +123,20 @@ public class MainDialogue : CommonBotDialogue
                 {
                     // Clear conversation history on natural end
                     convoState.ConversationHistory = null;
+                }
+
+                // Persist the (possibly cleared) history to table storage so it survives
+                // restart / scale-out. UserState alone (MemoryStorage) is volatile.
+                if (!string.IsNullOrWhiteSpace(aadObjectId))
+                {
+                    try
+                    {
+                        await _botConversationCache.SetConversationHistoryAsync(aadObjectId, convoState.ConversationHistory);
+                    }
+                    catch (Exception persistEx)
+                    {
+                        _logger.LogWarning(persistEx, "Failed to persist conversation history for {AadObjectId}", aadObjectId);
+                    }
                 }
 
                 return await stepContext.EndDialogAsync();
