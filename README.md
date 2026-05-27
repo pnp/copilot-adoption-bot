@@ -10,7 +10,7 @@ A Teams bot that sends beautifully designed adaptive cards with Copilot tips, pr
 
 ## Why This Bot?
 
-Traditional training emails get ignored. Long training sessions are forgotten. **Copilot Adoption Bot meets users where they work** right in Microsoft Teams with bite-sized, actionable guidance at the perfect moment.
+Email training campaigns get ignored and classroom training fades fast. **Copilot Adoption Bot solves the *last-mile* of Copilot rollout** by delivering bite-sized, contextual prompts and tips inside Microsoft Teams the place users already are with delivery tracking, targeting, and scheduling that traditional comms can't offer. The goal is to convert Copilot *licenses* into measurable Copilot *usage* and ROI.
 
 | Traditional Email | Copilot Adoption Bot |
 |------------------|------------------|
@@ -19,6 +19,21 @@ Traditional training emails get ignored. Long training sessions are forgotten. *
 | No engagement tracking | Full delivery and interaction logging |
 | One-size-fits-all | Targeted to specific users or groups |
 | Manual sending | Scheduled and automated delivery |
+
+**Who it's for:** IT departments, change managers, and M365 adoption specialists rolling out Copilot to their organisation.
+
+---
+
+## How It Works
+
+At a glance, the solution is composed of:
+
+- **Teams bot + admin API** A single ASP.NET Core app (`Web.Server`, .NET 10) hosts both the Bot Framework messaging endpoint (`/api/messages`) and the management API consumed by the React UI.
+- **Admin UI** A React + Vite + Fluent UI app (`web.client`) where IT/adoption teams author Adaptive Card templates, pick recipients, schedule sends, and review delivery logs.
+- **Core engine** `Common.Engine` holds the business logic: template management, batch orchestration, message sending, Microsoft Graph sync, smart groups, and Copilot usage statistics.
+- **Storage** Azure **Table + Blob + Queue Storage only** no SQL database. Tables hold templates, batches, logs, the user cache and smart groups; a `batch-messages` queue drives a background worker (`BatchMessageProcessorService`) that fans out proactive sends with bounded parallelism.
+- **Microsoft Graph integration** Syncs users via delta queries, optionally pulls per-user Copilot usage reports, installs the Teams app for target users, and sends proactive 1:1 messages on their behalf.
+- **Smart Groups (optional)** AI Foundry-powered dynamic targeting (e.g. "users who haven't tried Copilot in Excel this month") so campaigns reach exactly the right audience.
 
 ---
 
@@ -73,6 +88,7 @@ Traditional training emails get ignored. Long training sessions are forgotten. *
 | **[Setup Guide](docs/SETUP.md)** | Teams bot setup and Graph permissions |
 | **[Development Guide](docs/DEVELOPMENT.md)** | Local development environment and tunneling |
 | **[Configuration Reference](docs/CONFIGURATION.md)** | Complete configuration options reference |
+| **[User Guide](docs/USER-GUIDE.md)** | Illustrated walkthrough of the admin UI and Teams experience |
 | **[Usage Guide](docs/USAGE.md)** | How to create templates and send messages |
 | **[Features Guide](docs/FEATURES.md)** | Detailed feature documentation |
 | **[Deployment Guide](docs/DEPLOYMENT.md)** | Azure deployment and CI/CD pipelines |
