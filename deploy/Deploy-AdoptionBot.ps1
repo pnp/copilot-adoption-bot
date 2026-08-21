@@ -231,6 +231,37 @@ if (-not $SkipCodeDeploy) {
     if (-not (Get-Command npm -ErrorAction SilentlyContinue))    { Fail 'npm not found (needed for the React client).' }
 
     $clientPath = Join-Path $repoRoot 'src/Full/Bot/Web/web.client'
+
+    # Vite inlines VITE_* values at BUILD time, so they must exist before `npm run build`.
+    # Without this the admin UI ships with no MSAL configuration and sign-in silently fails -
+    # the app looks deployed and healthy but nobody can log in.
+    $msalClientId = if ($config.frontend.msalClientId) { $config.frontend.msalClientId }
+                    elseif ($config.webAuth.enabled -and $config.webAuth.clientId) { $config.webAuth.clientId }
+                    else { $graphClientId }
+
+    $msalTenantId = if ($config.webAuth.enabled -and $config.webAuth.tenantId) { $config.webAuth.tenantId } else { $graphTenantId }
+
+    $msalAuthority = if ($config.frontend.msalAuthority -and $config.frontend.msalAuthority -notmatch '<') {
+                         $config.frontend.msalAuthority
+                     } else { "https://login.microsoftonline.com/$msalTenantId" }
+
+    $msalScopes = if ($config.frontend.msalScopes -and $config.frontend.msalScopes -notmatch '<') {
+                      $config.frontend.msalScopes
+                  } else { "api://$msalClientId/access_as_user" }
+
+    $startLoginUrl = if ($config.frontend.teamsfxStartLoginPageUrl -and $config.frontend.teamsfxStartLoginPageUrl -notmatch '<') {
+                         $config.frontend.teamsfxStartLoginPageUrl
+                     } else { "https://$appServiceName.azurewebsites.net/auth-start" }
+
+    $envPath = Join-Path $clientPath '.env.local'
+    @(
+        "VITE_MSAL_CLIENT_ID=$msalClientId"
+        "VITE_MSAL_AUTHORITY=$msalAuthority"
+        "VITE_MSAL_SCOPES=$msalScopes"
+        "VITE_TEAMSFX_START_LOGIN_PAGE_URL=$startLoginUrl"
+    ) | Set-Content $envPath -Encoding utf8
+    Write-Ok "Wrote frontend config (.env.local)"
+
     Push-Location $clientPath
     try {
         npm ci
@@ -275,11 +306,20 @@ Write-Host "  Admin UI          : https://$hostName" -ForegroundColor White
 Write-Host "  Messaging endpoint: $messaging" -ForegroundColor White
 Write-Host ""
 Write-Host "  Remaining manual steps:" -ForegroundColor Yellow
-Write-Host "   1. Set the bot messaging endpoint in the Teams Developer Portal to:"
+Write-Host "   1. Register the bot in the Teams Developer Portal (Tools > Bot management)."
+Write-Host "      This deployment creates a web app, not a bot - Teams only routes messages"
+Write-Host "      to a registered bot. Attach your existing app registration, or create a new"
+Write-Host "      bot there and update the config with its id/secret."
+Write-Host "   2. Set that bot's messaging endpoint to:"
 Write-Host "        $messaging"
-Write-Host "      (there is no public API for this - see docs/SETUP.md)"
-Write-Host "   2. Grant admin consent for the Graph permissions listed in docs/SETUP.md"
-Write-Host "   3. Upload the Teams app package"
+Write-Host "   3. Ensure the WebAuthConfig app registration exposes an 'access_as_user' scope,"
+Write-Host "      has Application ID URI api://<clientId>, and lists"
+Write-Host "        https://$hostName"
+Write-Host "      as an SPA redirect URI - otherwise admin UI sign-in fails."
+Write-Host "   4. Grant admin consent for the Graph permissions (docs/SETUP.md)."
+Write-Host "   5. Upload the Teams app package, then set AppCatalogTeamAppId. Without it the"
+Write-Host "      bot cannot install itself for users who have never messaged it."
 Write-Host ""
+Write-Host "  See docs/DEPLOYMENT-BICEP.md for the full checklist." -ForegroundColor DarkGray
 Write-Host "  Storage tables, blob containers and queues are created by the app on first run." -ForegroundColor DarkGray
 Write-Host "  Note: AlwaysOn is not set by this template - see docs/SCALING.md section 7." -ForegroundColor DarkGray

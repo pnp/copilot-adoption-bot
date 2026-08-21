@@ -91,15 +91,79 @@ which handles routine code deployments and assumes the resources already exist.
 
 ## After deployment
 
-Three steps cannot be automated:
+The template provisions Azure resources and configures the app. It does **not** create Entra
+app registrations or register the bot with Teams — those need admin consent and portal steps
+with no public API.
 
-1. **Set the bot messaging endpoint** to `https://<appService>.azurewebsites.net/api/messages`
-   in the [Teams Developer Portal](https://dev.teams.microsoft.com/). There is no public API
-   for this.
-2. **Grant admin consent** for the Graph permissions in [Setup Guide](SETUP.md).
-3. **Upload the Teams app package.**
+Work through these in order. **Until steps 1–2 are done the bot cannot send or receive
+anything in Teams, and until step 3 is done nobody can sign in to the admin UI** — even though
+`/health` returns `Healthy` and the site loads.
 
-Both entry points print the messaging endpoint when they finish.
+### 1. Register the bot in the Teams Developer Portal
+
+The deployment gives you a *web app*, not a *bot*. Teams only routes messages to bots
+registered in [Teams Developer Portal](https://dev.teams.microsoft.com/) → **Tools** →
+**Bot management**.
+
+Either:
+
+- **Create a new bot** there and use the app registration it generates — then update
+  `bot.appId` / `bot.appPassword` in your config and redeploy, or
+- **Attach an existing app registration** (the one referenced in your config) to a new bot.
+
+See [Setup Guide §1](SETUP.md#1-create-a-bot-in-teams-developer-portal).
+
+### 2. Set the messaging endpoint
+
+In the same bot's settings, set the endpoint to:
+
+```
+https://<appServiceName>.azurewebsites.net/api/messages
+```
+
+Both deployment entry points print this URL when they finish.
+
+### 3. Configure the app registration for the admin UI
+
+The backend validates admin-UI tokens using `WebAuthConfig`. Whichever registration that
+points at (by default the bot's) **must** have:
+
+| Requirement | Value |
+|---|---|
+| Application ID URI | `api://<clientId>` |
+| Delegated scope | `access_as_user` |
+| SPA redirect URIs | `https://<appServiceName>.azurewebsites.net` and `https://localhost:5173` for local dev |
+
+Without the scope, the SPA requests a token that cannot be issued and sign-in fails with no
+useful error. See [Setup Guide §Web Authentication Setup](SETUP.md#web-authentication-setup).
+
+> The deploy script writes `.env.local` (`VITE_MSAL_CLIENT_ID`, `VITE_MSAL_AUTHORITY`,
+> `VITE_MSAL_SCOPES`, `VITE_TEAMSFX_START_LOGIN_PAGE_URL`) **before** the frontend build,
+> because Vite inlines those values at build time. If you build the client by hand, do the
+> same — otherwise the UI ships with no MSAL configuration.
+
+### 4. Grant admin consent for Graph
+
+Application permissions: `User.Read.All`, `TeamsActivity.Send`,
+`TeamsAppInstallation.ReadWriteForUser.All`, and `Reports.Read.All` (optional, for Copilot
+usage statistics). See [Setup Guide §2](SETUP.md#2-configure-graph-permissions-for-the-bots-entra-id-app).
+
+### 5. Build and upload the Teams app package
+
+Then set `AppCatalogTeamAppId` on the App Service. **Leave it unset and the bot cannot install
+itself for users who have never messaged it** — those nudges will not be delivered. See
+[Setup Guide §Teams App Deployment](SETUP.md#teams-app-deployment).
+
+---
+
+## Automated vs manual, at a glance
+
+| | |
+|---|---|
+| ✅ Automated | App Service Plan, App Service (64-bit, health check, HTTPS-only, MSI), storage (RBAC, shared keys off), App Insights, the three storage role assignments, all app settings, frontend `.env.local`, code build and publish |
+| ❌ Manual | Entra app registrations, Teams Developer Portal bot, messaging endpoint, `access_as_user` scope and SPA redirect URIs, admin consent, Teams app package, `AppCatalogTeamAppId` |
+
+Storage tables, blob containers and queues are created by the application on first run.
 
 ---
 
