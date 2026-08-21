@@ -92,7 +92,9 @@ public class AzureTableCacheStorage : ICacheStorage
             ManagerDisplayName = user.ManagerDisplayName
         };
 
-        await tableClient.UpsertEntityAsync(cachedUser, TableUpdateMode.Replace);
+        // Merge for the same reason as UpsertUsersAsync: this projection does not carry the
+        // Copilot activity columns, and Replace would delete them.
+        await tableClient.UpsertEntityAsync(cachedUser, TableUpdateMode.Merge);
     }
 
     public async Task UpsertUsersAsync(IEnumerable<EnrichedUserInfo> users)
@@ -127,9 +129,12 @@ public class AzureTableCacheStorage : ICacheStorage
 
         if (entities.Count == 0) return;
 
-        // All users share the same partition key, so we can use transactional batches.
+        // Merge, not Replace: this projection deliberately omits the Copilot activity columns
+        // (they're owned by the stats refresh, not by directory sync). Replace semantics drop
+        // any property the entity doesn't carry, so a Replace here silently erased every
+        // user's Copilot usage data on each delta sync - and all 150k on each full sync.
         var ops = entities.Select(e =>
-            new TableTransactionAction(TableTransactionActionType.UpsertReplace, e));
+            new TableTransactionAction(TableTransactionActionType.UpsertMerge, e));
         try
         {
             await TableBatch.SubmitInBatchesAsync(tableClient, ops);
@@ -141,7 +146,7 @@ public class AzureTableCacheStorage : ICacheStorage
             {
                 try
                 {
-                    await tableClient.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+                    await tableClient.UpsertEntityAsync(entity, TableUpdateMode.Merge);
                 }
                 catch (Exception innerEx)
                 {
@@ -191,89 +196,104 @@ public class AzureTableCacheStorage : ICacheStorage
         return users.Count;
     }
 
+    /// <summary>
+    /// Apply Copilot usage stats to cached users.
+    ///
+    /// <para>
+    /// Uses batched sparse merges: no read-before-write, and only the stats columns are sent.
+    /// The previous implementation did a GetEntity + full Replace per user - 300,000
+    /// serialized round trips for a 150,000-user tenant, roughly 50-100 minutes single
+    /// threaded, on a worker that is unloaded when idle.
+    /// </para>
+    /// </summary>
     public async Task<int> UpdateUsersWithCopilotStatsAsync(Dictionary<string, CopilotUserStats> stats)
     {
+        if (stats.Count == 0) return 0;
+
         var tableClient = await _storageManager.GetTableClient(_userCacheTableName);
-        var updateCount = 0;
+        var now = DateTime.UtcNow;
 
-        foreach (var (upn, userStats) in stats)
-        {
-            try
+        var ops = stats.Select(kv => new TableTransactionAction(
+            TableTransactionActionType.UpsertMerge,
+            new TableEntity(UserCacheTableEntity.PartitionKeyVal, kv.Key)
             {
-                var response = await tableClient.GetEntityAsync<UserCacheTableEntity>(
-                    UserCacheTableEntity.PartitionKeyVal,
-                    upn);
+                { nameof(UserCacheTableEntity.CopilotLastActivityDate), kv.Value.LastActivityDate },
+                { nameof(UserCacheTableEntity.CopilotChatLastActivityDate), kv.Value.CopilotChatLastActivityDate },
+                { nameof(UserCacheTableEntity.TeamscopilotLastActivityDate), kv.Value.TeamsCopilotLastActivityDate },
+                { nameof(UserCacheTableEntity.WordCopilotLastActivityDate), kv.Value.WordCopilotLastActivityDate },
+                { nameof(UserCacheTableEntity.ExcelCopilotLastActivityDate), kv.Value.ExcelCopilotLastActivityDate },
+                { nameof(UserCacheTableEntity.PowerPointCopilotLastActivityDate), kv.Value.PowerPointCopilotLastActivityDate },
+                { nameof(UserCacheTableEntity.OutlookCopilotLastActivityDate), kv.Value.OutlookCopilotLastActivityDate },
+                { nameof(UserCacheTableEntity.OneNoteCopilotLastActivityDate), kv.Value.OneNoteCopilotLastActivityDate },
+                { nameof(UserCacheTableEntity.LoopCopilotLastActivityDate), kv.Value.LoopCopilotLastActivityDate },
+                { nameof(UserCacheTableEntity.LastCopilotStatsUpdate), now },
+            }));
 
-                if (response.Value != null && !response.Value.IsDeleted)
-                {
-                    var user = response.Value;
-
-                    // Update Copilot stats
-                    user.CopilotLastActivityDate = userStats.LastActivityDate;
-                    user.CopilotChatLastActivityDate = userStats.CopilotChatLastActivityDate;
-                    user.TeamscopilotLastActivityDate = userStats.TeamsCopilotLastActivityDate;
-                    user.WordCopilotLastActivityDate = userStats.WordCopilotLastActivityDate;
-                    user.ExcelCopilotLastActivityDate = userStats.ExcelCopilotLastActivityDate;
-                    user.PowerPointCopilotLastActivityDate = userStats.PowerPointCopilotLastActivityDate;
-                    user.OutlookCopilotLastActivityDate = userStats.OutlookCopilotLastActivityDate;
-                    user.OneNoteCopilotLastActivityDate = userStats.OneNoteCopilotLastActivityDate;
-                    user.LoopCopilotLastActivityDate = userStats.LoopCopilotLastActivityDate;
-                    user.LastCopilotStatsUpdate = DateTime.UtcNow;
-
-                    await tableClient.UpdateEntityAsync(user, user.ETag, TableUpdateMode.Replace);
-                    updateCount++;
-                }
-            }
-            catch (Azure.RequestFailedException ex) when (ex.Status == 404)
-            {
-                _logger.LogDebug($"User {upn} not found in cache, skipping Copilot stats update");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, $"Failed to update Copilot stats for user {upn}");
-            }
-        }
+        var failures = await SubmitMergesAsync(tableClient, ops, "Copilot stats");
+        var updateCount = stats.Count - failures;
 
         _logger.LogInformation($"Updated Copilot stats for {updateCount} of {stats.Count} users");
         return updateCount;
     }
 
+    /// <summary>
+    /// Apply Copilot license state to cached users, using the same batched sparse merge.
+    /// </summary>
     public async Task<int> UpdateUsersWithLicenseInfoAsync(Dictionary<string, bool> licenseInfo)
     {
+        if (licenseInfo.Count == 0) return 0;
+
         var tableClient = await _storageManager.GetTableClient(_userCacheTableName);
-        var updateCount = 0;
 
-        foreach (var (upn, hasCopilotLicense) in licenseInfo)
-        {
-            try
+        var ops = licenseInfo.Select(kv => new TableTransactionAction(
+            TableTransactionActionType.UpsertMerge,
+            new TableEntity(UserCacheTableEntity.PartitionKeyVal, kv.Key)
             {
-                var response = await tableClient.GetEntityAsync<UserCacheTableEntity>(
-                    UserCacheTableEntity.PartitionKeyVal,
-                    upn);
+                { nameof(UserCacheTableEntity.HasCopilotLicense), kv.Value },
+            }));
 
-                if (response.Value != null && !response.Value.IsDeleted)
-                {
-                    var user = response.Value;
-
-                    // Update license info
-                    user.HasCopilotLicense = hasCopilotLicense;
-
-                    await tableClient.UpdateEntityAsync(user, user.ETag, TableUpdateMode.Replace);
-                    updateCount++;
-                }
-            }
-            catch (Azure.RequestFailedException ex) when (ex.Status == 404)
-            {
-                _logger.LogDebug($"User {upn} not found in cache, skipping license info update");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, $"Failed to update license info for user {upn}");
-            }
-        }
+        var failures = await SubmitMergesAsync(tableClient, ops, "license info");
+        var updateCount = licenseInfo.Count - failures;
 
         _logger.LogInformation($"Updated license info for {updateCount} of {licenseInfo.Count} users");
         return updateCount;
+    }
+
+    /// <summary>
+    /// Submit merge operations in transactional batches, falling back to per-entity writes
+    /// only for the chunk that failed.
+    /// </summary>
+    private async Task<int> SubmitMergesAsync(
+        TableClient tableClient, IEnumerable<TableTransactionAction> ops, string what)
+    {
+        var failures = 0;
+
+        foreach (var chunk in TableBatch.Chunk(ops))
+        {
+            try
+            {
+                await tableClient.SubmitTransactionAsync(chunk);
+            }
+            catch (Azure.RequestFailedException ex)
+            {
+                _logger.LogWarning(ex, "Batched {What} merge failed; retrying that chunk per entity", what);
+
+                foreach (var op in chunk)
+                {
+                    try
+                    {
+                        await tableClient.UpsertEntityAsync(op.Entity, TableUpdateMode.Merge);
+                    }
+                    catch (Exception innerEx)
+                    {
+                        failures++;
+                        _logger.LogWarning(innerEx, "Failed to update {What} for {Upn}", what, op.Entity.RowKey);
+                    }
+                }
+            }
+        }
+
+        return failures;
     }
 
     public async Task<CacheSyncMetadata> GetSyncMetadataAsync()

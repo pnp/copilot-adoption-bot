@@ -40,6 +40,21 @@ public class CachedUserServiceTests
     }
 
     [TestMethod]
+    public async Task GetAllUsersWithMetadataAsync_DefaultsToUnbounded()
+    {
+        // Regression guard: the default used to be 999, which silently truncated every
+        // caller that didn't pass a value - including smart-group resolution, so groups
+        // were matched against only the first 999 users in the tenant.
+        var users = Enumerable.Range(0, 1500).Select(i => MakeUser($"u{i}@contoso.com")).ToArray();
+        var cache = new FakeUserCacheManager(users);
+        var service = new CachedUserService(cache, new FakeExternalUserService(), NullLogger<CachedUserService>.Instance);
+
+        var result = await service.GetAllUsersWithMetadataAsync();
+
+        Assert.AreEqual(1500, result.Count, "The default must not truncate the directory");
+    }
+
+    [TestMethod]
     public async Task GetAllUsersWithMetadataAsync_PassesForceRefreshThroughToCacheManager()
     {
         var cache = new FakeUserCacheManager(new[] { MakeUser("a@contoso.com") });

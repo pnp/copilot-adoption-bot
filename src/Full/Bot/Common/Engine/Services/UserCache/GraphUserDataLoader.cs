@@ -34,7 +34,25 @@ public class GraphUserDataLoader : IUserDataLoader
         "employeeType",
         "employeeHireDate",
         "accountEnabled",
-        "userType"
+        "userType",
+        // Selected in bulk so license state arrives with the user. Fetching it per user via
+        // /users/{id}/licenseDetails was 150,000 extra Graph calls per refresh cycle.
+        "assignedLicenses"
+    ];
+
+    /// <summary>
+    /// Graph returns ~100 users per page by default. Asking for the maximum turns a
+    /// 150,000-user enumeration from ~1,000 sequential round trips into ~150.
+    /// </summary>
+    private const string MaxPageSizePreference = "odata.maxpagesize=999";
+
+    /// <summary>
+    /// Microsoft 365 Copilot SKU id. Used to derive <c>HasCopilotLicense</c> from the
+    /// bulk-selected <c>assignedLicenses</c> collection.
+    /// </summary>
+    private static readonly Guid[] CopilotSkuIds =
+    [
+        Guid.Parse("639dec6b-bb19-468b-871c-c5c441c4b0cb") // Microsoft 365 Copilot
     ];
 
     public GraphUserDataLoader(
@@ -59,6 +77,7 @@ public class GraphUserDataLoader : IUserDataLoader
         var deltaRequest = await _graphClient.Users.Delta.GetAsDeltaGetResponseAsync(requestConfiguration =>
         {
             requestConfiguration.QueryParameters.Select = UserSelectProperties;
+            requestConfiguration.Headers.Add("Prefer", MaxPageSizePreference);
         });
 
         // Collect first page
@@ -174,21 +193,30 @@ public class GraphUserDataLoader : IUserDataLoader
         return stats;
     }
 
+    /// <summary>
+    /// Fetch Copilot licence state for every user.
+    ///
+    /// <para>
+    /// Derived from the bulk-selectable <c>assignedLicenses</c> property during a single
+    /// paged enumeration. The previous implementation enumerated all users and then issued
+    /// one <c>GET /users/{id}/licenseDetails</c> per user - 150,000 additional Graph calls
+    /// per refresh cycle at target scale, on top of a second full directory enumeration.
+    /// </para>
+    /// </summary>
     public async Task<Dictionary<string, bool>> GetLicenseInfoAsync()
     {
         _logger.LogInformation("Fetching license information from Microsoft Graph...");
 
-        var licenseInfo = new Dictionary<string, bool>();
-        const string copilotSkuId = "Microsoft_365_Copilot";
+        var licenseInfo = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         try
         {
-            // Get all users first
             var usersResult = await _graphClient.Users.GetAsync(requestConfiguration =>
             {
-                requestConfiguration.QueryParameters.Select = new[] { "id", "userPrincipalName" };
+                requestConfiguration.QueryParameters.Select = new[] { "id", "userPrincipalName", "assignedLicenses" };
                 requestConfiguration.QueryParameters.Filter = "accountEnabled eq true and userType eq 'Member'";
                 requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
+                requestConfiguration.Headers.Add("Prefer", MaxPageSizePreference);
             });
 
             if (usersResult?.Value == null)
@@ -196,8 +224,6 @@ public class GraphUserDataLoader : IUserDataLoader
                 _logger.LogWarning("No users found when fetching license info");
                 return licenseInfo;
             }
-
-            var users = new List<User>();
 
             // PageIterator iterates ALL items (including the first page already loaded into
             // usersResult), so don't pre-populate from usersResult.Value or the first page
@@ -207,52 +233,14 @@ public class GraphUserDataLoader : IUserDataLoader
                 usersResult,
                 user =>
                 {
-                    users.Add(user);
+                    if (!string.IsNullOrEmpty(user.UserPrincipalName))
+                    {
+                        licenseInfo[user.UserPrincipalName] = HasCopilotLicense(user);
+                    }
                     return true;
                 });
 
             await pageIterator.IterateAsync();
-
-            _logger.LogInformation($"Checking license info for {users.Count} users...");
-
-            // Bound parallelism so we don't trigger Graph throttling (HTTP 429) on large tenants.
-            // Replace the manual lock + plain dictionary with a thread-safe one.
-            const int maxParallelism = 16;
-            using var throttler = new SemaphoreSlim(maxParallelism);
-            var concurrentLicenseInfo = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>();
-
-            var tasks = users.Select(async user =>
-            {
-                await throttler.WaitAsync();
-                try
-                {
-                    var licenses = await _graphClient.Users[user.Id].LicenseDetails.GetAsync();
-
-                    var hasCopilot = licenses?.Value?.Any(license =>
-                        license.SkuPartNumber?.Equals(copilotSkuId, StringComparison.OrdinalIgnoreCase) == true) ?? false;
-
-                    if (!string.IsNullOrEmpty(user.UserPrincipalName))
-                    {
-                        concurrentLicenseInfo[user.UserPrincipalName] = hasCopilot;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug($"Could not retrieve license info for user {user.UserPrincipalName}: {ex.Message}");
-                    // Continue without license info for this user
-                }
-                finally
-                {
-                    throttler.Release();
-                }
-            });
-
-            await Task.WhenAll(tasks);
-
-            foreach (var kvp in concurrentLicenseInfo)
-            {
-                licenseInfo[kvp.Key] = kvp.Value;
-            }
 
             var usersWithCopilot = licenseInfo.Count(kvp => kvp.Value);
             _logger.LogInformation($"License info retrieved for {licenseInfo.Count} users. {usersWithCopilot} have Copilot licenses");
@@ -286,7 +274,28 @@ public class GraphUserDataLoader : IUserDataLoader
             CompanyName = user.CompanyName,
             EmployeeType = user.EmployeeType,
             HireDate = user.EmployeeHireDate,
+            HasCopilotLicense = HasCopilotLicense(user),
             IsDeleted = isDeleted
         };
+    }
+
+    /// <summary>
+    /// Derive Copilot licensing from the bulk-selected <c>assignedLicenses</c> collection,
+    /// avoiding a per-user <c>/licenseDetails</c> request.
+    /// </summary>
+    internal static bool HasCopilotLicense(User user)
+    {
+        var assigned = user.AssignedLicenses;
+        if (assigned == null || assigned.Count == 0) return false;
+
+        foreach (var license in assigned)
+        {
+            if (license.SkuId is { } skuId && Array.IndexOf(CopilotSkuIds, skuId) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
