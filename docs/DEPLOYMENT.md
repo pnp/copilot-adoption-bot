@@ -71,7 +71,8 @@ Storage Account
 ├── Blob Storage
 │   └── message-templates      (container for adaptive-card JSON payloads)
 └── Queue Storage
-    └── batch-messages         (queue used by the background sender)
+    ├── batch-messages         (queue used by the background sender)
+    └── batch-control          (batch-expansion instructions)
 ```
 
 > **Note**: All containers, tables and queues are automatically created by the application on first run.

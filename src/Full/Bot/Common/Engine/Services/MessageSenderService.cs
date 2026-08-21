@@ -32,6 +32,21 @@ public enum SendDisposition
 }
 
 /// <summary>
+/// Whether the dispatcher may send for a given batch right now.
+/// </summary>
+public enum BatchGate
+{
+    /// <summary>Proceed with the send.</summary>
+    Send,
+
+    /// <summary>Batch is paused or not yet due; leave the message queued.</summary>
+    Defer,
+
+    /// <summary>Batch is cancelled or gone; discard the message.</summary>
+    Drop
+}
+
+/// <summary>
 /// Service responsible for sending messages to recipients.
 /// </summary>
 public class MessageSenderService(
@@ -39,6 +54,16 @@ public class MessageSenderService(
     IMessageLogStatusWriter messageLogStatusWriter,
     ILogger<MessageSenderService> logger)
 {
+    /// <summary>
+    /// How long a batch's lifecycle state is trusted before re-reading it. Short enough that a
+    /// cancel takes effect within seconds, long enough that a 150,000-message drain doesn't read
+    /// the batch row once per delivery.
+    /// </summary>
+    private static readonly TimeSpan GateCacheTtl = TimeSpan.FromSeconds(10);
+
+    private static readonly BoundedCache<string, (BatchGate Gate, DateTime Expires)> _gateCache =
+        new(1_000, StringComparer.Ordinal);
+
     /// <summary>
     /// Send the delivery identified by the queue message.
     ///
@@ -144,6 +169,53 @@ public class MessageSenderService(
     /// </summary>
     public Task FlushBatchCountersAsync(string batchId, int sentDelta, int failedDelta) =>
         messageLogStatusWriter.IncrementBatchCountersAsync(batchId, sentDelta, failedDelta);
+
+    /// <summary>
+    /// Decide whether the dispatcher may send for this batch right now, honouring cancellation,
+    /// pausing and scheduled start time. Cached briefly so a 150,000-message drain doesn't read
+    /// the batch row once per delivery.
+    /// </summary>
+    public async Task<BatchGate> GetBatchGateAsync(string batchId)
+    {
+        if (_gateCache.TryGet(batchId, out var cached) && cached.Expires > DateTime.UtcNow)
+        {
+            return cached.Gate;
+        }
+
+        var gate = await ResolveBatchGateAsync(batchId);
+        _gateCache.Set(batchId, (gate, DateTime.UtcNow.Add(GateCacheTtl)));
+        return gate;
+    }
+
+    private async Task<BatchGate> ResolveBatchGateAsync(string batchId)
+    {
+        try
+        {
+            var batch = await messageLogStatusWriter.GetBatchAsync(batchId);
+
+            // A missing batch means it was deleted; dropping is correct, and notably better
+            // than the old behaviour where the queued messages still fired and each recipient
+            // received an unsolicited "you have no pending messages" card.
+            if (batch == null) return BatchGate.Drop;
+
+            if (string.Equals(batch.Status, BatchStatus.Cancelled, StringComparison.OrdinalIgnoreCase))
+                return BatchGate.Drop;
+
+            if (string.Equals(batch.Status, BatchStatus.Paused, StringComparison.OrdinalIgnoreCase))
+                return BatchGate.Defer;
+
+            if (batch.ScheduledSendUtc.HasValue && batch.ScheduledSendUtc.Value > DateTime.UtcNow)
+                return BatchGate.Defer;
+
+            return BatchGate.Send;
+        }
+        catch (Exception ex)
+        {
+            // Never block delivery on a diagnostic read.
+            logger.LogWarning(ex, "Could not read batch state for {BatchId}; proceeding with send", batchId);
+            return BatchGate.Send;
+        }
+    }
 }
 
 /// <summary>
@@ -161,4 +233,10 @@ public class MessageSendResult
     public string RecipientUpn { get; set; } = null!;
     public string BatchId { get; set; } = null!;
     public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Server-supplied backoff from a throttling response, used to slow the shared send rate
+    /// limiter rather than having each caller rediscover the limit independently.
+    /// </summary>
+    public TimeSpan? RetryAfter { get; set; }
 }

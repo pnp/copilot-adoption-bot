@@ -105,6 +105,53 @@ public class MessageBatchTableEntity : ITableEntity
     /// UTC timestamp of the last counter update, so operators can spot a stalled batch.
     /// </summary>
     public DateTime? LastProgressUtc { get; set; }
+
+    /// <summary>
+    /// Lifecycle state: Queued, Expanding, Running, Paused, Cancelled or Complete.
+    /// The dispatcher checks this before each send, which is what makes an in-flight batch
+    /// stoppable - previously 150,000 queued messages could not be recalled at all.
+    /// </summary>
+    public string Status { get; set; } = BatchStatus.Queued;
+
+    /// <summary>
+    /// Earliest UTC time this batch may start sending. Null means send immediately.
+    /// </summary>
+    public DateTime? ScheduledSendUtc { get; set; }
+
+    /// <summary>
+    /// How far recipient expansion has progressed, so an interrupted expansion resumes rather
+    /// than restarting. Necessary because the worker is unloaded whenever it goes idle.
+    /// </summary>
+    public int ExpandedCount { get; set; }
+}
+
+/// <summary>
+/// Batch lifecycle states.
+/// </summary>
+public static class BatchStatus
+{
+    /// <summary>Accepted, waiting for recipient expansion to begin.</summary>
+    public const string Queued = "Queued";
+
+    /// <summary>Recipients are being resolved and enqueued.</summary>
+    public const string Expanding = "Expanding";
+
+    /// <summary>Expansion complete; deliveries are being dispatched.</summary>
+    public const string Running = "Running";
+
+    /// <summary>Temporarily halted by an operator; queued messages are skipped.</summary>
+    public const string Paused = "Paused";
+
+    /// <summary>Stopped by an operator; remaining deliveries are dropped.</summary>
+    public const string Cancelled = "Cancelled";
+
+    /// <summary>All deliveries reached a terminal state.</summary>
+    public const string Complete = "Complete";
+
+    /// <summary>States in which the dispatcher must not send.</summary>
+    public static bool IsStopped(string? status) =>
+        string.Equals(status, Cancelled, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, Paused, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>

@@ -39,4 +39,11 @@ public class FakeMessageLogStatusWriter : IMessageLogStatusWriter
         CounterUpdates.Add(new CounterUpdate(batchId, sentDelta, failedDelta));
         return Task.CompletedTask;
     }
+
+    /// <summary>Batch returned by <see cref="GetBatchAsync"/>; null means "batch deleted".</summary>
+    public Engine.Storage.MessageBatchTableEntity? Batch { get; set; } =
+        new() { RowKey = "batch-1", BatchName = "b", TemplateId = "t", SenderUpn = "s", Status = Engine.Storage.BatchStatus.Running };
+
+    public Task<Engine.Storage.MessageBatchTableEntity?> GetBatchAsync(string batchId) =>
+        Task.FromResult(Batch);
 }

@@ -146,4 +146,75 @@ public class MessageSenderServiceTests
         // Alice@... and alice@... are one delivery, not two.
         Assert.AreEqual("alice@contoso.com", writer.Updates.Single().RowKey);
     }
+
+    [TestMethod]
+    public async Task GetBatchGateAsync_CancelledBatch_Drops()
+    {
+        var writer = new FakeMessageLogStatusWriter
+        {
+            Batch = new Engine.Storage.MessageBatchTableEntity
+            {
+                RowKey = "cancelled-batch",
+                BatchName = "b", TemplateId = "t", SenderUpn = "s",
+                Status = Engine.Storage.BatchStatus.Cancelled
+            }
+        };
+
+        var gate = await CreateService(new FakeBotConvoResumeManager(), writer)
+            .GetBatchGateAsync("cancelled-batch");
+
+        Assert.AreEqual(BatchGate.Drop, gate, "A cancelled batch must stop sending");
+    }
+
+    [TestMethod]
+    public async Task GetBatchGateAsync_PausedBatch_Defers()
+    {
+        var writer = new FakeMessageLogStatusWriter
+        {
+            Batch = new Engine.Storage.MessageBatchTableEntity
+            {
+                RowKey = "paused-batch",
+                BatchName = "b", TemplateId = "t", SenderUpn = "s",
+                Status = Engine.Storage.BatchStatus.Paused
+            }
+        };
+
+        var gate = await CreateService(new FakeBotConvoResumeManager(), writer)
+            .GetBatchGateAsync("paused-batch");
+
+        Assert.AreEqual(BatchGate.Defer, gate, "A paused batch keeps messages queued rather than dropping them");
+    }
+
+    [TestMethod]
+    public async Task GetBatchGateAsync_MissingBatch_Drops()
+    {
+        // A deleted batch previously still fired its queued messages, and each recipient got an
+        // unsolicited "you have no pending messages" card.
+        var writer = new FakeMessageLogStatusWriter { Batch = null };
+
+        var gate = await CreateService(new FakeBotConvoResumeManager(), writer)
+            .GetBatchGateAsync("deleted-batch");
+
+        Assert.AreEqual(BatchGate.Drop, gate);
+    }
+
+    [TestMethod]
+    public async Task GetBatchGateAsync_ScheduledInFuture_Defers()
+    {
+        var writer = new FakeMessageLogStatusWriter
+        {
+            Batch = new Engine.Storage.MessageBatchTableEntity
+            {
+                RowKey = "future-batch",
+                BatchName = "b", TemplateId = "t", SenderUpn = "s",
+                Status = Engine.Storage.BatchStatus.Running,
+                ScheduledSendUtc = DateTime.UtcNow.AddHours(4)
+            }
+        };
+
+        var gate = await CreateService(new FakeBotConvoResumeManager(), writer)
+            .GetBatchGateAsync("future-batch");
+
+        Assert.AreEqual(BatchGate.Defer, gate, "A scheduled batch must not send early");
+    }
 }

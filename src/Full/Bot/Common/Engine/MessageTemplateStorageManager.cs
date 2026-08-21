@@ -193,7 +193,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IBatchStatsSou
     /// <summary>
     /// Create a new message batch
     /// </summary>
-    public async Task<MessageBatchTableEntity> CreateBatch(string batchName, string templateId, string senderUpn)
+    public async Task<MessageBatchTableEntity> CreateBatch(string batchName, string templateId, string senderUpn, DateTime? scheduledSendUtc = null)
     {
         var batchId = Guid.NewGuid().ToString();
 
@@ -203,7 +203,9 @@ public class MessageTemplateStorageManager : TableStorageManager, IBatchStatsSou
             BatchName = batchName,
             TemplateId = templateId,
             SenderUpn = senderUpn,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.UtcNow,
+            Status = BatchStatus.Queued,
+            ScheduledSendUtc = scheduledSendUtc
         };
 
         var tableClient = await GetTableClient(BATCHES_TABLE_NAME);
@@ -211,6 +213,39 @@ public class MessageTemplateStorageManager : TableStorageManager, IBatchStatsSou
 
         _logger.LogInformation($"Created batch '{batchName}' with ID {batchId}");
         return batchEntity;
+    }
+
+    /// <summary>
+    /// Set a batch's lifecycle state via a sparse merge.
+    /// </summary>
+    public async Task SetBatchStatusAsync(string batchId, string status)
+    {
+        var tableClient = await GetTableClient(BATCHES_TABLE_NAME);
+        var patch = new TableEntity(MessageBatchTableEntity.PartitionKeyVal, batchId)
+        {
+            { nameof(MessageBatchTableEntity.Status), status },
+            { nameof(MessageBatchTableEntity.LastProgressUtc), DateTime.UtcNow }
+        };
+
+        await tableClient.UpdateEntityAsync(patch, ETag.All, TableUpdateMode.Merge);
+        _logger.LogInformation("Batch {BatchId} status set to {Status}", batchId, status);
+    }
+
+    /// <summary>
+    /// Record expansion progress so an interrupted run resumes instead of restarting. Necessary
+    /// because the worker is unloaded whenever it goes idle.
+    /// </summary>
+    public async Task SetBatchExpansionProgressAsync(string batchId, int expandedCount, string status)
+    {
+        var tableClient = await GetTableClient(BATCHES_TABLE_NAME);
+        var patch = new TableEntity(MessageBatchTableEntity.PartitionKeyVal, batchId)
+        {
+            { nameof(MessageBatchTableEntity.ExpandedCount), expandedCount },
+            { nameof(MessageBatchTableEntity.Status), status },
+            { nameof(MessageBatchTableEntity.LastProgressUtc), DateTime.UtcNow }
+        };
+
+        await tableClient.UpdateEntityAsync(patch, ETag.All, TableUpdateMode.Merge);
     }
 
     /// <summary>
@@ -488,7 +523,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IBatchStatsSou
     /// <summary>
     /// Record the recipient count on the batch row so dashboards never need to count rows.
     /// </summary>
-    private async Task SetBatchTotalCountAsync(string messageBatchId, int totalCount)
+    public async Task SetBatchTotalCountAsync(string messageBatchId, int totalCount)
     {
         try
         {

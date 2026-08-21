@@ -59,11 +59,38 @@ public class MessageTemplateService
         await _storageManager.DeleteTemplate(templateId);
     }
 
-    public async Task<MessageBatchDto> CreateBatch(string batchName, string templateId, string senderUpn)
+    public async Task<MessageBatchDto> CreateBatch(string batchName, string templateId, string senderUpn, DateTime? scheduledSendUtc = null)
     {
         _logger.LogInformation($"Creating batch '{batchName}' for template {templateId}");
-        var entity = await _storageManager.CreateBatch(batchName, templateId, senderUpn);
+        var entity = await _storageManager.CreateBatch(batchName, templateId, senderUpn, scheduledSendUtc);
         return MapBatchToDto(entity);
+    }
+
+    /// <summary>
+    /// Queue background expansion of a batch's recipient list.
+    ///
+    /// <para>
+    /// The HTTP request only records the recipient <em>sources</em>; resolving them into
+    /// delivery rows happens in the background, in checkpointed chunks. Expanding 150,000
+    /// recipients inline exceeded App Service's 230-second request timeout.
+    /// </para>
+    /// </summary>
+    public async Task EnqueueBatchExpansionAsync(string batchId, List<string> recipientUpns, List<string> smartGroupIds)
+    {
+        await _queueService.EnqueueControlMessageAsync(new BatchControlMessage
+        {
+            BatchId = batchId,
+            RecipientUpns = recipientUpns,
+            SmartGroupIds = smartGroupIds
+        });
+    }
+
+    /// <summary>
+    /// Set a batch's lifecycle state (cancel, pause, resume, complete).
+    /// </summary>
+    public async Task SetBatchStatusAsync(string batchId, string status)
+    {
+        await _storageManager.SetBatchStatusAsync(batchId, status);
     }
 
     public async Task<List<MessageBatchDto>> GetAllBatches()

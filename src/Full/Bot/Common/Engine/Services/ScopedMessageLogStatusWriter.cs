@@ -37,4 +37,11 @@ internal sealed class ScopedMessageLogStatusWriter : IMessageLogStatusWriter
         var templateService = scope.ServiceProvider.GetRequiredService<MessageTemplateService>();
         await templateService.IncrementBatchCountersAsync(batchId, sentDelta, failedDelta);
     }
+
+    public async Task<Engine.Storage.MessageBatchTableEntity?> GetBatchAsync(string batchId)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var storage = scope.ServiceProvider.GetRequiredService<MessageTemplateStorageManager>();
+        return await storage.GetBatch(batchId);
+    }
 }
