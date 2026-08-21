@@ -14,6 +14,15 @@ export interface MessageBatchDto {
   templateId: string;
   senderUpn: string;
   createdDate: string;
+  /** Lifecycle state: Queued | Expanding | Running | Paused | Cancelled | Complete */
+  status: string;
+  scheduledSendUtc?: string;
+  /** Running counters - progress is read from these, not by downloading every delivery row. */
+  totalCount: number;
+  sentCount: number;
+  failedCount: number;
+  pendingCount: number;
+  lastProgressUtc?: string;
 }
 
 export interface MessageLogDto {

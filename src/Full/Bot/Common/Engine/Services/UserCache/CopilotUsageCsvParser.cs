@@ -153,12 +153,137 @@ public static class CopilotUsageCsvParser
     }
 
     /// <summary>
+    /// Streaming parse: reads the report line by line instead of requiring the whole CSV as a
+    /// single string.
+    ///
+    /// <para>
+    /// The tenant-wide Copilot usage report is roughly 350 bytes per licensed user, so at
+    /// 150,000 users <c>ReadAsStringAsync</c> allocated a single contiguous ~105 MB UTF-16
+    /// string on the Large Object Heap. On a 32-bit worker with a fragmented address space a
+    /// lone allocation that size is a realistic <c>OutOfMemoryException</c> even when total
+    /// free memory looks sufficient - and it grows with tenant size and reporting period.
+    /// </para>
+    ///
+    /// <para>Peak memory here is one line plus the output records.</para>
+    /// </summary>
+    public static async Task<List<CopilotUsageRecord>> ParseAsync(TextReader reader, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+
+        var records = new List<CopilotUsageRecord>();
+
+        CsvColumnIndices? columnIndices = null;
+
+        string? line;
+        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            if (columnIndices is null)
+            {
+                var parsed = ParseHeaderCore(line.AsSpan());
+
+                // No UPN column means the report is malformed - cannot proceed.
+                if (parsed.UpnIndex < 0) return records;
+
+                columnIndices = parsed;
+                continue;
+            }
+
+            if (TryParseRow(line.AsSpan(), columnIndices, out var record))
+            {
+                records.Add(record);
+            }
+        }
+
+        return records;
+    }
+
+    /// <summary>
+    /// Parse a single data row. Shares the column mapping and early-exit behaviour of the
+    /// whole-string parser.
+    /// </summary>
+    private static bool TryParseRow(ReadOnlySpan<char> line, CsvColumnIndices columnIndices, out CopilotUsageRecord record)
+    {
+        record = null!;
+
+        var maxKnownIndex = MaxKnownIndex(columnIndices);
+
+        Span<int> fieldStarts = stackalloc int[10];
+        Span<int> fieldLengths = stackalloc int[10];
+        Span<int> targets = stackalloc int[10]
+        {
+            columnIndices.UpnIndex,
+            columnIndices.LastActivityIndex,
+            columnIndices.CopilotChatIndex,
+            columnIndices.TeamsIndex,
+            columnIndices.WordIndex,
+            columnIndices.ExcelIndex,
+            columnIndices.PowerPointIndex,
+            columnIndices.OutlookIndex,
+            columnIndices.OneNoteIndex,
+            columnIndices.LoopIndex
+        };
+
+        for (int i = 0; i < fieldLengths.Length; i++) fieldLengths[i] = -1;
+
+        var fieldStart = 0;
+        var fieldIndex = 0;
+        var upnSeen = false;
+
+        for (int pos = 0; pos <= line.Length; pos++)
+        {
+            var atEnd = pos == line.Length;
+            if (!atEnd && line[pos] != ',') continue;
+
+            var len = pos - fieldStart;
+            for (int t = 0; t < targets.Length; t++)
+            {
+                if (targets[t] == fieldIndex)
+                {
+                    fieldStarts[t] = fieldStart;
+                    fieldLengths[t] = len;
+                    if (t == 0) upnSeen = true;
+                }
+            }
+
+            fieldIndex++;
+            fieldStart = pos + 1;
+
+            if (atEnd) break;
+
+            // Stop early once we've captured everything we care about.
+            if (upnSeen && fieldIndex > maxKnownIndex) break;
+        }
+
+        if (!upnSeen) return false;
+
+        var trimmedUpn = line.Slice(fieldStarts[0], fieldLengths[0]).Trim();
+        if (trimmedUpn.IsEmpty) return false;
+
+        record = new CopilotUsageRecord
+        {
+            UserPrincipalName = trimmedUpn.ToString(),
+            LastActivityDate = ParseDateSpanAt(line, fieldStarts, fieldLengths, 1, columnIndices.LastActivityIndex),
+            CopilotChatLastActivityDate = ParseDateSpanAt(line, fieldStarts, fieldLengths, 2, columnIndices.CopilotChatIndex),
+            TeamsCopilotLastActivityDate = ParseDateSpanAt(line, fieldStarts, fieldLengths, 3, columnIndices.TeamsIndex),
+            WordCopilotLastActivityDate = ParseDateSpanAt(line, fieldStarts, fieldLengths, 4, columnIndices.WordIndex),
+            ExcelCopilotLastActivityDate = ParseDateSpanAt(line, fieldStarts, fieldLengths, 5, columnIndices.ExcelIndex),
+            PowerPointCopilotLastActivityDate = ParseDateSpanAt(line, fieldStarts, fieldLengths, 6, columnIndices.PowerPointIndex),
+            OutlookCopilotLastActivityDate = ParseDateSpanAt(line, fieldStarts, fieldLengths, 7, columnIndices.OutlookIndex),
+            OneNoteCopilotLastActivityDate = ParseDateSpanAt(line, fieldStarts, fieldLengths, 8, columnIndices.OneNoteIndex),
+            LoopCopilotLastActivityDate = ParseDateSpanAt(line, fieldStarts, fieldLengths, 9, columnIndices.LoopIndex)
+        };
+
+        return true;
+    }
+
+    /// <summary>
     /// Parses the Copilot CSV header to map known columns to their index.
     /// Unknown columns are returned as -1.
     /// </summary>
     public static CsvColumnIndices ParseHeader(string headerLine)
-    {
-        if (headerLine == null)
+    {        if (headerLine == null)
         {
             return CreateEmptyIndices();
         }

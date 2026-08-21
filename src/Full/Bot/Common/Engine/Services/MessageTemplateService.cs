@@ -207,7 +207,13 @@ public class MessageTemplateService
             BatchName = entity.BatchName,
             TemplateId = entity.TemplateId,
             SenderUpn = entity.SenderUpn,
-            CreatedDate = entity.CreatedDate
+            CreatedDate = entity.CreatedDate,
+            Status = entity.Status,
+            ScheduledSendUtc = entity.ScheduledSendUtc,
+            TotalCount = entity.TotalCount,
+            SentCount = entity.SentCount,
+            FailedCount = entity.FailedCount,
+            LastProgressUtc = entity.LastProgressUtc
         };
     }
 
@@ -242,6 +248,22 @@ public class MessageBatchDto
     public string TemplateId { get; set; } = null!;
     public string SenderUpn { get; set; } = null!;
     public DateTime CreatedDate { get; set; }
+
+    /// <summary>Lifecycle state (see <see cref="Engine.Storage.BatchStatus"/>).</summary>
+    public string Status { get; set; } = null!;
+
+    /// <summary>Earliest time this batch may send, or null for immediate.</summary>
+    public DateTime? ScheduledSendUtc { get; set; }
+
+    /// <summary>
+    /// Running delivery counters. The UI reads progress from these rather than downloading
+    /// every delivery row - at 150,000 recipients that was ~25 MB per poll.
+    /// </summary>
+    public int TotalCount { get; set; }
+    public int SentCount { get; set; }
+    public int FailedCount { get; set; }
+    public int PendingCount => Math.Max(0, TotalCount - SentCount - FailedCount);
+    public DateTime? LastProgressUtc { get; set; }
 }
 
 public class MessageLogDto

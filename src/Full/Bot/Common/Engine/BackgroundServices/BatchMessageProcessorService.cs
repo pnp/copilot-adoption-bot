@@ -83,6 +83,7 @@ public class BatchMessageProcessorService : BackgroundService
                         var gate = await _senderService.GetBatchGateAsync(message.BatchId);
                         if (gate == BatchGate.Drop)
                         {
+                            NudgeMetrics.Dropped.Add(1, new KeyValuePair<string, object?>("batch", message.BatchId));
                             _logger.LogDebug("Dropping delivery for {Recipient}: batch {BatchId} is cancelled",
                                 message.RecipientUpn, message.BatchId);
                             await _queueService.DeleteMessageAsync(queueMessage);
@@ -97,7 +98,13 @@ public class BatchMessageProcessorService : BackgroundService
                         // Shape the send rate to stay under the Teams proactive-messaging limit.
                         await SendLimiter.WaitAsync(stoppingToken);
 
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+
                         var result = await _senderService.SendMessageAsync(message);
+
+                        sw.Stop();
+
+                        NudgeMetrics.RecordOutcome(result.Disposition, message.BatchId, sw.Elapsed.TotalMilliseconds);
 
                         if (result.Disposition == SendDisposition.TransientFailure && result.RetryAfter.HasValue)
                         {

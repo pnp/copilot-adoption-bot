@@ -36,6 +36,8 @@ public class MessageTemplateStorageManager : TableStorageManager, IBatchStatsSou
     /// </summary>
     public async Task<MessageTemplateTableEntity> SaveTemplate(string templateName, string jsonPayload, string createdByUpn)
     {
+        ValidateTemplatePayload(jsonPayload);
+
         var templateId = Guid.NewGuid().ToString();
 
         // Save JSON to blob storage
@@ -161,9 +163,46 @@ public class MessageTemplateStorageManager : TableStorageManager, IBatchStatsSou
         _logger.LogInformation($"Deleted template {templateId}");
     }
 
-    private async Task<string> SaveTemplateToBlobStorage(string templateId, string jsonPayload)
+    /// <summary>
+    /// Reject oversized card templates at authoring time.
+    ///
+    /// <para>
+    /// A card is sent to every recipient of a batch and is used as AI follow-up context, so an
+    /// oversized template is expensive on every send rather than once. The bundled intro cards
+    /// are ~94 KB because they embed base64 images; images should be hosted as URLs in the
+    /// existing blob container instead. Failing here gives the author a clear error rather than
+    /// a silent failure at send time.
+    /// </para>
+    /// </summary>
+    internal static void ValidateTemplatePayload(string jsonPayload)
     {
-        var containerClient = _blobServiceClient.GetBlobContainerClient(BLOB_CONTAINER_NAME);
+        ArgumentException.ThrowIfNullOrWhiteSpace(jsonPayload);
+
+        if (jsonPayload.Length > MaxTemplateChars)
+        {
+            throw new InvalidOperationException(
+                $"Card template is {jsonPayload.Length:N0} characters, over the {MaxTemplateChars:N0} limit. " +
+                "This usually means an image is embedded as base64 - host it as a URL instead.");
+        }
+
+        try
+        {
+            using var _ = System.Text.Json.JsonDocument.Parse(jsonPayload);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            throw new InvalidOperationException($"Card template is not valid JSON: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Maximum characters accepted for a card template. Comfortably above the 7-8 KB nudge
+    /// templates while excluding cards with embedded image payloads.
+    /// </summary>
+    internal const int MaxTemplateChars = 24_000;
+
+    private async Task<string> SaveTemplateToBlobStorage(string templateId, string jsonPayload)
+    {        var containerClient = _blobServiceClient.GetBlobContainerClient(BLOB_CONTAINER_NAME);
         await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
 
         var blobName = $"{templateId}.json";
