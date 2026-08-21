@@ -90,7 +90,7 @@ public class Program
         // Resolve from DI rather than newing up a parallel instance, so we share the table-client
         // cache and any in-memory state with the rest of the application.
         var botCache = app.Services.GetRequiredService<BotConversationCache>();
-        var allUsers = await botCache.GetCachedUsers();
+        var allUsers = await botCache.GetCachedUsersAsync();
         foreach (var user in allUsers)
         {
             await botCache.RemoveFromCache(user.RowKey);

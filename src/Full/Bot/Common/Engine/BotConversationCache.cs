@@ -1,49 +1,99 @@
 using Azure;
+using Azure.Data.Tables;
 using Engine.Config;
 using Engine.Models;
 using Engine.Services;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
-using System.Collections.Concurrent;
 
 namespace Engine;
 
-
+/// <summary>
+/// Durable store of per-user conversation references, backed by Azure Table Storage with a
+/// small bounded read-through cache.
+///
+/// <para>
+/// This class previously loaded <em>every</em> user in the tenant into a process-wide
+/// dictionary that was never evicted. Three problems followed from that, all addressed here:
+/// the footprint scaled with tenant size rather than working set (~2.5 GB at 150,000 users);
+/// the load was an unsynchronised full-table scan that could stampede or leave a permanently
+/// half-filled cache; and lookups that missed the cache reported "user not found" rather than
+/// consulting storage, which on a cold start routed the entire audience down the app-install
+/// path and silently dropped their nudges.
+/// </para>
+///
+/// <para>
+/// Every read is now a point read (~10 ms) and every write is a sparse merge patch, so cost
+/// is independent of tenant size and correct across restarts and scaled-out instances.
+/// </para>
+/// </summary>
 public class BotConversationCache : TableStorageManager, IBotInteractionSource
 {
     const string TABLE_NAME = "ConversationCache";
+
+    /// <summary>
+    /// Hot-user cache size. Sized for concurrent conversations, not for the tenant: at ~1 KB
+    /// per row this is a few MB, versus gigabytes for the whole directory.
+    /// </summary>
+    private const int HotCacheCapacity = 5_000;
+
+    /// <summary>
+    /// Character budget for persisted conversation history. Azure Table string properties are
+    /// capped at 64 KB; staying well under it means a long chat can never silently fail to save.
+    /// </summary>
+    internal const int MaxHistoryChars = 16_000;
+
     private readonly GraphServiceClient _graphServiceClient;
     private readonly ILogger<BotConversationCache> _logger;
-    private ConcurrentDictionary<string, CachedUserAndConversationData> _userIdConversationCache = new();
+    private readonly BoundedCache<string, CachedUserAndConversationData> _hot =
+        new(HotCacheCapacity, StringComparer.Ordinal);
 
-    public BotConversationCache(GraphServiceClient graphServiceClient, AppConfig appConfig, ILogger<BotConversationCache> logger) : base(appConfig.StorageAuthConfig ?? throw new ArgumentNullException(nameof(appConfig.StorageAuthConfig)), logger)
+    public BotConversationCache(GraphServiceClient graphServiceClient, AppConfig appConfig, ILogger<BotConversationCache> logger)
+        : base(appConfig.StorageAuthConfig ?? throw new ArgumentNullException(nameof(appConfig.StorageAuthConfig)), logger)
     {
         _graphServiceClient = graphServiceClient;
         _logger = logger;
-        // Dev only: make sure the Azure Storage emulator is running or this will fail
     }
 
-    public async Task PopulateMemCacheIfEmpty()
+    /// <summary>
+    /// Look a user up by AAD object id: hot cache first, then a durable point read.
+    /// </summary>
+    public async Task<CachedUserAndConversationData?> GetCachedUserAsync(string aadObjectId)
     {
-        if (_userIdConversationCache.Count > 0) return;
+        if (string.IsNullOrWhiteSpace(aadObjectId)) return null;
 
-        _logger.LogInformation("Populating conversation cache from table storage");
-        var client = await base.GetTableClient(TABLE_NAME);
-
-        int count = 0;
-        await foreach (var qEntity in client.QueryAsync<CachedUserAndConversationData>(
-            filter: $"PartitionKey eq '{CachedUserAndConversationData.PartitionKeyVal}'"))
+        if (_hot.TryGet(aadObjectId, out var cached) && cached != null)
         {
-            _userIdConversationCache.AddOrUpdate(qEntity.RowKey, qEntity, (key, newValue) => qEntity);
-            count++;
+            return cached;
         }
-        _logger.LogInformation("Populated conversation cache with {Count} entries", count);
+
+        try
+        {
+            var client = await base.GetTableClient(TABLE_NAME);
+            var response = await client.GetEntityAsync<CachedUserAndConversationData>(
+                CachedUserAndConversationData.PartitionKeyVal, aadObjectId);
+
+            var entity = response.Value;
+            _hot.Set(aadObjectId, entity);
+            return entity;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            return null;
+        }
     }
+
+    /// <summary>
+    /// Whether a conversation reference exists for this user. Consults durable storage, so it
+    /// is correct on a cold start and across instances.
+    /// </summary>
+    public async Task<bool> ContainsUserIdAsync(string aadObjectId) =>
+        await GetCachedUserAsync(aadObjectId) != null;
 
     public async Task RemoveFromCache(string aadObjectId)
     {
-        _userIdConversationCache.TryRemove(aadObjectId, out _);
+        _hot.Remove(aadObjectId);
         var client = await base.GetTableClient(TABLE_NAME);
         try
         {
@@ -66,75 +116,69 @@ public class BotConversationCache : TableStorageManager, IBotInteractionSource
 
     internal async Task AddOrUpdateUserAndConversationId(ConversationReference conversationReference, BotUser botUser, string serviceUrl, GraphServiceClient graphClient)
     {
-        CachedUserAndConversationData? u;
         var client = await base.GetTableClient(TABLE_NAME);
 
-        if (!_userIdConversationCache.TryGetValue(botUser.UserId, out u))
+        var existing = await GetCachedUserAsync(botUser.UserId);
+        if (existing != null)
         {
-            // Have not got in memory cache - check table storage (async).
-            try
-            {
-                var entityResponse = await client.GetEntityAsync<CachedUserAndConversationData>(
-                    CachedUserAndConversationData.PartitionKeyVal, botUser.UserId);
-                u = entityResponse.Value;
-            }
-            catch (RequestFailedException ex) when (ex.Status == 404)
-            {
-                u = null;
-            }
-
-            if (u == null)
-            {
-                string? upn = null;
-                if (botUser.IsAzureAdUserId)
-                {
-                    // Get UPN from Graph
-                    var user = await graphClient.Users[botUser.UserId].GetAsync(op => op.QueryParameters.Select = ["userPrincipalName"]);
-                    upn = user?.UserPrincipalName ?? throw new ArgumentNullException($"No userPrincipalName for {nameof(conversationReference.User.AadObjectId)} '{conversationReference.User.AadObjectId}'");
-                }
-
-                u = new CachedUserAndConversationData
-                {
-                    RowKey = botUser.UserId,
-                    ServiceUrl = serviceUrl,
-                    UserPrincipalName = upn,
-                    ConversationId = conversationReference.Conversation.Id
-                };
-
-                try
-                {
-                    await client.AddEntityAsync(u);
-                }
-                catch (RequestFailedException ex) when (ex.Status == 409)
-                {
-                    // Concurrent add - re-read and use the existing entity.
-                    var refreshed = await client.GetEntityAsync<CachedUserAndConversationData>(
-                        CachedUserAndConversationData.PartitionKeyVal, botUser.UserId);
-                    u = refreshed.Value;
-                }
-            }
+            _hot.Set(botUser.UserId, existing);
+            return;
         }
 
-        // Update memory cache
-        _userIdConversationCache.AddOrUpdate(botUser.UserId, u, (key, newValue) => u);
+        string? upn = null;
+        if (botUser.IsAzureAdUserId)
+        {
+            // Get UPN from Graph
+            var user = await graphClient.Users[botUser.UserId].GetAsync(op => op.QueryParameters.Select = ["userPrincipalName"]);
+            upn = user?.UserPrincipalName ?? throw new ArgumentNullException($"No userPrincipalName for {nameof(conversationReference.User.AadObjectId)} '{conversationReference.User.AadObjectId}'");
+        }
+
+        var entity = new CachedUserAndConversationData
+        {
+            RowKey = botUser.UserId,
+            ServiceUrl = serviceUrl,
+            UserPrincipalName = upn,
+            ConversationId = conversationReference.Conversation.Id
+        };
+
+        try
+        {
+            await client.AddEntityAsync(entity);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 409)
+        {
+            // Concurrent add - re-read and use the existing entity.
+            var refreshed = await client.GetEntityAsync<CachedUserAndConversationData>(
+                CachedUserAndConversationData.PartitionKeyVal, botUser.UserId);
+            entity = refreshed.Value;
+        }
+
+        _hot.Set(botUser.UserId, entity);
     }
-
-
-    public async Task<List<CachedUserAndConversationData>> GetCachedUsers()
-    {
-        await PopulateMemCacheIfEmpty();
-        return _userIdConversationCache.Values.ToList();
-    }
-
-    /// <inheritdoc />
-    public Task<List<CachedUserAndConversationData>> GetCachedUsersAsync() => GetCachedUsers();
 
     /// <inheritdoc />
     /// <remarks>
-    /// Counts rows with a key-only projection rather than materialising entities. Without the
-    /// <c>select</c> this would pull <c>LastCardJson</c> and <c>ConversationHistoryJson</c> for
-    /// every user - several KB each - purely to produce a single number.
+    /// Streams the table rather than holding it. Only used by the statistics dashboard; the
+    /// inbound message path must never enumerate users.
     /// </remarks>
+    public async Task<List<CachedUserAndConversationData>> GetCachedUsersAsync()
+    {
+        var client = await base.GetTableClient(TABLE_NAME);
+        var users = new List<CachedUserAndConversationData>();
+
+        // Project only what interaction statistics need, so this doesn't pull chat history
+        // for every user in the tenant.
+        await foreach (var entity in client.QueryAsync<CachedUserAndConversationData>(
+            filter: $"PartitionKey eq '{CachedUserAndConversationData.PartitionKeyVal}'",
+            select: new[] { "RowKey", "UserPrincipalName", "ConversationId", "ServiceUrl", "LastInteractionUtc" }))
+        {
+            users.Add(entity);
+        }
+
+        return users;
+    }
+
+    /// <inheritdoc />
     public async Task<int> GetReachedUserCountAsync()
     {
         var client = await base.GetTableClient(TABLE_NAME);
@@ -150,174 +194,101 @@ public class BotConversationCache : TableStorageManager, IBotInteractionSource
         return count;
     }
 
-    public CachedUserAndConversationData? GetCachedUser(string aadObjectId)
-    {
-        // Use direct dictionary lookup (O(1)) instead of a linear scan over Values.
-        return _userIdConversationCache.TryGetValue(aadObjectId, out var u) ? u : null;
-    }
-
     /// <summary>
-    /// Look a user up by AAD object id, falling back to a durable point read when the
-    /// in-memory cache doesn't have them.
-    ///
-    /// <para>
-    /// The send path must use this rather than the memory-only <see cref="GetCachedUser"/> /
-    /// <see cref="ContainsUserId"/>. Those consult only the in-process dictionary, which is
-    /// empty on every cold start - and since the worker is unloaded whenever it goes idle,
-    /// that is the normal case. Treating every user as "never seen" routed the entire
-    /// audience down the Teams app-install path, which silently dropped their nudges and
-    /// issued several needless Graph calls per user.
-    /// </para>
-    /// </summary>
-    public async Task<CachedUserAndConversationData?> GetCachedUserAsync(string aadObjectId)
-    {
-        if (string.IsNullOrWhiteSpace(aadObjectId)) return null;
-
-        if (_userIdConversationCache.TryGetValue(aadObjectId, out var cached) && cached != null)
-        {
-            return cached;
-        }
-
-        try
-        {
-            var client = await base.GetTableClient(TABLE_NAME);
-            var response = await client.GetEntityAsync<CachedUserAndConversationData>(
-                CachedUserAndConversationData.PartitionKeyVal, aadObjectId);
-
-            var entity = response.Value;
-            _userIdConversationCache.AddOrUpdate(aadObjectId, entity, (_, _) => entity);
-            return entity;
-        }
-        catch (RequestFailedException ex) when (ex.Status == 404)
-        {
-            return null;
-        }
-    }
-
-    public bool ContainsUserId(string aadId)
-    {
-        return _userIdConversationCache.ContainsKey(aadId);
-    }
-
-    /// <summary>
-    /// Records that the user with the given AAD object id has sent a message to the bot.
-    /// Updates the entity's <see cref="CachedUserAndConversationData.LastInteractionUtc"/>
-    /// in both table storage and the in-memory cache. No-op if the user is not yet cached
-    /// (the welcome flow caches them first).
+    /// Records that the user has sent a message to the bot.
     /// </summary>
     public async Task RecordUserInteractionAsync(string aadObjectId)
     {
         if (string.IsNullOrWhiteSpace(aadObjectId)) return;
 
-        await PopulateMemCacheIfEmpty();
-
-        if (!_userIdConversationCache.TryGetValue(aadObjectId, out var existing) || existing == null)
+        await MergeAsync(aadObjectId, new Dictionary<string, object?>
         {
-            // User isn't cached yet (e.g. a message before the welcome flow finished). Skip.
-            return;
-        }
-
-        existing.LastInteractionUtc = DateTime.UtcNow;
-
-        try
-        {
-            var client = await base.GetTableClient(TABLE_NAME);
-            await client.UpdateEntityAsync(existing, ETag.All, Azure.Data.Tables.TableUpdateMode.Merge);
-            _userIdConversationCache.AddOrUpdate(aadObjectId, existing, (_, _) => existing);
-        }
-        catch (RequestFailedException ex)
-        {
-            _logger.LogWarning(ex, "Failed to record user interaction for {AadObjectId}", aadObjectId);
-        }
+            [nameof(CachedUserAndConversationData.LastInteractionUtc)] = DateTime.UtcNow
+        });
     }
 
     /// <summary>
-    /// Persists the JSON of the most recent adaptive card the bot sent to this user.
-    /// Only the latest card is kept (overwritten on every call) so the row stays small
-    /// and the AI follow-up context remains bounded and scalable. Survives app restarts
-    /// and scale-out unlike the in-memory <c>UserState</c>.
+    /// Records which template was last sent to this user, as AI follow-up context.
+    ///
+    /// <para>
+    /// Only the template <em>reference</em> is stored. The rendered card is identical for every
+    /// recipient of a batch, so persisting it per user duplicated the same few KB across the
+    /// whole audience - hundreds of MB of storage, and the same again in memory - to hold a few
+    /// KB of distinct information. Card text for the LLM is re-derived from the template.
+    /// </para>
     /// </summary>
-    /// <param name="aadObjectId">AAD object id of the recipient.</param>
-    /// <param name="templateId">Template id of the card that was sent.</param>
-    /// <param name="templateName">Template display name of the card that was sent.</param>
-    /// <param name="cardJson">Raw adaptive-card JSON that was sent.</param>
-    /// <param name="sentUtc">UTC timestamp at which the card was sent.</param>
     public async Task SetLastCardAsync(string aadObjectId, string templateId, string templateName, string cardJson, DateTime sentUtc)
     {
         if (string.IsNullOrWhiteSpace(aadObjectId)) return;
-        ArgumentException.ThrowIfNullOrEmpty(cardJson);
 
-        await PopulateMemCacheIfEmpty();
-
-        if (!_userIdConversationCache.TryGetValue(aadObjectId, out var existing) || existing == null)
+        await MergeAsync(aadObjectId, new Dictionary<string, object?>
         {
-            // No conversation reference yet - the welcome flow hasn't run. Without a
-            // ConversationId we can't address this user from a hosted service anyway,
-            // so skip persisting the card until they've been cached.
-            _logger.LogDebug("Skipped SetLastCardAsync for {AadObjectId}: user not yet in conversation cache", aadObjectId);
-            return;
-        }
-
-        existing.LastCardJson = cardJson;
-        existing.LastCardTemplateId = templateId;
-        existing.LastCardTemplateName = templateName;
-        existing.LastCardSentUtc = sentUtc;
-
-        try
-        {
-            var client = await base.GetTableClient(TABLE_NAME);
-            await client.UpdateEntityAsync(existing, ETag.All, Azure.Data.Tables.TableUpdateMode.Merge);
-            _userIdConversationCache.AddOrUpdate(aadObjectId, existing, (_, _) => existing);
-        }
-        catch (RequestFailedException ex)
-        {
-            // Persistence failure must never break the user-facing send path; log and
-            // keep the updated in-memory copy so the current process at least benefits.
-            _logger.LogWarning(ex, "Failed to persist last card for {AadObjectId}", aadObjectId);
-            _userIdConversationCache.AddOrUpdate(aadObjectId, existing, (_, _) => existing);
-        }
+            [nameof(CachedUserAndConversationData.LastCardTemplateId)] = templateId,
+            [nameof(CachedUserAndConversationData.LastCardTemplateName)] = templateName,
+            [nameof(CachedUserAndConversationData.LastCardSentUtc)] = sentUtc
+        });
     }
 
     /// <summary>
-    /// Persists the trimmed conversation history (role, message pairs) used as LLM
-    /// context for AI follow-up. Survives app restarts / scale-out so users keep their
-    /// thread continuity. The history is expected to already be bounded by the caller
-    /// (the dialog caps it at 20 entries) to keep the row small and scalable.
+    /// Persists the trimmed conversation history used as LLM context for AI follow-up.
+    /// Truncated to <see cref="MaxHistoryChars"/> so it cannot breach the 64 KB Azure Table
+    /// property limit and silently fail to save.
     /// </summary>
-    /// <param name="aadObjectId">AAD object id of the recipient.</param>
-    /// <param name="history">
-    /// Trimmed conversation history. Null or empty clears the persisted value.
-    /// </param>
     public async Task SetConversationHistoryAsync(string aadObjectId, IEnumerable<(string role, string message)>? history)
     {
         if (string.IsNullOrWhiteSpace(aadObjectId)) return;
 
-        await PopulateMemCacheIfEmpty();
-
-        if (!_userIdConversationCache.TryGetValue(aadObjectId, out var existing) || existing == null)
+        string? json = null;
+        if (history != null)
         {
-            // No conversation reference yet - the welcome flow hasn't cached this user.
-            _logger.LogDebug("Skipped SetConversationHistoryAsync for {AadObjectId}: user not yet in conversation cache", aadObjectId);
-            return;
+            var trimmed = AIPromptBudget.TrimHistory(history.ToList(), MaxHistoryChars);
+            if (trimmed.Count > 0)
+            {
+                json = ConversationHistoryCodec.Serialize(trimmed);
+            }
         }
 
-        existing.ConversationHistoryJson = history == null || !history.Any()
-            ? null
-            : ConversationHistoryCodec.Serialize(history);
+        await MergeAsync(aadObjectId, new Dictionary<string, object?>
+        {
+            [nameof(CachedUserAndConversationData.ConversationHistoryJson)] = json
+        });
+    }
+
+    /// <summary>
+    /// Apply a sparse merge patch to a user's row.
+    ///
+    /// <para>
+    /// Sends only the changed columns and requires no read-before-write. The previous
+    /// implementation loaded the full entity and wrote it back to change a single field, which
+    /// re-uploaded the card JSON on every inbound message.
+    /// </para>
+    /// </summary>
+    private async Task MergeAsync(string aadObjectId, Dictionary<string, object?> changes)
+    {
+        var patch = new TableEntity(CachedUserAndConversationData.PartitionKeyVal, aadObjectId);
+        foreach (var (key, value) in changes)
+        {
+            patch[key] = value;
+        }
 
         try
         {
             var client = await base.GetTableClient(TABLE_NAME);
-            await client.UpdateEntityAsync(existing, ETag.All, Azure.Data.Tables.TableUpdateMode.Merge);
-            _userIdConversationCache.AddOrUpdate(aadObjectId, existing, (_, _) => existing);
+            await client.UpdateEntityAsync(patch, ETag.All, TableUpdateMode.Merge);
+
+            // Keep any cached copy consistent with what we just wrote.
+            _hot.Remove(aadObjectId);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            // No conversation reference yet - the welcome flow hasn't cached this user, so
+            // there is nothing to attach the change to.
+            _logger.LogDebug("Skipped update for {AadObjectId}: user not yet in conversation cache", aadObjectId);
         }
         catch (RequestFailedException ex)
         {
-            // Persistence failure must never break the chat; log and keep the updated
-            // in-memory copy so the current process at least benefits.
-            _logger.LogWarning(ex, "Failed to persist conversation history for {AadObjectId}", aadObjectId);
-            _userIdConversationCache.AddOrUpdate(aadObjectId, existing, (_, _) => existing);
+            // Persistence failure must never break the user-facing path.
+            _logger.LogWarning(ex, "Failed to persist conversation cache update for {AadObjectId}", aadObjectId);
         }
     }
 }
-

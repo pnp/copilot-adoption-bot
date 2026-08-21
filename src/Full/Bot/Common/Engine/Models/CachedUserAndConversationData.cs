@@ -33,15 +33,13 @@ public class CachedUserAndConversationData : ITableEntity
     public DateTime? LastInteractionUtc { get; set; }
 
     /// <summary>
-    /// Raw adaptive-card JSON of the most recent card the bot sent to this user.
-    /// Persisted so that AI follow-up has the card as context even after an app restart
-    /// or scale-out, when the in-memory <c>UserState</c> has been lost. Only the latest
-    /// card is kept to keep the row small and scalable.
-    /// </summary>
-    public string? LastCardJson { get; set; }
-
-    /// <summary>
-    /// Template id of the card stored in <see cref="LastCardJson"/>.
+    /// Template id of the card last sent to this user.
+    ///
+    /// <para>
+    /// Deliberately a reference, not the rendered card. Every recipient of a batch receives
+    /// the same card, so storing the JSON per user duplicated the same few KB across the whole
+    /// audience. AI follow-up re-derives card text from the template instead.
+    /// </para>
     /// </summary>
     public string? LastCardTemplateId { get; set; }
 
