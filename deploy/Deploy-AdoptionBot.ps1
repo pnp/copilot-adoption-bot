@@ -1,0 +1,268 @@
+<#
+.SYNOPSIS
+    Provisions and (optionally) deploys the Copilot Adoption Bot.
+
+.DESCRIPTION
+    Wraps deploy/main.bicep so an operator can stand the solution up in one command.
+    The Bicep template is the single source of truth for infrastructure; this script
+    validates prerequisites, reads deployment-config.json, and passes the secrets that
+    must not live in source control.
+
+    Idempotent: re-running updates the existing resources in place.
+
+    This script does NOT create the Entra app registrations. Those need admin consent
+    and are documented in docs/SETUP.md - create them first and record the ids/secrets
+    in your config file.
+
+.PARAMETER ConfigPath
+    Path to deployment-config.json. Defaults to ./deployment-config.json.
+
+.PARAMETER ResourceGroup
+    Target resource group. Overrides the value in the config file.
+
+.PARAMETER SubscriptionId
+    Target subscription. Overrides the value in the config file.
+
+.PARAMETER WhatIf
+    Show what would change without applying it (runs `az deployment group what-if`).
+
+.PARAMETER SkipCodeDeploy
+    Provision infrastructure only; don't build and publish the application.
+
+.EXAMPLE
+    ./Deploy-AdoptionBot.ps1 -ConfigPath ../deployment-config.json -WhatIf
+
+.EXAMPLE
+    ./Deploy-AdoptionBot.ps1 -ConfigPath ../deployment-config.json
+#>
+
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [string] $ConfigPath = './deployment-config.json',
+    [string] $ResourceGroup,
+    [string] $SubscriptionId,
+    [switch] $SkipCodeDeploy
+)
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$bicepPath = Join-Path $PSScriptRoot 'main.bicep'
+$solutionPath = Join-Path $repoRoot 'src/Full/Bot/Adoption Bot.sln'
+$webServerPath = Join-Path $repoRoot 'src/Full/Bot/Web/Web.Server'
+
+function Write-Step   { param($m) Write-Host "`n=== $m ===" -ForegroundColor Cyan }
+function Write-Ok     { param($m) Write-Host "  [ok] $m" -ForegroundColor Green }
+function Write-Warn   { param($m) Write-Host "  [!]  $m" -ForegroundColor Yellow }
+function Fail         { param($m) throw $m }
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+
+Write-Step 'Checking prerequisites'
+
+if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
+    Fail 'Azure CLI (az) not found. Install: https://aka.ms/installazurecli'
+}
+Write-Ok 'Azure CLI found'
+
+# Bicep ships with recent Azure CLI, but confirm rather than failing mid-deployment.
+$null = az bicep version 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Warn 'Bicep not installed; installing'
+    az bicep install | Out-Null
+}
+Write-Ok 'Bicep available'
+
+$account = az account show 2>$null | ConvertFrom-Json
+if (-not $account) { Fail "Not signed in. Run: az login" }
+Write-Ok "Signed in as $($account.user.name)"
+
+if (-not (Test-Path $ConfigPath)) {
+    Fail "Config file not found: $ConfigPath`nCopy docs/deployment-config.example.json and fill it in."
+}
+$config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+Write-Ok "Loaded config from $ConfigPath"
+
+# ---------------------------------------------------------------------------
+# Resolve settings
+# ---------------------------------------------------------------------------
+
+Write-Step 'Resolving settings'
+
+if (-not $SubscriptionId) { $SubscriptionId = $config.azure.subscriptionId }
+if (-not $ResourceGroup)  { $ResourceGroup  = $config.azure.resourceGroup }
+
+if (-not $SubscriptionId) { Fail 'No subscriptionId in config and none supplied.' }
+if (-not $ResourceGroup)  { Fail 'No resourceGroup in config and none supplied.' }
+
+$location        = $config.azure.location
+$appServiceName  = $config.azure.appServiceName
+$storageName     = $config.azure.storageAccountName
+$planSku         = $config.azure.appServicePlanSku
+
+foreach ($pair in @(
+    @{ n = 'azure.location';           v = $location },
+    @{ n = 'azure.appServiceName';     v = $appServiceName },
+    @{ n = 'azure.storageAccountName'; v = $storageName },
+    @{ n = 'bot.appId';                v = $config.bot.appId },
+    @{ n = 'bot.appPassword';          v = $config.bot.appPassword },
+    @{ n = 'bot.tenantId';             v = $config.bot.tenantId }
+)) {
+    if ([string]::IsNullOrWhiteSpace([string]$pair.v)) { Fail "Required config value missing: $($pair.n)" }
+}
+
+# Graph credentials default to the bot's registration unless overridden.
+$graphClientId     = if ($config.graph.useSameAsBot) { $config.bot.appId }       else { $config.graph.clientId }
+$graphClientSecret = if ($config.graph.useSameAsBot) { $config.bot.appPassword } else { $config.graph.clientSecret }
+$graphTenantId     = if ($config.graph.useSameAsBot) { $config.bot.tenantId }    else { $config.graph.tenantId }
+
+if ([string]::IsNullOrWhiteSpace([string]$graphClientId)) {
+    Fail 'Graph client id unresolved. Set graph.useSameAsBot=true or provide graph.clientId.'
+}
+
+Write-Ok "Subscription : $SubscriptionId"
+Write-Ok "Resource group: $ResourceGroup ($location)"
+Write-Ok "App Service  : $appServiceName"
+Write-Ok "Storage      : $storageName"
+
+az account set --subscription $SubscriptionId
+if ($LASTEXITCODE -ne 0) { Fail "Could not select subscription $SubscriptionId" }
+
+# ---------------------------------------------------------------------------
+# Resource group
+# ---------------------------------------------------------------------------
+
+Write-Step 'Ensuring resource group'
+
+$rgExists = az group exists --name $ResourceGroup | ConvertFrom-Json
+if (-not $rgExists) {
+    if ($PSCmdlet.ShouldProcess($ResourceGroup, 'Create resource group')) {
+        az group create --name $ResourceGroup --location $location --output none
+        Write-Ok "Created $ResourceGroup"
+    }
+} else {
+    Write-Ok "$ResourceGroup already exists"
+}
+
+# ---------------------------------------------------------------------------
+# Infrastructure
+# ---------------------------------------------------------------------------
+
+Write-Step 'Deploying infrastructure'
+
+$params = @(
+    "appServiceName=$appServiceName"
+    "storageAccountName=$storageName"
+    "location=$location"
+    "botAppId=$($config.bot.appId)"
+    "botAppPassword=$($config.bot.appPassword)"
+    "botTenantId=$($config.bot.tenantId)"
+    "botAppType=$($config.bot.appType)"
+    "graphClientId=$graphClientId"
+    "graphClientSecret=$graphClientSecret"
+    "graphTenantId=$graphTenantId"
+)
+
+if ($planSku)                          { $params += "appServicePlanSku=$planSku" }
+if ($config.appInsights.enabled -ne $null) { $params += "deployAppInsights=$($config.appInsights.enabled.ToString().ToLower())" }
+if ($config.aiFoundry.enabled -and $config.aiFoundry.endpoint) {
+    $params += "aiFoundryEndpoint=$($config.aiFoundry.endpoint)"
+    $params += "aiFoundryDeploymentName=$($config.aiFoundry.deploymentName)"
+}
+if ($config.webAuth.enabled) {
+    $params += "webAuthEnabled=true"
+    $params += "webAuthClientId=$($config.webAuth.clientId)"
+    $params += "webAuthClientSecret=$($config.webAuth.clientSecret)"
+    $params += "webAuthTenantId=$($config.webAuth.tenantId)"
+    $params += "webAuthApiAudience=$($config.webAuth.apiAudience)"
+}
+
+$deploymentName = "adoptionbot-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+
+if ($WhatIfPreference) {
+    Write-Warn 'WhatIf: showing changes only'
+    az deployment group what-if `
+        --resource-group $ResourceGroup `
+        --template-file $bicepPath `
+        --parameters $params
+    return
+}
+
+$result = az deployment group create `
+    --name $deploymentName `
+    --resource-group $ResourceGroup `
+    --template-file $bicepPath `
+    --parameters $params `
+    --output json | ConvertFrom-Json
+
+if ($LASTEXITCODE -ne 0 -or -not $result) { Fail 'Infrastructure deployment failed.' }
+
+$outputs = $result.properties.outputs
+Write-Ok 'Infrastructure deployed'
+
+# ---------------------------------------------------------------------------
+# Application code
+# ---------------------------------------------------------------------------
+
+if (-not $SkipCodeDeploy) {
+    Write-Step 'Building and publishing application'
+
+    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { Fail 'dotnet SDK not found.' }
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue))    { Fail 'npm not found (needed for the React client).' }
+
+    $clientPath = Join-Path $repoRoot 'src/Full/Bot/Web/web.client'
+    Push-Location $clientPath
+    try {
+        npm ci
+        if ($LASTEXITCODE -ne 0) { Fail 'npm ci failed.' }
+        npm run build
+        if ($LASTEXITCODE -ne 0) { Fail 'Frontend build failed.' }
+    } finally { Pop-Location }
+    Write-Ok 'Frontend built'
+
+    $publishDir = Join-Path ([System.IO.Path]::GetTempPath()) "adoptionbot-publish-$(Get-Random)"
+    dotnet publish $webServerPath -c Release -o $publishDir
+    if ($LASTEXITCODE -ne 0) { Fail 'dotnet publish failed.' }
+    Write-Ok 'Backend published'
+
+    $zipPath = "$publishDir.zip"
+    Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath $zipPath -Force
+
+    az webapp deploy `
+        --resource-group $ResourceGroup `
+        --name $appServiceName `
+        --src-path $zipPath `
+        --type zip `
+        --output none
+    if ($LASTEXITCODE -ne 0) { Fail 'Code deployment failed.' }
+    Write-Ok 'Application deployed'
+
+    Remove-Item $publishDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+}
+
+# ---------------------------------------------------------------------------
+# Next steps
+# ---------------------------------------------------------------------------
+
+Write-Step 'Done'
+
+$hostName  = $outputs.appServiceHostName.value
+$messaging = $outputs.messagingEndpoint.value
+
+Write-Host ""
+Write-Host "  Admin UI          : https://$hostName" -ForegroundColor White
+Write-Host "  Messaging endpoint: $messaging" -ForegroundColor White
+Write-Host ""
+Write-Host "  Remaining manual steps:" -ForegroundColor Yellow
+Write-Host "   1. Set the bot messaging endpoint in the Teams Developer Portal to:"
+Write-Host "        $messaging"
+Write-Host "      (there is no public API for this - see docs/SETUP.md)"
+Write-Host "   2. Grant admin consent for the Graph permissions listed in docs/SETUP.md"
+Write-Host "   3. Upload the Teams app package"
+Write-Host ""
+Write-Host "  Storage tables, blob containers and queues are created by the app on first run." -ForegroundColor DarkGray
+Write-Host "  Note: AlwaysOn is not set by this template - see docs/SCALING.md section 7." -ForegroundColor DarkGray

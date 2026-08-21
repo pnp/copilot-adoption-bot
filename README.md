@@ -92,6 +92,7 @@ At a glance, the solution is composed of:
 | **[Usage Guide](docs/USAGE.md)** | How to create templates and send messages |
 | **[Features Guide](docs/FEATURES.md)** | Detailed feature documentation |
 | **[Deployment Guide](docs/DEPLOYMENT.md)** | Azure deployment and CI/CD pipelines |
+| **[Deploy with Bicep](docs/DEPLOYMENT-BICEP.md)** | Infrastructure-as-code provisioning (script or CI) |
 | **[Deploy with Copilot CLI](docs/DEPLOYMENT-COPILOT-CLI.md)** | Agent-guided Azure deployment from your terminal |
 | **[Scaling Guide](docs/SCALING.md)** | Capacity model at scale and the performance escalation ladder |
 | **[Security Guide](docs/SECURITY.md)** | Security best practices |

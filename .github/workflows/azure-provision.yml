@@ -1,0 +1,137 @@
+name: Provision Azure Infrastructure
+
+# Deliberately manual (workflow_dispatch) rather than on push. Provisioning is an
+# infrequent, high-impact operation - the existing azure-deploy.yml handles the routine
+# code deployments and assumes these resources already exist.
+#
+# Uses the same deploy/main.bicep as deploy/Deploy-AdoptionBot.ps1, so there is one
+# definition of the infrastructure with two entry points.
+
+on:
+  workflow_dispatch:
+    inputs:
+      resourceGroup:
+        description: 'Target resource group'
+        required: true
+        type: string
+      location:
+        description: 'Azure region'
+        required: true
+        default: 'westeurope'
+        type: string
+      appServiceName:
+        description: 'App Service name (also the hostname)'
+        required: true
+        type: string
+      storageAccountName:
+        description: 'Storage account name (3-24 lowercase alphanumeric)'
+        required: true
+        type: string
+      appServicePlanSku:
+        description: 'App Service Plan SKU'
+        required: true
+        default: 'B1'
+        type: choice
+        options: [B1, B2, B3, S1, S2, S3, P0v3, P1v3, P2v3, P3v3]
+      mode:
+        description: 'what-if previews changes; deploy applies them'
+        required: true
+        default: 'what-if'
+        type: choice
+        options: [what-if, deploy]
+
+permissions:
+  id-token: write      # OIDC federated credential - no stored cloud secret
+  contents: read
+
+jobs:
+  provision:
+    name: ${{ inputs.mode }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.mode == 'deploy' && 'production' || '' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate Bicep template
+        run: az bicep build --file deploy/main.bicep --stdout > /dev/null
+
+      - name: Ensure resource group
+        if: inputs.mode == 'deploy'
+        run: |
+          az group create \
+            --name "${{ inputs.resourceGroup }}" \
+            --location "${{ inputs.location }}" \
+            --output none
+
+      # Secrets come from GitHub Actions secrets, never from the repo. The Entra app
+      # registrations themselves are created out-of-band (docs/SETUP.md) because they
+      # require admin consent.
+      - name: Preview changes (what-if)
+        if: inputs.mode == 'what-if'
+        run: |
+          az deployment group what-if \
+            --resource-group "${{ inputs.resourceGroup }}" \
+            --template-file deploy/main.bicep \
+            --parameters \
+              appServiceName="${{ inputs.appServiceName }}" \
+              storageAccountName="${{ inputs.storageAccountName }}" \
+              location="${{ inputs.location }}" \
+              appServicePlanSku="${{ inputs.appServicePlanSku }}" \
+              botAppId="${{ secrets.BOT_APP_ID }}" \
+              botAppPassword="${{ secrets.BOT_APP_PASSWORD }}" \
+              botTenantId="${{ secrets.BOT_TENANT_ID }}" \
+              graphClientId="${{ secrets.GRAPH_CLIENT_ID }}" \
+              graphClientSecret="${{ secrets.GRAPH_CLIENT_SECRET }}" \
+              graphTenantId="${{ secrets.GRAPH_TENANT_ID }}"
+
+      - name: Deploy infrastructure
+        id: deploy
+        if: inputs.mode == 'deploy'
+        run: |
+          az deployment group create \
+            --name "adoptionbot-${{ github.run_number }}" \
+            --resource-group "${{ inputs.resourceGroup }}" \
+            --template-file deploy/main.bicep \
+            --parameters \
+              appServiceName="${{ inputs.appServiceName }}" \
+              storageAccountName="${{ inputs.storageAccountName }}" \
+              location="${{ inputs.location }}" \
+              appServicePlanSku="${{ inputs.appServicePlanSku }}" \
+              botAppId="${{ secrets.BOT_APP_ID }}" \
+              botAppPassword="${{ secrets.BOT_APP_PASSWORD }}" \
+              botTenantId="${{ secrets.BOT_TENANT_ID }}" \
+              graphClientId="${{ secrets.GRAPH_CLIENT_ID }}" \
+              graphClientSecret="${{ secrets.GRAPH_CLIENT_SECRET }}" \
+              graphTenantId="${{ secrets.GRAPH_TENANT_ID }}" \
+            --query properties.outputs \
+            --output json > outputs.json
+
+          echo "endpoint=$(jq -r '.messagingEndpoint.value' outputs.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        if: inputs.mode == 'deploy'
+        run: |
+          {
+            echo "### Infrastructure provisioned"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Resource group | \`${{ inputs.resourceGroup }}\` |"
+            echo "| App Service | \`${{ inputs.appServiceName }}\` |"
+            echo "| Messaging endpoint | \`${{ steps.deploy.outputs.endpoint }}\` |"
+            echo ""
+            echo "**Remaining manual steps**"
+            echo "1. Set the bot messaging endpoint in the Teams Developer Portal to the URL above"
+            echo "   (no public API exists for this - see \`docs/SETUP.md\`)"
+            echo "2. Grant admin consent for the Graph permissions"
+            echo "3. Run **Build and Deploy to Azure** to publish the application code"
+          } >> "$GITHUB_STEP_SUMMARY"
