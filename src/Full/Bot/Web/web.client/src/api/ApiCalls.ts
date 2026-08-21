@@ -1,4 +1,4 @@
-import { MessageTemplateDto, MessageLogDto, CreateTemplateRequest, UpdateTemplateRequest, MessageBatchDto, CreateBatchAndSendRequest, UpdateLogStatusRequest, ParseFileResponse, MessageStatusStatsDto, UserCoverageStatsDto, BotInteractionStatsDto, QueueStatusDto, CopilotConnectedStatusDto, SmartGroupDto, SmartGroupResolutionResult, CreateSmartGroupRequest, UpdateSmartGroupRequest, PreviewSmartGroupRequest, PreviewSmartGroupResponse, SmartGroupUpnsResponse, AppSettingsDto, UpdateSettingsRequest, CopilotStatsUpdateResponse, CacheOperationResponse, StorageConfigDto, CacheStatusDto, SmartGroupStatusDto, ResolveJobAcceptedDto, ResolveJobStatusDto } from "../apimodels/Models";
+import { MessageTemplateDto, MessageLogDto, CreateTemplateRequest, UpdateTemplateRequest, MessageBatchDto, CreateBatchAndSendRequest, ParseFileResponse, MessageStatusStatsDto, UserCoverageStatsDto, BotInteractionStatsDto, QueueStatusDto, CopilotConnectedStatusDto, SmartGroupDto, SmartGroupResolutionResult, CreateSmartGroupRequest, UpdateSmartGroupRequest, PreviewSmartGroupRequest, PreviewSmartGroupResponse, SmartGroupUpnsResponse, AppSettingsDto, UpdateSettingsRequest, CopilotStatsUpdateResponse, CacheOperationResponse, StorageConfigDto, CacheStatusDto, SmartGroupStatusDto, ResolveJobAcceptedDto, ResolveJobStatusDto } from "../apimodels/Models";
 import { BaseAxiosApiLoader } from "./AxiosApiLoader";
 
 
@@ -57,10 +57,6 @@ export const parseFile = async (loader: BaseAxiosApiLoader, file: File): Promise
 
 export const createBatchAndSend = async (loader: BaseAxiosApiLoader, request: CreateBatchAndSendRequest): Promise<any> => {
   return loader.loadFromApi('api/SendNudge/CreateBatchAndSend', 'POST', request);
-}
-
-export const updateLogStatus = async (loader: BaseAxiosApiLoader, logId: string, request: UpdateLogStatusRequest): Promise<void> => {
-  return loader.loadFromApi(`api/SendNudge/UpdateLogStatus/${logId}`, 'PUT', request);
 }
 
 // Statistics API calls

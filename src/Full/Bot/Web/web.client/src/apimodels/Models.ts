@@ -42,11 +42,6 @@ export interface CreateBatchAndSendRequest {
   smartGroupIds?: string[];
 }
 
-export interface UpdateLogStatusRequest {
-  status: string;
-  lastError?: string;
-}
-
 export interface ParseFileResponse {
   upns: string[];
 }
