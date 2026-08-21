@@ -39,6 +39,8 @@
 		<PackageReference Include="Microsoft.Bot.Builder.Dialogs" Version="4.23.0" />
 		<PackageReference Include="Microsoft.Bot.Builder.Integration.AspNet.Core" Version="4.23.0" />
 		<PackageReference Include="Microsoft.Identity.Web" Version="4.2.0" />
+		<!-- Pinned to patch GHSA-v5pm-xwqc-g5wc (high severity) in the version Swashbuckle pulls in transitively. -->
+		<PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
 	</ItemGroup>
 
