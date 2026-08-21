@@ -175,27 +175,11 @@ public class SendNudgeController : ControllerBase
         }
     }
 
-    // PUT: api/SendNudge/UpdateLogStatus/{logId}
-    [HttpPut("UpdateLogStatus/{logId}")]
-    public async Task<IActionResult> UpdateLogStatus(string logId, [FromBody] UpdateLogStatusRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Status))
-        {
-            return BadRequest("Status is required");
-        }
-
-        try
-        {
-            await _templateService.UpdateMessageLogStatus(logId, request.Status, request.LastError);
-            _logger.LogInformation($"Updated message log {logId} to status {request.Status}");
-            return Ok();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating message log status");
-            return StatusCode(500, "Error updating message log status");
-        }
-    }
+    // PUT: api/SendNudge/UpdateLogStatus was removed. It was never called by the UI, and after
+    // delivery rows were re-keyed to (PartitionKey, RowKey) its arguments silently shifted -
+    // every parameter is a string, so `UpdateMessageLogStatus(logId, status, lastError)` still
+    // compiled but bound status to the row key and lastError to the status. Delivery status is
+    // owned by the dispatcher; there is no reason to expose arbitrary mutation of it over HTTP.
 }
 
 public class CreateBatchAndSendRequest
@@ -212,10 +196,4 @@ public class CreateBatchAndSendRequest
     /// Smart group IDs to resolve and include as recipients (requires Copilot Connected mode)
     /// </summary>
     public List<string>? SmartGroupIds { get; set; }
-}
-
-public class UpdateLogStatusRequest
-{
-    public string Status { get; set; } = null!;
-    public string? LastError { get; set; }
 }
