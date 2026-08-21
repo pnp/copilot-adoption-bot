@@ -28,17 +28,26 @@ public class CachedUserService
     /// Get all users with extended metadata.
     /// Uses cache manager for optimized retrieval, falls back to Graph API if cache is empty/expired.
     /// </summary>
-    /// <param name="maxUsers">Maximum number of users to retrieve (default 999)</param>
+    /// <param name="maxUsers">
+    /// Maximum number of users to retrieve. Defaults to unbounded. This previously defaulted
+    /// to 999, which silently truncated every caller that didn't pass a value - including
+    /// smart-group resolution, so groups were matched against the first 999 users of the
+    /// tenant and the other 99% were invisible.
+    /// </param>
     /// <param name="forceRefresh">Force a refresh from Graph API instead of using cache</param>
-    public async Task<List<EnrichedUserInfo>> GetAllUsersWithMetadataAsync(int maxUsers = 999, bool forceRefresh = false)
+    public async Task<List<EnrichedUserInfo>> GetAllUsersWithMetadataAsync(int maxUsers = int.MaxValue, bool forceRefresh = false)
     {
         try
         {
             _logger.LogInformation("Fetching users from cache...");
             var cachedUsers = await _cacheManager.GetAllCachedUsersAsync(forceRefresh);
 
-            if (maxUsers < int.MaxValue)
+            if (maxUsers < int.MaxValue && cachedUsers.Count > maxUsers)
             {
+                _logger.LogWarning(
+                    "Truncating user list to {MaxUsers} of {TotalUsers} cached users. Callers that need the full " +
+                    "directory (e.g. smart-group resolution) must not pass maxUsers.",
+                    maxUsers, cachedUsers.Count);
                 cachedUsers = cachedUsers.Take(maxUsers).ToList();
             }
 

@@ -1,3 +1,4 @@
+using Engine.Models;
 using Engine.Storage;
 using Microsoft.Extensions.Logging;
 
@@ -191,16 +192,24 @@ public class SmartGroupService
 
         _logger.LogInformation($"Resolving smart group {groupId} using AI...");
 
-        // Get all users with metadata from Graph
-        var users = await _userService.GetAllUsersWithMetadataAsync();
+        // Explicitly unbounded: smart groups must be resolved against the whole directory.
+        var users = await _userService.GetAllUsersWithMetadataAsync(maxUsers: int.MaxValue);
 
         // Call AI to match users
         var matches = await _aiFoundryService.ResolveSmartGroupMembersAsync(group.Description, users);
 
+        // Index by UPN once. Looking each match up with a linear FirstOrDefault over the full
+        // user list is O(matches x users) - billions of string comparisons at tenant scale.
+        var usersByUpn = new Dictionary<string, EnrichedUserInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var u in users)
+        {
+            usersByUpn[u.UserPrincipalName] = u;
+        }
+
         // Cache the results
         var memberCacheEntities = matches.Select(m =>
         {
-            var user = users.FirstOrDefault(u => u.UserPrincipalName.Equals(m.UserPrincipalName, StringComparison.OrdinalIgnoreCase));
+            usersByUpn.TryGetValue(m.UserPrincipalName, out var user);
             return new SmartGroupMemberCacheEntity
             {
                 RowKey = m.UserPrincipalName,
@@ -269,9 +278,15 @@ public class SmartGroupService
         // Call AI to match users
         var matches = await _aiFoundryService.ResolveSmartGroupMembersAsync(description, users);
 
+        var usersByUpn = new Dictionary<string, EnrichedUserInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var u in users)
+        {
+            usersByUpn[u.UserPrincipalName] = u;
+        }
+
         return matches.Select(m =>
         {
-            var user = users.FirstOrDefault(u => u.UserPrincipalName.Equals(m.UserPrincipalName, StringComparison.OrdinalIgnoreCase));
+            usersByUpn.TryGetValue(m.UserPrincipalName, out var user);
             return new SmartGroupMemberDto
             {
                 UserPrincipalName = m.UserPrincipalName,
