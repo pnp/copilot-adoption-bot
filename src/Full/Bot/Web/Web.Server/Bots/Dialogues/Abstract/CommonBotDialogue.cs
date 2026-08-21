@@ -22,10 +22,7 @@ public abstract class CommonBotDialogue : ComponentDialog
 
     protected async Task<CachedUserAndConversationData?> GetCachedUser(BotUser botUser)
     {
-        await _botConversationCache.PopulateMemCacheIfEmpty();
-
-        var chatUser = _botConversationCache.GetCachedUser(botUser.UserId);
-        return chatUser;
+        return await _botConversationCache.GetCachedUserAsync(botUser.UserId);
     }
 
     protected async Task<DialogTurnResult> PromptWithCard(WaterfallStepContext stepContext, BaseAdaptiveCard card)
