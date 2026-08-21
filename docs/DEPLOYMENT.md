@@ -8,12 +8,17 @@ Pick the guide that matches how you work:
 
 | Guide | Best for | Automation | Recommended when |
 |-------|----------|-----------|------------------|
+| **[Bicep](DEPLOYMENT-BICEP.md)** | Any environment you'll rebuild, share or audit | Infrastructure-as-code | **Start here.** Repeatable, reviewable and idempotent |
 | **[Copilot CLI](DEPLOYMENT-COPILOT-CLI.md)** | One-off / first-time deployments from your terminal | Fully agent-driven | You want a guided walkthrough, or you have an existing `deployment-config.json` |
-| **[Manual Deployment](DEPLOYMENT-MANUAL.md)** | Learning the moving parts, locked-down environments | Hand-run `az` commands | You can't install Copilot CLI, or you want full visibility of every step |
+| **[Manual Deployment](DEPLOYMENT-MANUAL.md)** | Learning the moving parts, locked-down environments | Hand-run `az` commands | You can't run scripts, or you want full visibility of every step |
 | **[GitHub Actions](DEPLOYMENT-GITHUB-ACTIONS.md)** | Teams using GitHub for source control | Push-to-deploy CI/CD | Code lives on GitHub and you want automated rollouts on `main` |
 | **[Azure DevOps](DEPLOYMENT-AZURE-DEVOPS.md)** | Teams using Azure DevOps for source control | Pipeline-based CI/CD | Code lives in Azure Repos / you already use Azure Pipelines |
 
-> First time deploying? Start with **Copilot CLI** if you have it installed, otherwise **Manual Deployment**. Move to **GitHub Actions** or **Azure DevOps** once you want repeatable rollouts.
+> **Infrastructure vs code.** [Bicep](DEPLOYMENT-BICEP.md) provisions the Azure *resources*;
+> the GitHub Actions and Azure DevOps pipelines deploy the *application code* and assume the
+> resources already exist. Most teams want both.
+
+> First time deploying? Start with **[Bicep](DEPLOYMENT-BICEP.md)**. Move to **GitHub Actions** or **Azure DevOps** once you want repeatable rollouts.
 
 > **Looking for local development setup?** See the [Development Environment Guide](DEVELOPMENT.md) for tools, secrets management, and tunneling setup.
 >
