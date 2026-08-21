@@ -169,7 +169,7 @@ public class MessageTemplateStorageManagerIntegrationTests : AbstractTest
         var log = await _messageStorage.LogMessageSend(batch.RowKey, "user@example.com", "Pending");
 
         // Act
-        await _messageStorage.UpdateMessageLogStatus(log.RowKey, "Sent", null);
+        await _messageStorage.UpdateMessageLogStatus(log.PartitionKey, log.RowKey, "Sent");
         var logs = await _messageStorage.GetMessageLogsByBatch(batch.RowKey);
         var updated = logs.First(l => l.RowKey == log.RowKey);
 

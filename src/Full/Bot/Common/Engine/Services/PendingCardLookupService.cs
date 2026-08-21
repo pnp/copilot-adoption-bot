@@ -6,13 +6,33 @@ using Newtonsoft.Json;
 namespace Engine.Services;
 
 /// <summary>
-/// Service for looking up pending cards to send to users from Azure Table Storage
+/// Resolves the adaptive card to deliver to a user.
+///
+/// <para>
+/// The queue-driven path addresses a delivery by <em>batch + template</em>, which is a point
+/// read. The previous implementation instead searched the whole delivery table for
+/// "newest Pending row with this RecipientUpn" - a filter on two non-key properties, so a
+/// full scan of every row ever written, on every single send - and then delivered whichever
+/// row happened to be newest, which could be a different delivery from the one being
+/// processed.
+/// </para>
+///
+/// <para>
+/// Template JSON is cached per template id, so a 150,000-recipient batch downloads the
+/// blob once rather than once per recipient.
+/// </para>
 /// </summary>
 public class PendingCardLookupService
 {
     private readonly MessageTemplateStorageManager _storageManager;
     private readonly ILogger<PendingCardLookupService> _logger;
-    private const string LOGS_TABLE_NAME = "messagelogs";
+
+    /// <summary>
+    /// Process-wide cache of rendered template JSON keyed by template id. Templates are
+    /// immutable per id for the lifetime of a batch, and a batch shares one template across
+    /// every recipient.
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Task<string>> TemplateJsonCache = new();
 
     public PendingCardLookupService(
         MessageTemplateStorageManager storageManager,
@@ -23,138 +43,111 @@ public class PendingCardLookupService
     }
 
     /// <summary>
-    /// Finds the latest pending card for a specific user by UPN
+    /// Load a specific delivery by batch + template. No search, no scan.
     /// </summary>
-    /// <param name="upn">User Principal Name</param>
-    /// <returns>Pending card info if found, null otherwise</returns>
-    public async Task<PendingCardInfo?> GetLatestPendingCardByUpn(string upn)
+    public async Task<PendingCardInfo?> GetDeliveryCardAsync(string upn, string batchId, string templateId)
     {
         try
         {
-            _logger.LogInformation($"Looking for pending cards for user {upn}");
-
-            var tableClient = await _storageManager.GetTableClient(LOGS_TABLE_NAME);
-
-            // Query for pending messages for this UPN, ordered by SentDate descending.
-            // Escape UPN to avoid breaking the OData filter on apostrophes (e.g. o'connor@..).
-            var safeUpn = ODataFilter.EscapeLiteral(upn);
-            var filter = $"PartitionKey eq '{MessageLogTableEntity.PartitionKeyVal}' and RecipientUpn eq '{safeUpn}' and Status eq 'Pending'";
-
-            var query = tableClient.QueryAsync<MessageLogTableEntity>(
-                filter: filter,
-                maxPerPage: 100);
-
-            var pendingLogs = new List<MessageLogTableEntity>();
-            await foreach (var log in query)
-            {
-                pendingLogs.Add(log);
-            }
-
-            if (!pendingLogs.Any())
-            {
-                _logger.LogInformation($"No pending cards found for user {upn}");
-                return null;
-            }
-
-            // Get the latest pending message (most recent SentDate)
-            var latestLog = pendingLogs.OrderByDescending(l => l.SentDate).First();
-
-            _logger.LogInformation($"Found pending card for user {upn}: Log ID {latestLog.RowKey}, Batch ID {latestLog.MessageBatchId}");
-
-            // Get the batch to retrieve template ID
-            var batch = await _storageManager.GetBatch(latestLog.MessageBatchId);
-            if (batch == null)
-            {
-                _logger.LogWarning($"Batch {latestLog.MessageBatchId} not found for pending card");
-                return null;
-            }
-
-            // Get the template
-            var template = await _storageManager.GetTemplate(batch.TemplateId);
+            var template = await _storageManager.GetTemplate(templateId);
             if (template == null)
             {
-                _logger.LogWarning($"Template {batch.TemplateId} not found for pending card");
+                _logger.LogWarning("Template {TemplateId} not found for batch {BatchId}", templateId, batchId);
                 return null;
             }
 
-            // Get the template JSON
-            var templateJson = await _storageManager.GetTemplateJson(batch.TemplateId);
-
-            // Parse JSON into an Attachment
-            var cardAttachment = CreateCardAttachment(templateJson);
+            var templateJson = await GetTemplateJsonCachedAsync(templateId);
 
             return new PendingCardInfo
             {
-                MessageLogId = latestLog.RowKey,
-                BatchId = latestLog.MessageBatchId,
-                TemplateId = batch.TemplateId,
+                BatchId = batchId,
+                TemplateId = templateId,
                 TemplateName = template.TemplateName,
                 CardJson = templateJson,
-                CardAttachment = cardAttachment,
-                SentDate = latestLog.SentDate,
-                RecipientUpn = latestLog.RecipientUpn ?? upn
+                CardAttachment = CreateCardAttachment(templateJson),
+                SentDate = DateTime.UtcNow,
+                RecipientUpn = upn
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error looking up pending card for user {upn}");
+            _logger.LogError(ex, "Error loading delivery card for {Upn} in batch {BatchId}", upn, batchId);
             return null;
         }
     }
 
     /// <summary>
-    /// Gets all pending cards for a specific user by UPN
+    /// Find the newest not-yet-delivered card for a user via the per-user pending index.
+    /// Reads the first row of one small partition rather than scanning delivery history.
     /// </summary>
-    /// <param name="upn">User Principal Name</param>
-    /// <returns>List of pending cards</returns>
-    public async Task<List<PendingCardInfo>> GetAllPendingCardsByUpn(string upn)
+    public async Task<PendingCardInfo?> GetLatestPendingCardByUpn(string upn)
     {
         try
         {
-            _logger.LogInformation($"Looking for all pending cards for user {upn}");
-
-            var tableClient = await _storageManager.GetTableClient(LOGS_TABLE_NAME);
-
-            // Escape UPN to avoid breaking the OData filter on apostrophes (e.g. o'connor@..).
-            var safeUpn = ODataFilter.EscapeLiteral(upn);
-            var filter = $"PartitionKey eq '{MessageLogTableEntity.PartitionKeyVal}' and RecipientUpn eq '{safeUpn}' and Status eq 'Pending'";
-
-            var query = tableClient.QueryAsync<MessageLogTableEntity>(
-                filter: filter);
-
-            var pendingLogs = new List<MessageLogTableEntity>();
-            await foreach (var log in query)
+            var pending = await _storageManager.GetNewestPendingDeliveryAsync(upn);
+            if (pending == null)
             {
-                pendingLogs.Add(log);
+                _logger.LogInformation("No pending cards found for user {Upn}", upn);
+                return null;
             }
 
-            if (!pendingLogs.Any())
+            var card = await GetDeliveryCardAsync(upn, pending.BatchId, pending.TemplateId);
+            if (card != null)
             {
-                _logger.LogInformation($"No pending cards found for user {upn}");
-                return new List<PendingCardInfo>();
+                card.SentDate = pending.CreatedUtc;
             }
-
-            // Get all pending cards with their templates.
-            // Cache batch + template + JSON lookups so each unique batch/template is fetched only once
-            // even when many message logs reference the same batch (avoids N+1 storage round trips).
-            var pendingCards = await PendingCardMaterializer.MaterializeAsync(
-                upn,
-                pendingLogs,
-                _storageManager.GetBatch,
-                _storageManager.GetTemplate,
-                _storageManager.GetTemplateJson,
-                CreateCardAttachment,
-                (log, ex) => _logger.LogWarning(ex, $"Error processing pending card for log {log.RowKey}"));
-
-            _logger.LogInformation($"Found {pendingCards.Count} pending cards for user {upn}");
-            return pendingCards;
+            return card;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error looking up pending cards for user {upn}");
-            return new List<PendingCardInfo>();
+            _logger.LogError(ex, "Error looking up pending card for user {Upn}", upn);
+            return null;
         }
     }
+
+    /// <summary>
+    /// Gets all pending cards for a user, newest first.
+    /// </summary>
+    public async Task<List<PendingCardInfo>> GetAllPendingCardsByUpn(string upn)
+    {
+        var results = new List<PendingCardInfo>();
+
+        try
+        {
+            var pendingEntries = await _storageManager.GetPendingDeliveriesAsync(upn);
+
+            foreach (var entry in pendingEntries)
+            {
+                var card = await GetDeliveryCardAsync(upn, entry.BatchId, entry.TemplateId);
+                if (card != null)
+                {
+                    card.SentDate = entry.CreatedUtc;
+                    results.Add(card);
+                }
+            }
+
+            _logger.LogInformation("Found {Count} pending cards for user {Upn}", results.Count, upn);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error looking up pending cards for user {Upn}", upn);
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Cache template JSON per template id. Uses a <see cref="Task{T}"/> value so concurrent
+    /// callers share one blob download rather than racing to fetch the same template.
+    /// </summary>
+    private Task<string> GetTemplateJsonCachedAsync(string templateId) =>
+        TemplateJsonCache.GetOrAdd(templateId, id => _storageManager.GetTemplateJson(id));
+
+    /// <summary>
+    /// Drop a cached template so an edited template is picked up.
+    /// </summary>
+    public static void InvalidateTemplateCache(string templateId) =>
+        TemplateJsonCache.TryRemove(templateId, out _);
 
     /// <summary>
     /// Creates a Bot Framework Attachment from adaptive card JSON
@@ -170,11 +163,10 @@ public class PendingCardLookupService
 }
 
 /// <summary>
-/// Information about a pending card
+/// Information about a card to deliver.
 /// </summary>
 public class PendingCardInfo
 {
-    public string MessageLogId { get; set; } = null!;
     public string BatchId { get; set; } = null!;
     public string TemplateId { get; set; } = null!;
     public string TemplateName { get; set; } = null!;

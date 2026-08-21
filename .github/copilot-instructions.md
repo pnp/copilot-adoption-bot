@@ -47,7 +47,7 @@ gotchas of this repo. Keep it short, specific and current.
   is unit-tested in isolation. Follow this pattern when you add new logic:
   - `CopilotUsageCsvParser` ↔ `GraphCopilotStatsLoader`
   - `StatisticsCalculator` ↔ `StatisticsService`
-  - `PendingCardMaterializer` ↔ `PendingCardLookupService`
+  - `DeliveryKey` ↔ `MessageTemplateStorageManager` / `PendingCardLookupService`
   - `ODataFilter`, `TableBatch` – cross-cutting storage helpers
 - **Background work**: long-running work goes through `BatchQueueService`
   (Azure Storage Queue, queue name `batch-messages`) and is consumed by
@@ -64,12 +64,24 @@ gotchas of this repo. Keep it short, specific and current.
   into a filter string. UPNs can contain `'` (e.g. `o'connor@contoso.com`) which both
   breaks the query and is an injection vector.
 - **Batch writes/deletes** with `Common.Engine.Storage.TableBatch.SubmitInBatchesAsync`.
-  Azure Table transactions cap at 100 ops per batch and require a shared partition key.
-  Always include a per-entity fallback on `RequestFailedException` so a single bad row
-  doesn't abort the whole job.
+  Azure Table transactions cap at 100 ops per batch and require a shared partition key,
+  so `Chunk` groups operations **by partition key**. It retries and falls back to
+  per-entity writes **per chunk**, never for the whole operation set – re-issuing every
+  operation after a partial failure duplicates the rows earlier chunks already committed.
+  Use idempotent actions (`UpsertMerge`) with a natural key so a retry is a no-op.
+- **Delivery rows are keyed by `DeliveryKey`**: `PartitionKey = "{batchId}~{shard}"`
+  (16 shards), `RowKey =` normalised lower-cased recipient UPN. Never reintroduce a
+  constant partition key or a random GUID row key – the first caps throughput at one
+  partition (~2,000 entities/s) and the second makes writes non-idempotent. Query a
+  batch with the `PartitionRangeStartInclusive`/`PartitionRangeEndExclusive` range, never
+  by filtering on a non-key property such as `MessageBatchId` or `RecipientUpn`.
+- **Never scan delivery rows for aggregates.** Dashboard statistics read the running
+  counters on `messagebatches` (roughly one row per campaign). There is deliberately no
+  `GetAllMessageLogs()`.
 - **Tables in use** (all auto-created on first run):
-  `messagetemplates`, `messagebatches`, `messagelogs`, `ConversationCache`, `usercache`,
-  `usersyncmetadata`, `smartgroups`, `smartgroupmembers`, `appsettings`. Blob container:
+  `messagetemplates`, `messagebatches`, `messagelogs`, `pendingdeliveries`,
+  `ConversationCache`, `usercache`, `usersyncmetadata`, `smartgroups`,
+  `smartgroupmembers`, `appsettings`. Blob container:
   `message-templates`. Queue: `batch-messages`. Keep `docs/DEPLOYMENT.md` in sync if you
   add/rename any.
 - **RBAC roles required** (RBAC path): `Storage Blob Data Contributor`,

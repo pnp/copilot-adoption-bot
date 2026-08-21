@@ -295,7 +295,7 @@ public class MessageTemplateServiceIntegrationTests : AbstractTest
         var messageLog = await _service.LogMessageSend(batch.Id, "recipient@example.com", "Pending");
 
         // Act
-        await _service.UpdateMessageLogStatus(messageLog.Id, "Sent", null);
+        await _service.UpdateMessageLogStatus(messageLog.PartitionKey, messageLog.Id, "Sent");
         var logs = await _service.GetMessageLogsByBatch(batch.Id);
         var updatedLog = logs.FirstOrDefault(l => l.Id == messageLog.Id);
 

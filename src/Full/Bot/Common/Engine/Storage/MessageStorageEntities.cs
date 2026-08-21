@@ -77,19 +77,55 @@ public class MessageBatchTableEntity : ITableEntity
     /// Date the batch was created
     /// </summary>
     public DateTime CreatedDate { get; set; }
+
+    /// <summary>
+    /// Number of partitions this batch's deliveries were spread across. Persisted so the
+    /// shard count can be raised later (see docs/SCALING.md) without making existing
+    /// batches unreadable.
+    /// </summary>
+    public int ShardCount { get; set; } = DeliveryKey.DefaultShardCount;
+
+    /// <summary>
+    /// Total number of recipients in this batch.
+    /// </summary>
+    public int TotalCount { get; set; }
+
+    /// <summary>
+    /// Running count of deliveries that succeeded. Maintained incrementally by the
+    /// dispatcher so dashboard statistics never have to scan delivery rows.
+    /// </summary>
+    public int SentCount { get; set; }
+
+    /// <summary>
+    /// Running count of deliveries that failed permanently.
+    /// </summary>
+    public int FailedCount { get; set; }
+
+    /// <summary>
+    /// UTC timestamp of the last counter update, so operators can spot a stalled batch.
+    /// </summary>
+    public DateTime? LastProgressUtc { get; set; }
 }
 
 /// <summary>
-/// Table storage entity for message send logs
+/// Table storage entity for message send logs (one row per recipient per batch).
+///
+/// <para>
+/// Keys follow <see cref="DeliveryKey"/>: <c>PartitionKey = "{batchId}~{shard}"</c> and
+/// <c>RowKey = normalised recipient UPN</c>. Using the recipient as the row key makes
+/// writes idempotent — re-processing a recipient upserts the same row instead of
+/// inserting a duplicate.
+/// </para>
 /// </summary>
 public class MessageLogTableEntity : ITableEntity
 {
-    public static string PartitionKeyVal => "MessageLogs";
-
-    public string PartitionKey { get => PartitionKeyVal; set { } }
+    /// <summary>
+    /// <c>"{batchId}~{shard}"</c>. Assign via <see cref="DeliveryKey.PartitionFor"/>.
+    /// </summary>
+    public string PartitionKey { get; set; } = null!;
 
     /// <summary>
-    /// Log ID (GUID)
+    /// Normalised (lower-cased) recipient UPN. Assign via <see cref="DeliveryKey.RowKeyFor"/>.
     /// </summary>
     public string RowKey { get; set; } = null!;
 
@@ -102,17 +138,17 @@ public class MessageLogTableEntity : ITableEntity
     public string MessageBatchId { get; set; } = null!;
 
     /// <summary>
-    /// When the message was sent
+    /// When the message was queued
     /// </summary>
     public DateTime SentDate { get; set; }
 
     /// <summary>
-    /// UPN of the recipient (optional)
+    /// UPN of the recipient, in its original casing (the row key holds the normalised form).
     /// </summary>
     public string? RecipientUpn { get; set; }
 
     /// <summary>
-    /// Send status (e.g., "Sent", "Failed", "Pending")
+    /// Send status (e.g., "Success", "Failed", "Pending")
     /// </summary>
     public string Status { get; set; } = null!;
 
@@ -120,4 +156,43 @@ public class MessageLogTableEntity : ITableEntity
     /// Last error message if the send failed
     /// </summary>
     public string? LastError { get; set; }
+}
+
+/// <summary>
+/// Per-user index of deliveries that have not yet been sent.
+///
+/// <para>
+/// Azure Table Storage has no secondary indexes, so "the newest pending delivery for this
+/// user" — needed when a user opens Teams after the bot app was installed for them — is
+/// served by this explicitly maintained index rather than by scanning every delivery row.
+/// </para>
+///
+/// <para>
+/// <c>PartitionKey</c> is the normalised UPN (a small per-user partition) and
+/// <c>RowKey</c> is an inverted tick count so the newest entry sorts first; reading the
+/// first row of the partition is therefore a bounded, cheap query.
+/// </para>
+/// </summary>
+public class PendingDeliveryTableEntity : ITableEntity
+{
+    /// <summary>Normalised recipient UPN.</summary>
+    public string PartitionKey { get; set; } = null!;
+
+    /// <summary><c>"{invertedTicks}~{batchId}"</c>, newest first.</summary>
+    public string RowKey { get; set; } = null!;
+
+    public DateTimeOffset? Timestamp { get; set; }
+    public ETag ETag { get; set; }
+
+    /// <summary>Batch this pending delivery belongs to.</summary>
+    public string BatchId { get; set; } = null!;
+
+    /// <summary>Template to render for this delivery.</summary>
+    public string TemplateId { get; set; } = null!;
+
+    /// <summary>Recipient UPN in original casing.</summary>
+    public string RecipientUpn { get; set; } = null!;
+
+    /// <summary>When the delivery was queued.</summary>
+    public DateTime CreatedUtc { get; set; }
 }

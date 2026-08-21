@@ -5,17 +5,17 @@ using Engine.Storage;
 namespace UnitTests.Fakes;
 
 /// <summary>
-/// In-memory <see cref="IMessageLogReader"/> returning a configurable list of logs.
+/// In-memory <see cref="IBatchStatsSource"/> returning a configurable list of batches.
 /// </summary>
-public class FakeMessageLogReader : IMessageLogReader
+public class FakeBatchStatsSource : IBatchStatsSource
 {
-    public List<MessageLogTableEntity> Logs { get; set; } = new();
+    public List<MessageBatchTableEntity> Batches { get; set; } = new();
     public int CallCount { get; private set; }
 
-    public Task<List<MessageLogTableEntity>> GetAllMessageLogs()
+    public Task<List<MessageBatchTableEntity>> GetAllBatches()
     {
         CallCount++;
-        return Task.FromResult(Logs);
+        return Task.FromResult(Batches);
     }
 }
 
@@ -42,9 +42,18 @@ public class FakeBotInteractionSource : IBotInteractionSource
     public List<CachedUserAndConversationData> Users { get; set; } = new();
     public int CallCount { get; private set; }
 
+    /// <summary>Overrides the count returned by <see cref="GetReachedUserCountAsync"/> when set.</summary>
+    public int? ReachedUserCountOverride { get; set; }
+
     public Task<List<CachedUserAndConversationData>> GetCachedUsersAsync()
     {
         CallCount++;
         return Task.FromResult(Users);
+    }
+
+    public Task<int> GetReachedUserCountAsync()
+    {
+        CallCount++;
+        return Task.FromResult(ReachedUserCountOverride ?? Users.Count);
     }
 }

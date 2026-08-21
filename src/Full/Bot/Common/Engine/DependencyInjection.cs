@@ -73,7 +73,7 @@ public static class ServiceCollectionExtensions
         // Expose narrow data-source abstractions used by StatisticsService so the service
         // can be unit-tested without touching Azure Table Storage or Microsoft Graph.
         services.AddSingleton<ITenantUserCounter>(sp => sp.GetRequiredService<GraphService>());
-        services.AddSingleton<IMessageLogReader>(sp => sp.GetRequiredService<MessageTemplateStorageManager>());
+        services.AddSingleton<IBatchStatsSource>(sp => sp.GetRequiredService<MessageTemplateStorageManager>());
         // Teams-only apps don't register BotConversationCache (no bot framework). Provide a
         // no-op fallback so StatisticsService can resolve. AddBotFrameworkServices overrides
         // this with the real cache-backed source when bot services are present.

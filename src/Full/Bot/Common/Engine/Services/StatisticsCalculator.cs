@@ -10,36 +10,30 @@ namespace Engine.Services;
 public static class StatisticsCalculator
 {
     /// <summary>
-    /// Compute message-status counts in a single pass.
+    /// Compute message-status counts from per-batch counters.
+    ///
+    /// <para>
+    /// Reads roughly one row per send campaign rather than one row per delivery, so cost is
+    /// independent of how many messages have ever been sent.
+    /// </para>
     /// </summary>
-    public static MessageStatusStatsDto ComputeMessageStatusStats(IEnumerable<MessageLogTableEntity> logs)
+    public static MessageStatusStatsDto ComputeMessageStatusStats(IEnumerable<MessageBatchTableEntity> batches)
     {
-        ArgumentNullException.ThrowIfNull(logs);
+        ArgumentNullException.ThrowIfNull(batches);
 
         int sent = 0;
         int failed = 0;
-        int pending = 0;
         int total = 0;
 
-        foreach (var log in logs)
+        foreach (var batch in batches)
         {
-            total++;
-
-            var status = log.Status ?? string.Empty;
-            if (status.Equals("Sent", StringComparison.OrdinalIgnoreCase) ||
-                status.Equals("Success", StringComparison.OrdinalIgnoreCase))
-            {
-                sent++;
-            }
-            else if (status.Equals("Failed", StringComparison.OrdinalIgnoreCase))
-            {
-                failed++;
-            }
-            else if (status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
-            {
-                pending++;
-            }
+            total += batch.TotalCount;
+            sent += batch.SentCount;
+            failed += batch.FailedCount;
         }
+
+        // Anything neither delivered nor permanently failed is still in flight.
+        var pending = Math.Max(0, total - sent - failed);
 
         return new MessageStatusStatsDto
         {
@@ -51,22 +45,17 @@ public static class StatisticsCalculator
     }
 
     /// <summary>
-    /// Compute user coverage stats given message logs and the total user count in the tenant.
+    /// Compute user coverage stats.
     /// </summary>
-    public static UserCoverageStatsDto ComputeUserCoverageStats(IEnumerable<MessageLogTableEntity> logs, int totalUsersInTenant)
+    /// <param name="usersMessaged">
+    /// Distinct users the bot has reached at least once. Sourced from the conversation
+    /// cache rather than by counting distinct recipients across the delivery history,
+    /// which would require scanning every row ever written.
+    /// </param>
+    /// <param name="totalUsersInTenant">Total users in the tenant.</param>
+    public static UserCoverageStatsDto ComputeUserCoverageStats(int usersMessaged, int totalUsersInTenant)
     {
-        ArgumentNullException.ThrowIfNull(logs);
-
-        var uniqueRecipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var log in logs)
-        {
-            if (!string.IsNullOrWhiteSpace(log.RecipientUpn))
-            {
-                uniqueRecipients.Add(log.RecipientUpn!);
-            }
-        }
-
-        var messaged = uniqueRecipients.Count;
+        var messaged = Math.Max(0, usersMessaged);
 
         return new UserCoverageStatsDto
         {

@@ -4,16 +4,22 @@ using Engine.Storage;
 namespace Engine.Services;
 
 /// <summary>
-/// Narrow read-only abstraction over message logs used by <see cref="StatisticsService"/>.
-/// Decouples statistics calculation from the concrete <see cref="MessageTemplateStorageManager"/>
-/// so it can be unit-tested without Azure Table Storage.
+/// Narrow read-only abstraction over message batches used by <see cref="StatisticsService"/>.
+///
+/// <para>
+/// Statistics are derived from per-batch counters (roughly one row per send campaign),
+/// never from delivery rows. Scanning deliveries is not viable: at 150,000 nudges/day the
+/// delivery table grows by ~55 million rows a year, and the previous
+/// <c>GetAllMessageLogs()</c> approach materialised all of them into memory on every
+/// dashboard load.
+/// </para>
 /// </summary>
-public interface IMessageLogReader
+public interface IBatchStatsSource
 {
     /// <summary>
-    /// Retrieve every message log entry. Implementations may stream from underlying storage.
+    /// Retrieve every message batch, including its running delivery counters.
     /// </summary>
-    Task<List<MessageLogTableEntity>> GetAllMessageLogs();
+    Task<List<MessageBatchTableEntity>> GetAllBatches();
 }
 
 /// <summary>
@@ -39,6 +45,13 @@ public interface IBotInteractionSource
     /// have never sent a message back to the bot).
     /// </summary>
     Task<List<CachedUserAndConversationData>> GetCachedUsersAsync();
+
+    /// <summary>
+    /// Number of distinct users the bot has ever established a conversation with — i.e.
+    /// users successfully reached at least once. Used for coverage statistics in place of
+    /// counting distinct recipients across the whole delivery history.
+    /// </summary>
+    Task<int> GetReachedUserCountAsync();
 }
 
 /// <summary>
@@ -50,4 +63,6 @@ public sealed class NullBotInteractionSource : IBotInteractionSource
 {
     public Task<List<CachedUserAndConversationData>> GetCachedUsersAsync() =>
         Task.FromResult(new List<CachedUserAndConversationData>());
+
+    public Task<int> GetReachedUserCountAsync() => Task.FromResult(0);
 }

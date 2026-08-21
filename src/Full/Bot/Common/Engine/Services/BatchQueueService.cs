@@ -55,7 +55,7 @@ public class BatchQueueService
     {
         var json = JsonSerializer.Serialize(message);
         await _queueClient.SendMessageAsync(json);
-        _logger.LogInformation($"Enqueued message for log {message.MessageLogId}");
+        _logger.LogInformation($"Enqueued message for {message.RecipientUpn} in batch {message.BatchId}");
     }
 
     /// <summary>

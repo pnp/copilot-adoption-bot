@@ -27,10 +27,6 @@ export const deleteTemplate = async (loader: BaseAxiosApiLoader, id: string): Pr
   return loader.loadFromApi(`api/MessageTemplate/Delete/${id}`, 'DELETE');
 }
 
-export const getAllMessageLogs = async (loader: BaseAxiosApiLoader): Promise<MessageLogDto[]> => {
-  return loader.loadFromApi('api/MessageTemplate/GetLogs', 'GET');
-}
-
 export const getMessageLogsByTemplate = async (loader: BaseAxiosApiLoader, templateId: string): Promise<MessageLogDto[]> => {
   return loader.loadFromApi(`api/MessageTemplate/GetLogsByTemplate/${templateId}`, 'GET');
 }
