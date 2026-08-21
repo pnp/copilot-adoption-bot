@@ -122,7 +122,7 @@ When you run one of the prompts below, the Copilot CLI agent will:
 11. **(Optional)** Create Application Insights, Key Vault, AI Foundry configuration
 12. **(Optional)** Publish Teams app to the org catalog
 
-> The Azure storage tables (`messagetemplates`, `messagebatches`, `messagelogs`, `ConversationCache`, `usercache`, `usersyncmetadata`, `smartgroups`, `smartgroupmembers`, `appsettings`), the blob container `message-templates`, and the queue `batch-messages` are auto-created by the application on first run — no need to provision them manually.
+> The Azure storage tables (`messagetemplates`, `messagebatches`, `messagelogs`, `pendingdeliveries`, `ConversationCache`, `usercache`, `usersyncmetadata`, `smartgroups`, `smartgroupmembers`, `appsettings`), the blob container `message-templates`, and the queue `batch-messages` are auto-created by the application on first run — no need to provision them manually.
 
 ---
 

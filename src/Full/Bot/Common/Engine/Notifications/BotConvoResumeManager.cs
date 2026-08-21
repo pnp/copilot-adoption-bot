@@ -32,14 +32,22 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
     /// The method logs warnings if the user cannot be found or if the bot app cannot be installed. The user must be
     /// licensed for Microsoft Teams for the operation to succeed.</remarks>
     /// <param name="upn">The user principal name (UPN) of the user with whom to resume the conversation. Cannot be null or empty.</param>
+    /// <param name="batchId">Batch the delivery belongs to, so the exact card is loaded.</param>
+    /// <param name="templateId">Template to render for this delivery.</param>
     /// <returns>A result object indicating success status and an operation message</returns>
-    public async Task<ConversationResumeResult> ResumeConversation(string upn)
+    public async Task<ConversationResumeResult> ResumeConversation(string upn, string batchId, string templateId)
     {
         // Get AAD user ID from Graph by looking up user by email
         User? graphUser = null;
         try
         {
             graphUser = await graphServiceClient.Users[upn].GetAsync(op => op.QueryParameters.Select = ["Id"]);
+        }
+        catch (ODataError ex) when (IsTransient(ex))
+        {
+            var transientMessage = $"Transient Graph error resolving '{upn}' - {ex.Message}";
+            _loggerBotConvoResumeManager.LogWarning(ex, transientMessage);
+            return ConversationResumeResult.Transient(transientMessage, ex);
         }
         catch (ODataError ex)
         {
@@ -55,23 +63,35 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
             return ConversationResumeResult.Failed(message);
         }
 
-        // Do we have a conversation with this user yet?
-        if (botConversationCache.ContainsUserId(graphUser.Id))
+        // Do we have a conversation with this user yet? This must consult durable storage,
+        // not just an in-memory cache: on a cold start the cache is empty, and treating every
+        // user as "never seen" sends them all down the app-install path and silently drops
+        // their nudge.
+        var cachedUser = await botConversationCache.GetCachedUserAsync(graphUser.Id);
+        if (cachedUser != null)
         {
-            return await SendMessageToExistingConversation(graphUser.Id, upn);
+            return await SendMessageToExistingConversation(cachedUser, graphUser.Id, upn, batchId, templateId);
         }
-        else
-        {
-            return await InstallBotAndQueueMessage(graphUser.Id, upn);
-        }
+
+        return await InstallBotAndQueueMessage(graphUser.Id, upn);
     }
+
+    /// <summary>
+    /// Graph/transport failures that should be retried rather than recorded as a permanent
+    /// delivery failure.
+    /// </summary>
+    private static bool IsTransient(ODataError ex) =>
+        ex.ResponseStatusCode == 429 ||
+        ex.ResponseStatusCode == 503 ||
+        ex.ResponseStatusCode == 504 ||
+        ex.ResponseStatusCode == 500;
 
     /// <summary>
     /// Sends a message to an existing conversation
     /// </summary>
-    private async Task<ConversationResumeResult> SendMessageToExistingConversation(string userId, string upn)
+    private async Task<ConversationResumeResult> SendMessageToExistingConversation(
+        CachedUserAndConversationData cachedUser, string userId, string upn, string batchId, string templateId)
     {
-        var cachedUser = botConversationCache.GetCachedUser(userId)!;
         var previousConversationReference = CreateConversationReference(cachedUser);
 
         try
@@ -80,8 +100,9 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
             using var scope = serviceProvider.CreateScope();
             var conversationResumeHandler = scope.ServiceProvider.GetRequiredService<IConversationResumeHandler<PendingCardInfo>>();
 
-            // Continue conversation with the registered "resume conversation" service
-            var (data, card) = await conversationResumeHandler.LoadDataAndResumeConversation(upn);
+            // Load the exact delivery identified by the queue message - never "newest pending
+            // for this UPN", which would send the wrong card to a user with several queued.
+            var (data, card) = await conversationResumeHandler.LoadDeliveryAsync(upn, batchId, templateId);
             var resumeActivity = MessageFactory.Attachment(card);
 
             await ((CloudAdapter)adapter)
@@ -89,9 +110,9 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
                 async (turnContext, cancellationToken) =>
                     await turnContext.SendActivityAsync(resumeActivity, cancellationToken), CancellationToken.None);
 
-            // Persist the JSON of what we just sent so AI follow-up still has the card as
-            // context after a restart / scale-out (in-memory UserState is volatile).
-            if (data != null && !string.IsNullOrEmpty(data.CardJson))
+            // Persist the template reference for AI follow-up context. Only after the send
+            // succeeded, so we never record context for a card the user never received.
+            if (data != null)
             {
                 try
                 {
@@ -110,14 +131,16 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
             }
 
             var result = ConversationResumeResult.MessageSent(upn);
-            _loggerBotConvoResumeManager.LogInformation("Conversation resume result: {Status} for user {Upn}", result.Status, upn);
+            _loggerBotConvoResumeManager.LogDebug("Conversation resume result: {Status} for user {Upn}", result.Status, upn);
             return result;
         }
         catch (Exception ex)
         {
+            // Transport-level failures here are typically throttling or a transient Bot
+            // Framework error, so keep the delivery queued rather than dropping the nudge.
             var message = $"Error sending message to {upn}: {ex.Message}";
             _loggerBotConvoResumeManager.LogError(ex, message);
-            return ConversationResumeResult.Failed(message, ex);
+            return ConversationResumeResult.Transient(message, ex);
         }
     }
 
@@ -190,7 +213,7 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
 
 public interface IBotConvoResumeManager
 {
-    public abstract Task<ConversationResumeResult> ResumeConversation(string upn);
+    public abstract Task<ConversationResumeResult> ResumeConversation(string upn, string batchId, string templateId);
 }
 
 /// <summary>
@@ -209,9 +232,16 @@ public enum ConversationResumeStatus
     AppInstalledPending,
 
     /// <summary>
-    /// Operation failed due to an error
+    /// Operation failed permanently (user not found, not licensed, app not installable).
+    /// Retrying will not help.
     /// </summary>
-    Failed
+    Failed,
+
+    /// <summary>
+    /// Operation failed for a transient reason (throttling, timeout, transport error).
+    /// The delivery should be retried rather than recorded as failed.
+    /// </summary>
+    TransientFailure
 }
 
 /// <summary>
@@ -236,8 +266,14 @@ public class ConversationResumeResult
         new() { Status = ConversationResumeStatus.AppInstalledPending, Message = $"Bot app installed for {upn}. Message will be sent when user opens the app." };
 
     /// <summary>
-    /// Creates a result for a failed operation
+    /// Creates a result for a permanent failure
     /// </summary>
     public static ConversationResumeResult Failed(string message, Exception? exception = null) =>
         new() { Status = ConversationResumeStatus.Failed, Message = message, Exception = exception };
+
+    /// <summary>
+    /// Creates a result for a transient failure that should be retried.
+    /// </summary>
+    public static ConversationResumeResult Transient(string message, Exception? exception = null) =>
+        new() { Status = ConversationResumeStatus.TransientFailure, Message = message, Exception = exception };
 }

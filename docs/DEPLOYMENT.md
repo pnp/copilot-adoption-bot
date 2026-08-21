@@ -59,8 +59,9 @@ The storage account requires Table Storage, Blob Storage **and Queue Storage**:
 Storage Account
 ├── Table Storage
 │   ├── messagetemplates       (template metadata)
-│   ├── messagebatches         (recipient batch metadata)
+│   ├── messagebatches         (recipient batch metadata + delivery counters)
 │   ├── messagelogs            (per-recipient delivery tracking)
+│   ├── pendingdeliveries      (per-user index of not-yet-delivered cards)
 │   ├── ConversationCache      (bot conversation references)
 │   ├── usercache              (cached user / Copilot data)
 │   ├── usersyncmetadata       (delta-sync watermark)
@@ -74,6 +75,19 @@ Storage Account
 ```
 
 > **Note**: All containers, tables and queues are automatically created by the application on first run.
+
+### Delivery table key scheme
+
+`messagelogs` is keyed for scale — see [Scaling Guide](SCALING.md):
+
+| Key | Value | Why |
+|-----|-------|-----|
+| `PartitionKey` | `{batchId}~{shard}` (16 shards) | Spreads a batch's writes over 16 partitions instead of one, and makes "list this batch" a bounded range query |
+| `RowKey` | normalised (lower-cased) recipient UPN | A natural key, so re-processing a recipient upserts rather than duplicating |
+
+`messagebatches` carries running `TotalCount` / `SentCount` / `FailedCount` counters. Dashboard
+statistics are computed from those (roughly one row per campaign) and never by scanning
+delivery rows.
 
 ---
 

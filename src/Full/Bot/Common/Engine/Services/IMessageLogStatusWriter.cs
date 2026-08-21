@@ -9,7 +9,20 @@ namespace Engine.Services;
 public interface IMessageLogStatusWriter
 {
     /// <summary>
-    /// Update the status (and optional last-error message) for the given message log id.
+    /// Update the status (and optional last-error message) for a delivery, addressed by its
+    /// exact key. Implemented as a sparse merge, so no read-before-write is required.
     /// </summary>
-    Task UpdateMessageLogStatusAsync(string logId, string status, string? lastError = null);
+    Task UpdateMessageLogStatusAsync(string partitionKey, string rowKey, string status, string? lastError = null);
+
+    /// <summary>
+    /// Remove the per-user pending-index entry for a delivery once it has been sent, so the
+    /// user's "newest pending card" lookup doesn't resurface an already-delivered message.
+    /// </summary>
+    Task ClearPendingDeliveryAsync(string recipientUpn, string batchId);
+
+    /// <summary>
+    /// Apply a delta to a batch's running success/failure counters. Statistics are derived
+    /// from these counters rather than by scanning delivery rows.
+    /// </summary>
+    Task IncrementBatchCountersAsync(string batchId, int sentDelta, int failedDelta);
 }

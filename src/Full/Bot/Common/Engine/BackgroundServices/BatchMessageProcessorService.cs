@@ -52,48 +52,76 @@ public class BatchMessageProcessorService : BackgroundService
                     continue;
                 }
 
+                // Tally outcomes per batch and flush once per dequeue cycle. Azure Tables has
+                // no atomic increment, so writing a counter per delivery would mean an
+                // ETag compare-and-swap per message on a single row - contention plus two
+                // extra round trips each. Aggregating first makes it one write per ~32 sends.
+                var tally = new System.Collections.Concurrent.ConcurrentDictionary<string, int[]>();
+
                 var tasks = batch.Select(async pair =>
                 {
                     var (message, queueMessage) = pair;
                     await throttler.WaitAsync(stoppingToken);
                     try
                     {
-                        _logger.LogInformation("Processing message for recipient {Recipient}", message.RecipientUpn);
-
                         var result = await _senderService.SendMessageAsync(message);
-                        if (result.Success)
+
+                        var counts = tally.GetOrAdd(message.BatchId, _ => new int[2]);
+                        if (result.Disposition == SendDisposition.Delivered)
                         {
-                            _logger.LogInformation("Successfully processed message {LogId}", message.MessageLogId);
+                            Interlocked.Increment(ref counts[0]);
                         }
-                        else
+                        else if (result.Disposition == SendDisposition.PermanentFailure)
                         {
-                            _logger.LogWarning("Failed to process message {LogId}: {Error}", message.MessageLogId, result.ErrorMessage);
+                            Interlocked.Increment(ref counts[1]);
                         }
 
-                        // SendMessageAsync persists the outcome (Success/Failed) to the message log,
-                        // so we always remove the queue message after it returns - whether the send
-                        // succeeded or recorded a permanent failure. We only rely on redelivery for
-                        // *unhandled* exceptions below.
-                        await _queueService.DeleteMessageAsync(queueMessage);
+                        switch (result.Disposition)
+                        {
+                            case SendDisposition.Delivered:
+                            case SendDisposition.AwaitingInstall:
+                            case SendDisposition.PermanentFailure:
+                                // Terminal outcome: the delivery row records what happened, so
+                                // the queue message can be removed.
+                                await _queueService.DeleteMessageAsync(queueMessage);
+                                break;
+
+                            case SendDisposition.TransientFailure:
+                                // Deliberately NOT deleted. Previously every failure - including
+                                // throttling - deleted the message, permanently dropping that
+                                // user's nudge with no retry. Letting the visibility timeout
+                                // expire redelivers it; the send is idempotent on the delivery key.
+                                if (queueMessage.DequeueCount >= MaxDequeueCount)
+                                {
+                                    _logger.LogError(
+                                        "Delivery to {Recipient} in batch {BatchId} exceeded MaxDequeueCount ({MaxDequeueCount}); recording as failed",
+                                        message.RecipientUpn, message.BatchId, MaxDequeueCount);
+
+                                    await _senderService.RecordExhaustedAsync(message, result.ErrorMessage);
+                                    await _queueService.DeleteMessageAsync(queueMessage);
+                                }
+                                break;
+                        }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error processing queued message {LogId} (dequeue count {DequeueCount})",
-                            message.MessageLogId, queueMessage.DequeueCount);
+                        _logger.LogError(ex, "Error processing delivery to {Recipient} in batch {BatchId} (dequeue count {DequeueCount})",
+                            message.RecipientUpn, message.BatchId, queueMessage.DequeueCount);
 
                         // Poison-message guard: after MaxDequeueCount unhandled failures, drop the
                         // message so it doesn't redeliver forever and block the queue.
                         if (queueMessage.DequeueCount >= MaxDequeueCount)
                         {
-                            _logger.LogError("Message {LogId} exceeded MaxDequeueCount ({MaxDequeueCount}); deleting as poison",
-                                message.MessageLogId, MaxDequeueCount);
+                            _logger.LogError("Delivery to {Recipient} exceeded MaxDequeueCount ({MaxDequeueCount}); deleting as poison",
+                                message.RecipientUpn, MaxDequeueCount);
                             try
                             {
+                                await _senderService.RecordExhaustedAsync(message, ex.Message);
                                 await _queueService.DeleteMessageAsync(queueMessage);
                             }
                             catch (Exception delEx)
                             {
-                                _logger.LogError(delEx, "Failed to delete poison message {LogId}", message.MessageLogId);
+                                _logger.LogError(delEx, "Failed to delete poison message for {Recipient}", message.RecipientUpn);
                             }
                         }
                         // Otherwise let Azure Storage Queue redeliver after visibility timeout.
@@ -105,6 +133,21 @@ public class BatchMessageProcessorService : BackgroundService
                 });
 
                 await Task.WhenAll(tasks);
+
+                // Flush the aggregated counters so dashboards can read progress without
+                // touching delivery rows.
+                foreach (var (batchId, counts) in tally)
+                {
+                    if (counts[0] == 0 && counts[1] == 0) continue;
+                    try
+                    {
+                        await _senderService.FlushBatchCountersAsync(batchId, counts[0], counts[1]);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to flush counters for batch {BatchId}", batchId);
+                    }
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

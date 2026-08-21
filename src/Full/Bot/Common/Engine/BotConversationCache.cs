@@ -129,10 +129,69 @@ public class BotConversationCache : TableStorageManager, IBotInteractionSource
     /// <inheritdoc />
     public Task<List<CachedUserAndConversationData>> GetCachedUsersAsync() => GetCachedUsers();
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// Counts rows with a key-only projection rather than materialising entities. Without the
+    /// <c>select</c> this would pull <c>LastCardJson</c> and <c>ConversationHistoryJson</c> for
+    /// every user - several KB each - purely to produce a single number.
+    /// </remarks>
+    public async Task<int> GetReachedUserCountAsync()
+    {
+        var client = await base.GetTableClient(TABLE_NAME);
+
+        var count = 0;
+        await foreach (var _ in client.QueryAsync<CachedUserAndConversationData>(
+            filter: $"PartitionKey eq '{CachedUserAndConversationData.PartitionKeyVal}'",
+            select: new[] { "RowKey" }))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
     public CachedUserAndConversationData? GetCachedUser(string aadObjectId)
     {
         // Use direct dictionary lookup (O(1)) instead of a linear scan over Values.
         return _userIdConversationCache.TryGetValue(aadObjectId, out var u) ? u : null;
+    }
+
+    /// <summary>
+    /// Look a user up by AAD object id, falling back to a durable point read when the
+    /// in-memory cache doesn't have them.
+    ///
+    /// <para>
+    /// The send path must use this rather than the memory-only <see cref="GetCachedUser"/> /
+    /// <see cref="ContainsUserId"/>. Those consult only the in-process dictionary, which is
+    /// empty on every cold start - and since the worker is unloaded whenever it goes idle,
+    /// that is the normal case. Treating every user as "never seen" routed the entire
+    /// audience down the Teams app-install path, which silently dropped their nudges and
+    /// issued several needless Graph calls per user.
+    /// </para>
+    /// </summary>
+    public async Task<CachedUserAndConversationData?> GetCachedUserAsync(string aadObjectId)
+    {
+        if (string.IsNullOrWhiteSpace(aadObjectId)) return null;
+
+        if (_userIdConversationCache.TryGetValue(aadObjectId, out var cached) && cached != null)
+        {
+            return cached;
+        }
+
+        try
+        {
+            var client = await base.GetTableClient(TABLE_NAME);
+            var response = await client.GetEntityAsync<CachedUserAndConversationData>(
+                CachedUserAndConversationData.PartitionKeyVal, aadObjectId);
+
+            var entity = response.Value;
+            _userIdConversationCache.AddOrUpdate(aadObjectId, entity, (_, _) => entity);
+            return entity;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            return null;
+        }
     }
 
     public bool ContainsUserId(string aadId)

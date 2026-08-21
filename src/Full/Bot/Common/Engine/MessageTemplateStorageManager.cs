@@ -1,3 +1,4 @@
+using Azure;
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -11,13 +12,14 @@ namespace Engine;
 /// <summary>
 /// Manages message templates in Azure Storage (Table + Blob)
 /// </summary>
-public class MessageTemplateStorageManager : TableStorageManager, IMessageLogReader
+public class MessageTemplateStorageManager : TableStorageManager, IBatchStatsSource
 {
     private readonly BlobServiceClient _blobServiceClient;
     private readonly ILogger _logger;
     private const string TEMPLATES_TABLE_NAME = "messagetemplates";
     private const string BATCHES_TABLE_NAME = "messagebatches";
     private const string LOGS_TABLE_NAME = "messagelogs";
+    private const string PENDING_TABLE_NAME = "pendingdeliveries";
     private const string BLOB_CONTAINER_NAME = "message-templates";
 
     public MessageTemplateStorageManager(StorageAuthConfig storageAuthConfig, ILogger logger)
@@ -247,7 +249,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
     }
 
     /// <summary>
-    /// Delete a batch and all its associated message logs
+    /// Delete a batch, all its delivery rows and any pending-delivery index entries.
     /// </summary>
     public async Task DeleteBatch(string batchId)
     {
@@ -257,33 +259,28 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
             throw new InvalidOperationException($"Batch {batchId} not found");
         }
 
-        // Delete all message logs associated with this batch (using transactional batches when possible)
         var logs = await GetMessageLogsByBatch(batchId);
         var logsTableClient = await GetTableClient(LOGS_TABLE_NAME);
 
         var deleteOps = logs.Select(log =>
             new TableTransactionAction(TableTransactionActionType.Delete, log));
-        try
+
+        var failures = await TableBatch.SubmitInBatchesAsync(
+            logsTableClient,
+            deleteOps,
+            onOperationFailed: (op, ex) =>
+                _logger.LogWarning(ex, "Failed to delete delivery {PartitionKey}/{RowKey} for batch {BatchId}",
+                    op.Entity.PartitionKey, op.Entity.RowKey, batchId));
+
+        if (failures > 0)
         {
-            await TableBatch.SubmitInBatchesAsync(logsTableClient, deleteOps);
-        }
-        catch (Azure.RequestFailedException ex)
-        {
-            _logger.LogWarning(ex, "Batched log delete failed for batch {BatchId}; falling back to per-entity deletes", batchId);
-            foreach (var log in logs)
-            {
-                try
-                {
-                    await logsTableClient.DeleteEntityAsync(MessageLogTableEntity.PartitionKeyVal, log.RowKey);
-                }
-                catch (Azure.RequestFailedException innerEx) when (innerEx.Status == 404)
-                {
-                    // Already deleted - ignore.
-                }
-            }
+            _logger.LogWarning("{FailureCount} delivery rows could not be deleted for batch {BatchId}", failures, batchId);
         }
 
-        // Delete the batch
+        // Remove the pending index entries so a cancelled batch can't later resurface as
+        // "the newest pending card" for a user.
+        await DeletePendingIndexEntriesAsync(logs, batchId);
+
         var batchesTableClient = await GetTableClient(BATCHES_TABLE_NAME);
         await batchesTableClient.DeleteEntityAsync(MessageBatchTableEntity.PartitionKeyVal, batchId);
 
@@ -295,13 +292,16 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
     #region Message Logs
 
     /// <summary>
-    /// Log a message send event
+    /// Log a single message send event.
     /// </summary>
     public async Task<MessageLogTableEntity> LogMessageSend(string messageBatchId, string? recipientUpn, string status, string? lastError = null)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(recipientUpn);
+
         var logEntity = new MessageLogTableEntity
         {
-            RowKey = Guid.NewGuid().ToString(),
+            PartitionKey = DeliveryKey.PartitionFor(messageBatchId, recipientUpn),
+            RowKey = DeliveryKey.RowKeyFor(recipientUpn),
             MessageBatchId = messageBatchId,
             SentDate = DateTime.UtcNow,
             RecipientUpn = recipientUpn,
@@ -310,30 +310,51 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
         };
 
         var tableClient = await GetTableClient(LOGS_TABLE_NAME);
-        await tableClient.AddEntityAsync(logEntity);
+        // Upsert rather than Add: the natural key makes this idempotent, so a retry
+        // updates the existing delivery instead of creating a duplicate.
+        await tableClient.UpsertEntityAsync(logEntity, TableUpdateMode.Merge);
 
         _logger.LogInformation($"Logged message send for batch {messageBatchId}");
         return logEntity;
     }
 
     /// <summary>
-    /// Create multiple message log entries for a batch
+    /// Create delivery rows for every recipient in a batch, plus the per-user pending index
+    /// entries used when a user opens Teams after the app was installed for them.
+    ///
+    /// <para>
+    /// Writes are idempotent: the row key is the normalised recipient UPN, so re-running a
+    /// batch (or retrying a failed chunk) upserts the same row rather than inserting a
+    /// duplicate. Duplicate UPNs in <paramref name="recipientUpns"/> are collapsed.
+    /// </para>
     /// </summary>
     public async Task<List<MessageLogTableEntity>> LogBatchMessages(string messageBatchId, List<string> recipientUpns)
     {
+        ArgumentNullException.ThrowIfNull(recipientUpns);
+
         _logger.LogInformation("Creating {RecipientCount} message log entries in storage for batch {BatchId}",
             recipientUpns.Count, messageBatchId);
 
         var tableClient = await GetTableClient(LOGS_TABLE_NAME);
+        var now = DateTime.UtcNow;
+
+        // Collapse duplicates up front - two rows with the same natural key would otherwise
+        // collide inside a single transaction.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         var logEntities = new List<MessageLogTableEntity>(recipientUpns.Count);
         var operations = new List<TableTransactionAction>(recipientUpns.Count);
 
-        var now = DateTime.UtcNow;
         foreach (var recipientUpn in recipientUpns)
         {
+            if (string.IsNullOrWhiteSpace(recipientUpn)) continue;
+
+            var rowKey = DeliveryKey.RowKeyFor(recipientUpn);
+            if (!seen.Add(rowKey)) continue;
+
             var logEntity = new MessageLogTableEntity
             {
-                RowKey = Guid.NewGuid().ToString(),
+                PartitionKey = DeliveryKey.PartitionFor(messageBatchId, recipientUpn),
+                RowKey = rowKey,
                 MessageBatchId = messageBatchId,
                 SentDate = now,
                 RecipientUpn = recipientUpn,
@@ -341,52 +362,22 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
                 LastError = null
             };
             logEntities.Add(logEntity);
-            operations.Add(new TableTransactionAction(TableTransactionActionType.Add, logEntity));
+            operations.Add(new TableTransactionAction(TableTransactionActionType.UpsertMerge, logEntity));
         }
 
-        var successCount = 0;
-        var failureCount = 0;
-        try
-        {
-            await TableBatch.SubmitInBatchesAsync(tableClient, operations);
-            successCount = logEntities.Count;
-        }
-        catch (Azure.RequestFailedException ex)
-        {
-            // Batch transaction failed atomically. Fall back to per-entity inserts so we record
-            // as many as possible and surface granular failure data.
-            _logger.LogWarning(ex, "Batched message-log insert failed for batch {BatchId}; falling back to per-entity inserts", messageBatchId);
-            logEntities.Clear();
-            foreach (var recipientUpn in recipientUpns)
-            {
-                try
-                {
-                    var logEntity = new MessageLogTableEntity
-                    {
-                        RowKey = Guid.NewGuid().ToString(),
-                        MessageBatchId = messageBatchId,
-                        SentDate = now,
-                        RecipientUpn = recipientUpn,
-                        Status = "Pending",
-                        LastError = null
-                    };
-                    await tableClient.AddEntityAsync(logEntity);
-                    logEntities.Add(logEntity);
-                    successCount++;
-                }
-                catch (Exception innerEx)
-                {
-                    failureCount++;
-                    _logger.LogError(innerEx, "Failed to create message log entry for recipient {RecipientUpn} in batch {BatchId}",
-                        recipientUpn, messageBatchId);
-                }
-            }
-        }
+        var failureCount = await TableBatch.SubmitInBatchesAsync(
+            tableClient,
+            operations,
+            onOperationFailed: (op, ex) =>
+                _logger.LogError(ex, "Failed to create delivery {PartitionKey}/{RowKey} in batch {BatchId}",
+                    op.Entity.PartitionKey, op.Entity.RowKey, messageBatchId));
+
+        var successCount = logEntities.Count - failureCount;
 
         if (failureCount > 0)
         {
             _logger.LogWarning("Created {SuccessCount}/{TotalCount} message logs for batch {BatchId}. {FailureCount} failed",
-                successCount, recipientUpns.Count, messageBatchId, failureCount);
+                successCount, logEntities.Count, messageBatchId, failureCount);
         }
         else
         {
@@ -394,62 +385,280 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
                 logEntities.Count, messageBatchId);
         }
 
+        await WritePendingIndexEntriesAsync(messageBatchId, logEntities, now);
+        await SetBatchTotalCountAsync(messageBatchId, logEntities.Count);
+
         return logEntities;
     }
 
     /// <summary>
-    /// Update a message log status
+    /// Populate the per-user pending index for a batch. Best-effort: a failure here only
+    /// affects the "user opened Teams later" path, never the primary queue-driven send.
     /// </summary>
-    public async Task UpdateMessageLogStatus(string logId, string status, string? lastError = null)
+    private async Task WritePendingIndexEntriesAsync(
+        string messageBatchId, List<MessageLogTableEntity> logEntities, DateTime createdUtc)
     {
-        var tableClient = await GetTableClient(LOGS_TABLE_NAME);
+        if (logEntities.Count == 0) return;
+
+        var batch = await GetBatch(messageBatchId);
+        if (batch == null) return;
+
+        var pendingTable = await GetTableClient(PENDING_TABLE_NAME);
+        var rowKey = DeliveryKey.PendingRowKey(createdUtc, messageBatchId);
+
+        var ops = logEntities.Select(log => new TableTransactionAction(
+            TableTransactionActionType.UpsertMerge,
+            new PendingDeliveryTableEntity
+            {
+                PartitionKey = log.RowKey,   // already the normalised UPN
+                RowKey = rowKey,
+                BatchId = messageBatchId,
+                TemplateId = batch.TemplateId,
+                RecipientUpn = log.RecipientUpn ?? log.RowKey,
+                CreatedUtc = createdUtc
+            }));
+
+        var failures = await TableBatch.SubmitInBatchesAsync(
+            pendingTable,
+            ops,
+            onOperationFailed: (op, ex) =>
+                _logger.LogWarning(ex, "Failed to write pending index entry for {PartitionKey}", op.Entity.PartitionKey));
+
+        if (failures > 0)
+        {
+            _logger.LogWarning("{FailureCount} pending index entries could not be written for batch {BatchId}",
+                failures, messageBatchId);
+        }
+    }
+
+    /// <summary>
+    /// Remove pending index entries for a batch (on send completion or batch deletion).
+    /// </summary>
+    private async Task DeletePendingIndexEntriesAsync(List<MessageLogTableEntity> logs, string batchId)
+    {
+        if (logs.Count == 0) return;
+
+        var pendingTable = await GetTableClient(PENDING_TABLE_NAME);
+
+        // The pending row key embeds the batch's creation time, which we don't have per-log
+        // here, so locate entries by scanning each user's (small) partition for this batch.
+        foreach (var log in logs)
+        {
+            try
+            {
+                var safeBatchId = ODataFilter.EscapeLiteral(batchId);
+                var filter = $"PartitionKey eq '{ODataFilter.EscapeLiteral(log.RowKey)}' and BatchId eq '{safeBatchId}'";
+
+                await foreach (var entry in pendingTable.QueryAsync<PendingDeliveryTableEntity>(filter: filter))
+                {
+                    await pendingTable.DeleteEntityAsync(entry.PartitionKey, entry.RowKey, ETag.All);
+                }
+            }
+            catch (Azure.RequestFailedException ex)
+            {
+                _logger.LogWarning(ex, "Failed to clear pending index for {Upn} in batch {BatchId}", log.RowKey, batchId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Remove a single pending index entry once its delivery has been sent.
+    /// </summary>
+    public async Task ClearPendingDeliveryAsync(string recipientUpn, string batchId)
+    {
+        if (string.IsNullOrWhiteSpace(recipientUpn) || string.IsNullOrWhiteSpace(batchId)) return;
 
         try
         {
-            var response = await tableClient.GetEntityAsync<MessageLogTableEntity>(
-                MessageLogTableEntity.PartitionKeyVal, logId);
-            var logEntity = response.Value;
+            var pendingTable = await GetTableClient(PENDING_TABLE_NAME);
+            var partitionKey = DeliveryKey.NormaliseUpn(recipientUpn);
+            var filter = $"PartitionKey eq '{ODataFilter.EscapeLiteral(partitionKey)}' and BatchId eq '{ODataFilter.EscapeLiteral(batchId)}'";
 
-            logEntity.Status = status;
-            logEntity.LastError = lastError;
+            await foreach (var entry in pendingTable.QueryAsync<PendingDeliveryTableEntity>(filter: filter))
+            {
+                await pendingTable.DeleteEntityAsync(entry.PartitionKey, entry.RowKey, ETag.All);
+            }
+        }
+        catch (Azure.RequestFailedException ex)
+        {
+            _logger.LogWarning(ex, "Failed to clear pending delivery for {Upn} in batch {BatchId}", recipientUpn, batchId);
+        }
+    }
 
-            await tableClient.UpdateEntityAsync(logEntity, logEntity.ETag, TableUpdateMode.Replace);
-            _logger.LogInformation($"Updated message log {logId} to status {status}");
+    /// <summary>
+    /// Record the recipient count on the batch row so dashboards never need to count rows.
+    /// </summary>
+    private async Task SetBatchTotalCountAsync(string messageBatchId, int totalCount)
+    {
+        try
+        {
+            var batchesTable = await GetTableClient(BATCHES_TABLE_NAME);
+            var patch = new TableEntity(MessageBatchTableEntity.PartitionKeyVal, messageBatchId)
+            {
+                { nameof(MessageBatchTableEntity.TotalCount), totalCount },
+                { nameof(MessageBatchTableEntity.LastProgressUtc), DateTime.UtcNow }
+            };
+            await batchesTable.UpdateEntityAsync(patch, ETag.All, TableUpdateMode.Merge);
+        }
+        catch (Azure.RequestFailedException ex)
+        {
+            _logger.LogWarning(ex, "Failed to record TotalCount for batch {BatchId}", messageBatchId);
+        }
+    }
+
+    /// <summary>
+    /// Update a delivery's status by its exact key.
+    ///
+    /// <para>
+    /// A sparse merge patch: no read-before-write, and only the changed columns are sent.
+    /// The previous implementation did a GET followed by a full Replace, costing two round
+    /// trips per delivery (300,000/day at target scale) and re-uploading every column.
+    /// </para>
+    /// </summary>
+    public async Task UpdateMessageLogStatus(string partitionKey, string rowKey, string status, string? lastError = null)
+    {
+        var tableClient = await GetTableClient(LOGS_TABLE_NAME);
+
+        var patch = new TableEntity(partitionKey, rowKey)
+        {
+            { nameof(MessageLogTableEntity.Status), status },
+            { nameof(MessageLogTableEntity.LastError), lastError }
+        };
+
+        try
+        {
+            await tableClient.UpdateEntityAsync(patch, ETag.All, TableUpdateMode.Merge);
+            _logger.LogInformation("Updated delivery {PartitionKey}/{RowKey} to status {Status}", partitionKey, rowKey, status);
         }
         catch (Azure.RequestFailedException ex) when (ex.Status == 404)
         {
-            _logger.LogWarning($"Message log {logId} not found");
+            _logger.LogWarning("Delivery {PartitionKey}/{RowKey} not found", partitionKey, rowKey);
         }
     }
 
     /// <summary>
-    /// Get all message logs
+    /// Apply a delta to a batch's running success/failure counters.
+    ///
+    /// <para>
+    /// Azure Table Storage has no atomic increment, so this uses an ETag compare-and-swap
+    /// with bounded retries. Callers are expected to aggregate outcomes in memory and flush
+    /// periodically rather than calling this once per delivery, which keeps contention on
+    /// the single batch row negligible.
+    /// </para>
     /// </summary>
-    public async Task<List<MessageLogTableEntity>> GetAllMessageLogs()
+    public async Task IncrementBatchCountersAsync(string batchId, int sentDelta, int failedDelta, int maxRetries = 5)
+    {
+        if (sentDelta == 0 && failedDelta == 0) return;
+
+        var batchesTable = await GetTableClient(BATCHES_TABLE_NAME);
+
+        for (var attempt = 0; attempt < maxRetries; attempt++)
+        {
+            try
+            {
+                var response = await batchesTable.GetEntityAsync<MessageBatchTableEntity>(
+                    MessageBatchTableEntity.PartitionKeyVal, batchId);
+                var batch = response.Value;
+
+                batch.SentCount += sentDelta;
+                batch.FailedCount += failedDelta;
+                batch.LastProgressUtc = DateTime.UtcNow;
+
+                await batchesTable.UpdateEntityAsync(batch, batch.ETag, TableUpdateMode.Merge);
+                return;
+            }
+            catch (Azure.RequestFailedException ex) when (ex.Status == 412)
+            {
+                // Lost the race - re-read and reapply.
+                await Task.Delay(TimeSpan.FromMilliseconds(20 * (attempt + 1)));
+            }
+            catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+            {
+                _logger.LogWarning("Batch {BatchId} not found when updating counters", batchId);
+                return;
+            }
+        }
+
+        _logger.LogWarning("Gave up updating counters for batch {BatchId} after {MaxRetries} attempts", batchId, maxRetries);
+    }
+
+    /// <summary>
+    /// Get a single delivery by its exact key.
+    /// </summary>
+    public async Task<MessageLogTableEntity?> GetMessageLog(string partitionKey, string rowKey)
     {
         var tableClient = await GetTableClient(LOGS_TABLE_NAME);
-        var logs = new List<MessageLogTableEntity>();
-
-        await foreach (var entity in tableClient.QueryAsync<MessageLogTableEntity>(
-            filter: $"PartitionKey eq '{MessageLogTableEntity.PartitionKeyVal}'"))
+        try
         {
-            logs.Add(entity);
+            var response = await tableClient.GetEntityAsync<MessageLogTableEntity>(partitionKey, rowKey);
+            return response.Value;
         }
-
-        return logs;
+        catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+        {
+            return null;
+        }
     }
 
     /// <summary>
-    /// Get message logs for a specific batch
+    /// Get the newest pending delivery for a user, using the per-user pending index.
+    /// Reads the first row of one small partition instead of scanning every delivery.
+    /// </summary>
+    public async Task<PendingDeliveryTableEntity?> GetNewestPendingDeliveryAsync(string recipientUpn)
+    {
+        if (string.IsNullOrWhiteSpace(recipientUpn)) return null;
+
+        var pendingTable = await GetTableClient(PENDING_TABLE_NAME);
+        var partitionKey = DeliveryKey.NormaliseUpn(recipientUpn);
+        var filter = $"PartitionKey eq '{ODataFilter.EscapeLiteral(partitionKey)}'";
+
+        // Row keys embed an inverted tick count, so the first row is the newest.
+        await foreach (var entry in pendingTable.QueryAsync<PendingDeliveryTableEntity>(filter: filter, maxPerPage: 1))
+        {
+            return entry;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Get every pending delivery for a user (newest first).
+    /// </summary>
+    public async Task<List<PendingDeliveryTableEntity>> GetPendingDeliveriesAsync(string recipientUpn)
+    {
+        var results = new List<PendingDeliveryTableEntity>();
+        if (string.IsNullOrWhiteSpace(recipientUpn)) return results;
+
+        var pendingTable = await GetTableClient(PENDING_TABLE_NAME);
+        var partitionKey = DeliveryKey.NormaliseUpn(recipientUpn);
+        var filter = $"PartitionKey eq '{ODataFilter.EscapeLiteral(partitionKey)}'";
+
+        await foreach (var entry in pendingTable.QueryAsync<PendingDeliveryTableEntity>(filter: filter))
+        {
+            results.Add(entry);
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Get deliveries for a specific batch.
+    ///
+    /// <para>
+    /// A bounded partition-key range scan over just this batch's shards. Previously this
+    /// filtered on <c>MessageBatchId</c>, which is not a key, so it scanned every delivery
+    /// row ever written (tens of millions after a year in production).
+    /// </para>
     /// </summary>
     public async Task<List<MessageLogTableEntity>> GetMessageLogsByBatch(string batchId)
     {
         var tableClient = await GetTableClient(LOGS_TABLE_NAME);
         var logs = new List<MessageLogTableEntity>();
-        var safeBatchId = ODataFilter.EscapeLiteral(batchId);
+
+        var start = ODataFilter.EscapeLiteral(DeliveryKey.PartitionRangeStartInclusive(batchId));
+        var end = ODataFilter.EscapeLiteral(DeliveryKey.PartitionRangeEndExclusive(batchId));
 
         await foreach (var entity in tableClient.QueryAsync<MessageLogTableEntity>(
-            filter: $"PartitionKey eq '{MessageLogTableEntity.PartitionKeyVal}' and MessageBatchId eq '{safeBatchId}'"))
+            filter: $"PartitionKey ge '{start}' and PartitionKey lt '{end}'"))
         {
             logs.Add(entity);
         }
@@ -458,9 +667,7 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
     }
 
     /// <summary>
-    /// Get message logs for a specific template (via batches).
-    /// Avoids N+1 storage round trips by fetching the full set of logs once and filtering
-    /// in-memory by the batch ids that belong to the template.
+    /// Get deliveries for a specific template, by querying only the batches that use it.
     /// </summary>
     public async Task<List<MessageLogTableEntity>> GetMessageLogsByTemplate(string templateId)
     {
@@ -475,9 +682,15 @@ public class MessageTemplateStorageManager : TableStorageManager, IMessageLogRea
             return new List<MessageLogTableEntity>();
         }
 
-        // Single scan; in-memory filter. Cheaper than per-batch table queries once batch count > 1.
-        var allLogs = await GetAllMessageLogs();
-        return allLogs.Where(l => templateBatchIds.Contains(l.MessageBatchId)).ToList();
+        // Query each owning batch's partition range. Bounded by the number of batches that
+        // use this template, instead of scanning every delivery row ever written.
+        var results = new List<MessageLogTableEntity>();
+        foreach (var batchId in templateBatchIds)
+        {
+            results.AddRange(await GetMessageLogsByBatch(batchId));
+        }
+
+        return results;
     }
 
     #endregion

@@ -198,7 +198,7 @@ public class StatisticsServiceIntegrationTests : AbstractTest
     }
 
     [TestMethod]
-    public async Task GetMessageStatusStats_AfterStatusUpdate_ReflectsChanges()
+    public async Task GetMessageStatusStats_AfterCounterUpdate_ReflectsChanges()
     {
         // Arrange - Create test data
         var templateName = $"Test Template {Guid.NewGuid()}";
@@ -208,14 +208,15 @@ public class StatisticsServiceIntegrationTests : AbstractTest
         var batchName = $"Test Batch {Guid.NewGuid()}";
         var batch = await _messageService.CreateBatch(batchName, template.Id, "sender@example.com");
 
-        var log = await _messageService.LogMessageSend(batch.Id, "user@example.com", "Pending");
+        // LogBatchMessages records TotalCount on the batch row, which is what statistics read.
+        await _messageService.LogBatchMessages(batch.Id, new List<string> { "user@example.com" });
 
         var initialStats = await _service.GetMessageStatusStats();
         var initialPending = initialStats.PendingCount;
         var initialSent = initialStats.SentCount;
 
-        // Act - Update status
-        await _messageService.UpdateMessageLogStatus(log.Id, "Sent");
+        // Act - the dispatcher flushes counters as deliveries complete
+        await _messageService.IncrementBatchCountersAsync(batch.Id, sentDelta: 1, failedDelta: 0);
         var updatedStats = await _service.GetMessageStatusStats();
 
         // Assert

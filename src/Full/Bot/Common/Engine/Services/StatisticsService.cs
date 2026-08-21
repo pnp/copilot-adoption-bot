@@ -7,18 +7,18 @@ namespace Engine.Services;
 /// </summary>
 public class StatisticsService
 {
-    private readonly IMessageLogReader _logReader;
+    private readonly IBatchStatsSource _batchSource;
     private readonly ITenantUserCounter _tenantUserCounter;
     private readonly IBotInteractionSource _interactionSource;
     private readonly ILogger<StatisticsService> _logger;
 
     public StatisticsService(
-        IMessageLogReader logReader,
+        IBatchStatsSource batchSource,
         ITenantUserCounter tenantUserCounter,
         IBotInteractionSource interactionSource,
         ILogger<StatisticsService> logger)
     {
-        _logReader = logReader;
+        _batchSource = batchSource;
         _tenantUserCounter = tenantUserCounter;
         _interactionSource = interactionSource;
         _logger = logger;
@@ -31,9 +31,9 @@ public class StatisticsService
     {
         try
         {
-            var logs = await _logReader.GetAllMessageLogs();
+            var batches = await _batchSource.GetAllBatches();
 
-            var stats = StatisticsCalculator.ComputeMessageStatusStats(logs);
+            var stats = StatisticsCalculator.ComputeMessageStatusStats(batches);
 
             _logger.LogInformation(
                 "Message stats - Sent: {Sent}, Failed: {Failed}, Pending: {Pending}",
@@ -55,10 +55,10 @@ public class StatisticsService
     {
         try
         {
-            var logs = await _logReader.GetAllMessageLogs();
+            var usersMessaged = await _interactionSource.GetReachedUserCountAsync();
             var totalUsersInTenant = await _tenantUserCounter.GetTotalUserCount();
 
-            var stats = StatisticsCalculator.ComputeUserCoverageStats(logs, totalUsersInTenant);
+            var stats = StatisticsCalculator.ComputeUserCoverageStats(usersMessaged, totalUsersInTenant);
 
             _logger.LogInformation(
                 "User coverage - Messaged: {Messaged}, Total in tenant: {Total}",

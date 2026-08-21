@@ -111,12 +111,14 @@ public class MessageTemplateService
         _logger.LogDebug("Retrieved batch {BatchId} with template {TemplateId} for enqueueing",
             messageBatchId, batch.TemplateId);
 
-        // Enqueue messages for asynchronous processing
+        // Enqueue messages for asynchronous processing. The queue message carries the exact
+        // delivery key so the dispatcher never has to search for "the newest pending row".
         var queueMessages = entities.Select(entity => new BatchQueueMessage
         {
             BatchId = messageBatchId,
-            MessageLogId = entity.RowKey,
-            RecipientUpn = entity.RecipientUpn ?? string.Empty,
+            DeliveryPartitionKey = entity.PartitionKey,
+            DeliveryRowKey = entity.RowKey,
+            RecipientUpn = entity.RecipientUpn ?? entity.RowKey,
             TemplateId = batch.TemplateId
         }).ToList();
 
@@ -131,15 +133,19 @@ public class MessageTemplateService
         return entities.Select(MapLogToDto).ToList();
     }
 
-    public async Task UpdateMessageLogStatus(string logId, string status, string? lastError = null)
+    public async Task UpdateMessageLogStatus(string partitionKey, string rowKey, string status, string? lastError = null)
     {
-        await _storageManager.UpdateMessageLogStatus(logId, status, lastError);
+        await _storageManager.UpdateMessageLogStatus(partitionKey, rowKey, status, lastError);
     }
 
-    public async Task<List<MessageLogDto>> GetAllMessageLogs()
+    public async Task ClearPendingDeliveryAsync(string recipientUpn, string batchId)
     {
-        var entities = await _storageManager.GetAllMessageLogs();
-        return entities.Select(MapLogToDto).ToList();
+        await _storageManager.ClearPendingDeliveryAsync(recipientUpn, batchId);
+    }
+
+    public async Task IncrementBatchCountersAsync(string batchId, int sentDelta, int failedDelta)
+    {
+        await _storageManager.IncrementBatchCountersAsync(batchId, sentDelta, failedDelta);
     }
 
     public async Task<List<MessageLogDto>> GetMessageLogsByBatch(string batchId)
@@ -183,6 +189,7 @@ public class MessageTemplateService
         return new MessageLogDto
         {
             Id = entity.RowKey,
+            PartitionKey = entity.PartitionKey,
             MessageBatchId = entity.MessageBatchId,
             SentDate = entity.SentDate,
             RecipientUpn = entity.RecipientUpn,
@@ -212,7 +219,12 @@ public class MessageBatchDto
 
 public class MessageLogDto
 {
+    /// <summary>Row key of the delivery: the normalised recipient UPN.</summary>
     public string Id { get; set; } = null!;
+
+    /// <summary>Partition key of the delivery (<c>"{batchId}~{shard}"</c>).</summary>
+    public string PartitionKey { get; set; } = null!;
+
     public string MessageBatchId { get; set; } = null!;
     public DateTime SentDate { get; set; }
     public string? RecipientUpn { get; set; }

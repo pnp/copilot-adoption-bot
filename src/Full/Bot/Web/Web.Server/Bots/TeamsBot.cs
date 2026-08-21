@@ -10,7 +10,8 @@ using Microsoft.Graph;
 namespace Web.Server.Bots;
 
 public class TeamsBot<T>(ConversationState conversationState, UserState userState, T dialog, ILogger<DialogueBot<T>> logger, BotActionsHelper helper, GraphServiceClient graphServiceClient,
-    BotConfig configuration, BotConversationCache botConversationCache, IConversationResumeHandler<PendingCardInfo> conversationResumeHandler)
+    BotConfig configuration, BotConversationCache botConversationCache, IConversationResumeHandler<PendingCardInfo> conversationResumeHandler,
+    IMessageLogStatusWriter messageLogStatusWriter)
     : DialogueBot<T>(conversationState, userState, dialog, logger) where T : Dialog
 {
     public readonly BotConfig _configuration = configuration;
@@ -30,15 +31,15 @@ public class TeamsBot<T>(ConversationState conversationState, UserState userStat
                 if (!userIdentity.IsAzureAdUserId)
                     await turnContext.SendActivityAsync(MessageFactory.Text($"Hi, anonynous user. I only work with Azure AD users in Teams normally..."));
 
-                // Have we spoken before?
-                await botConversationCache.PopulateMemCacheIfEmpty();
-                var cachedUser = botConversationCache.GetCachedUser(userIdentity.UserId);
+                // Have we spoken before? Point-read the durable store rather than relying on
+                // the in-memory cache, which is empty on every cold start.
+                var cachedUser = await botConversationCache.GetCachedUserAsync(userIdentity.UserId);
                 if (cachedUser?.UserPrincipalName == null)
                 {
                     // Add current user to conversation reference cache.
                     await botConversationCache.AddConversationReferenceToCache((Activity)turnContext.Activity, userIdentity);
 
-                    cachedUser = botConversationCache.GetCachedUser(userIdentity.UserId);
+                    cachedUser = await botConversationCache.GetCachedUserAsync(userIdentity.UserId);
                     if (cachedUser?.UserPrincipalName == null)
                     {
                         Logger.LogError($"Failed to add new user ID {userIdentity.UserId} to conversation cache.");
@@ -53,13 +54,24 @@ public class TeamsBot<T>(ConversationState conversationState, UserState userStat
                     Logger.LogDebug($"User {userIdentity.UserId} found in conversation cache.");
                 }
 
-                // Resume conversation - get next card to send.
-                var (card, nextCardAttachmentToSend) = await conversationResumeHandler.LoadDataAndResumeConversation(cachedUser.UserPrincipalName);
+                // Resume conversation - deliver the newest card queued for this user.
+                var (card, nextCardAttachmentToSend) = await conversationResumeHandler.LoadNewestPendingAsync(cachedUser.UserPrincipalName);
                 if (card != null && nextCardAttachmentToSend != null)
                 {
                     Logger.LogInformation($"Resuming conversation with user {userIdentity.UserId} by sending next card (card {card.TemplateName}).");
                     var resumeActivity = MessageFactory.Attachment(nextCardAttachmentToSend);
                     await turnContext.SendActivityAsync(resumeActivity, cancellationToken);
+
+                    // Only now that the card has actually been delivered do we record it as
+                    // sent and drop it from the pending index. Marking it before the send
+                    // would record undelivered messages as delivered.
+                    var upn = cachedUser.UserPrincipalName;
+                    await messageLogStatusWriter.UpdateMessageLogStatusAsync(
+                        Engine.Storage.DeliveryKey.PartitionFor(card.BatchId, upn),
+                        Engine.Storage.DeliveryKey.RowKeyFor(upn),
+                        "Success");
+                    await messageLogStatusWriter.ClearPendingDeliveryAsync(upn, card.BatchId);
+                    await messageLogStatusWriter.IncrementBatchCountersAsync(card.BatchId, 1, 0);
 
                     // Save card info to user state
                     await SaveCardInfoToUserState(turnContext, card);

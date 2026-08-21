@@ -50,7 +50,7 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
         var message = new BatchQueueMessage
         {
             BatchId = Guid.NewGuid().ToString(),
-            MessageLogId = Guid.NewGuid().ToString(),
+            DeliveryPartitionKey = "pk-test", DeliveryRowKey = Guid.NewGuid().ToString(),
             RecipientUpn = "test@example.com",
             TemplateId = Guid.NewGuid().ToString()
         };
@@ -67,7 +67,7 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
         Assert.IsNotNull(dequeuedMessage);
         Assert.IsNotNull(queueMessage);
         Assert.AreEqual(message.BatchId, dequeuedMessage.BatchId);
-        Assert.AreEqual(message.MessageLogId, dequeuedMessage.MessageLogId);
+        Assert.AreEqual(message.DeliveryRowKey, dequeuedMessage.DeliveryRowKey);
         Assert.AreEqual(message.RecipientUpn, dequeuedMessage.RecipientUpn);
         Assert.AreEqual(message.TemplateId, dequeuedMessage.TemplateId);
 
@@ -84,21 +84,21 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
             new BatchQueueMessage
             {
                 BatchId = Guid.NewGuid().ToString(),
-                MessageLogId = Guid.NewGuid().ToString(),
+                DeliveryPartitionKey = "pk-test", DeliveryRowKey = Guid.NewGuid().ToString(),
                 RecipientUpn = "test1@example.com",
                 TemplateId = Guid.NewGuid().ToString()
             },
             new BatchQueueMessage
             {
                 BatchId = Guid.NewGuid().ToString(),
-                MessageLogId = Guid.NewGuid().ToString(),
+                DeliveryPartitionKey = "pk-test", DeliveryRowKey = Guid.NewGuid().ToString(),
                 RecipientUpn = "test2@example.com",
                 TemplateId = Guid.NewGuid().ToString()
             },
             new BatchQueueMessage
             {
                 BatchId = Guid.NewGuid().ToString(),
-                MessageLogId = Guid.NewGuid().ToString(),
+                DeliveryPartitionKey = "pk-test", DeliveryRowKey = Guid.NewGuid().ToString(),
                 RecipientUpn = "test3@example.com",
                 TemplateId = Guid.NewGuid().ToString()
             }
@@ -138,7 +138,7 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
         var message = new BatchQueueMessage
         {
             BatchId = Guid.NewGuid().ToString(),
-            MessageLogId = Guid.NewGuid().ToString(),
+            DeliveryPartitionKey = "pk-test", DeliveryRowKey = Guid.NewGuid().ToString(),
             RecipientUpn = "test@example.com",
             TemplateId = Guid.NewGuid().ToString()
         };
@@ -188,7 +188,7 @@ public class BatchQueueServiceIntegrationTests : AbstractTest
         var message = new BatchQueueMessage
         {
             BatchId = Guid.NewGuid().ToString(),
-            MessageLogId = Guid.NewGuid().ToString(),
+            DeliveryPartitionKey = "pk-test", DeliveryRowKey = Guid.NewGuid().ToString(),
             RecipientUpn = "test@example.com",
             TemplateId = Guid.NewGuid().ToString()
         };

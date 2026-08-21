@@ -133,15 +133,6 @@ public class MessageTemplateController : ControllerBase
         }
     }
 
-    // GET: api/MessageTemplate/GetLogs
-    [HttpGet(nameof(GetLogs))]
-    public async Task<IActionResult> GetLogs()
-    {
-        _logger.LogInformation("Getting all message logs");
-        var logs = await _templateService.GetAllMessageLogs();
-        return Ok(logs);
-    }
-
     // GET: api/MessageTemplate/GetLogsByTemplate/{templateId}
     [HttpGet("GetLogsByTemplate/{templateId}")]
     public async Task<IActionResult> GetLogsByTemplate(string templateId)
