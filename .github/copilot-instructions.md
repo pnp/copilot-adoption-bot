@@ -82,7 +82,7 @@ gotchas of this repo. Keep it short, specific and current.
   `messagetemplates`, `messagebatches`, `messagelogs`, `pendingdeliveries`,
   `ConversationCache`, `usercache`, `usersyncmetadata`, `smartgroups`,
   `smartgroupmembers`, `appsettings`. Blob container:
-  `message-templates`. Queue: `batch-messages`. Keep `docs/DEPLOYMENT.md` in sync if you
+  `message-templates`. Queues: `batch-messages`, `batch-control`. Keep `docs/DEPLOYMENT.md` in sync if you
   add/rename any.
 - **RBAC roles required** (RBAC path): `Storage Blob Data Contributor`,
   `Storage Table Data Contributor`, `Storage Queue Data Contributor`.

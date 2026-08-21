@@ -14,6 +14,19 @@ public class BatchMessageProcessorService : BackgroundService
     private readonly ILogger<BatchMessageProcessorService> _logger;
     private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// Process-wide send rate limit.
+    ///
+    /// <para>
+    /// Teams throttles proactive messaging at roughly 1,800 operations per bot per tenant per
+    /// 30 seconds. Shaping to 1,500/30s leaves headroom for the reply path and the app-install
+    /// calls, which draw on the same budget. Without this the dispatcher saturated the limit
+    /// within seconds of a send starting and took sustained 429s for the rest of the run.
+    /// </para>
+    /// </summary>
+    private static readonly TokenBucketRateLimiter SendLimiter =
+        new(permits: 1_500, perPeriod: TimeSpan.FromSeconds(30));
+
     // Drop messages that keep failing after this many unhandled redeliveries so a poison
     // message can't block the queue forever.
     private const int MaxDequeueCount = 5;
@@ -64,7 +77,33 @@ public class BatchMessageProcessorService : BackgroundService
                     await throttler.WaitAsync(stoppingToken);
                     try
                     {
+                        // Honour batch lifecycle before doing any work: a cancelled or paused
+                        // batch must not keep sending. This is what makes 150,000 queued
+                        // messages recallable.
+                        var gate = await _senderService.GetBatchGateAsync(message.BatchId);
+                        if (gate == BatchGate.Drop)
+                        {
+                            _logger.LogDebug("Dropping delivery for {Recipient}: batch {BatchId} is cancelled",
+                                message.RecipientUpn, message.BatchId);
+                            await _queueService.DeleteMessageAsync(queueMessage);
+                            return;
+                        }
+                        if (gate == BatchGate.Defer)
+                        {
+                            // Paused or not yet due - leave queued and let it redeliver.
+                            return;
+                        }
+
+                        // Shape the send rate to stay under the Teams proactive-messaging limit.
+                        await SendLimiter.WaitAsync(stoppingToken);
+
                         var result = await _senderService.SendMessageAsync(message);
+
+                        if (result.Disposition == SendDisposition.TransientFailure && result.RetryAfter.HasValue)
+                        {
+                            // Slow the whole process down, not just this caller.
+                            SendLimiter.Penalise(result.RetryAfter.Value);
+                        }
 
                         var counts = tally.GetOrAdd(message.BatchId, _ => new int[2]);
                         if (result.Disposition == SendDisposition.Delivered)

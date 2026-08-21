@@ -49,6 +49,9 @@ public static class MessageTemplateServiceExtensions
         // Register background processor
         services.AddHostedService<BatchMessageProcessorService>();
 
+        // Expands batch recipient lists in checkpointed chunks, off the HTTP request path.
+        services.AddHostedService<BatchExpansionService>();
+
         // Register default template initialization service
         services.AddHostedService<DefaultTemplateInitializationService>();
 

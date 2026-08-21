@@ -1,3 +1,4 @@
+using Engine.Storage;
 namespace Engine.Services;
 
 /// <summary>
@@ -25,4 +26,10 @@ public interface IMessageLogStatusWriter
     /// from these counters rather than by scanning delivery rows.
     /// </summary>
     Task IncrementBatchCountersAsync(string batchId, int sentDelta, int failedDelta);
+
+    /// <summary>
+    /// Read a batch's current lifecycle state, so the dispatcher can honour cancellation,
+    /// pausing and scheduled start times before sending.
+    /// </summary>
+    Task<MessageBatchTableEntity?> GetBatchAsync(string batchId);
 }

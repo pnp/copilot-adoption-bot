@@ -16,7 +16,8 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
     ILogger<BotAppInstallHelper> loggerBotAppInstallHelper,
     BotConversationCache botConversationCache,
     IServiceProvider serviceProvider,
-    GraphServiceClient graphServiceClient, TeamsAppConfig config, IBotFrameworkHttpAdapter adapter) : IBotConvoResumeManager
+    GraphServiceClient graphServiceClient, TeamsAppConfig config, IBotFrameworkHttpAdapter adapter,
+    CachedUserService cachedUserService) : IBotConvoResumeManager
 {
     private const string TeamsBotFrameworkChannelId = "msteams";
     private const string BotIdPrefix = "28:";
@@ -37,26 +38,45 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
     /// <returns>A result object indicating success status and an operation message</returns>
     public async Task<ConversationResumeResult> ResumeConversation(string upn, string batchId, string templateId)
     {
-        // Get AAD user ID from Graph by looking up user by email
-        User? graphUser = null;
+        // Resolve the recipient's AAD object id. Prefer the user cache: the mapping is already
+        // stored there keyed by UPN, so hitting Graph for it once per send was 150,000 avoidable
+        // calls a day on the most throttle-sensitive path in the system.
+        string? userId = null;
         try
         {
-            graphUser = await graphServiceClient.Users[upn].GetAsync(op => op.QueryParameters.Select = ["Id"]);
+            var cached = await cachedUserService.GetUserWithMetadataAsync(upn);
+            userId = cached?.Id;
         }
-        catch (ODataError ex) when (IsTransient(ex))
+        catch (Exception ex)
         {
-            var transientMessage = $"Transient Graph error resolving '{upn}' - {ex.Message}";
-            _loggerBotConvoResumeManager.LogWarning(ex, transientMessage);
-            return ConversationResumeResult.Transient(transientMessage, ex);
-        }
-        catch (ODataError ex)
-        {
-            var message = $"Couldn't get user by UPN '{upn}' - {ex.Message}";
-            _loggerBotConvoResumeManager.LogWarning(ex, message);
-            return ConversationResumeResult.Failed(message, ex);
+            _loggerBotConvoResumeManager.LogDebug(ex, "User cache lookup failed for {Upn}; falling back to Graph", upn);
         }
 
-        if (graphUser?.Id == null)
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Cache miss - a user synced since the last delta, or an unsynced tenant.
+            User? graphUser = null;
+            try
+            {
+                graphUser = await graphServiceClient.Users[upn].GetAsync(op => op.QueryParameters.Select = ["Id"]);
+            }
+            catch (ODataError ex) when (IsTransient(ex))
+            {
+                var transientMessage = $"Transient Graph error resolving '{upn}' - {ex.Message}";
+                _loggerBotConvoResumeManager.LogWarning(ex, transientMessage);
+                return ConversationResumeResult.Transient(transientMessage, ex);
+            }
+            catch (ODataError ex)
+            {
+                var message = $"Couldn't get user by UPN '{upn}' - {ex.Message}";
+                _loggerBotConvoResumeManager.LogWarning(ex, message);
+                return ConversationResumeResult.Failed(message, ex);
+            }
+
+            userId = graphUser?.Id;
+        }
+
+        if (string.IsNullOrEmpty(userId))
         {
             var message = $"User {upn} not found or has no ID";
             _loggerBotConvoResumeManager.LogWarning(message);
@@ -67,13 +87,13 @@ public class BotConvoResumeManager(ILogger<BotConvoResumeManager> loggerBotConvo
         // not just an in-memory cache: on a cold start the cache is empty, and treating every
         // user as "never seen" sends them all down the app-install path and silently drops
         // their nudge.
-        var cachedUser = await botConversationCache.GetCachedUserAsync(graphUser.Id);
+        var cachedUser = await botConversationCache.GetCachedUserAsync(userId);
         if (cachedUser != null)
         {
-            return await SendMessageToExistingConversation(cachedUser, graphUser.Id, upn, batchId, templateId);
+            return await SendMessageToExistingConversation(cachedUser, userId, upn, batchId, templateId);
         }
 
-        return await InstallBotAndQueueMessage(graphUser.Id, upn);
+        return await InstallBotAndQueueMessage(userId, upn);
     }
 
     /// <summary>

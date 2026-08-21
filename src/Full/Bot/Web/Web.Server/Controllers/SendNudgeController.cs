@@ -1,4 +1,5 @@
 using Engine.Services;
+using Engine.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -104,68 +105,26 @@ public class SendNudgeController : ControllerBase
                 return NotFound($"Template {request.TemplateId} not found");
             }
 
-            // Collect all recipient UPNs
-            var allRecipientUpns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Create the batch in a Queued state and hand expansion to the background worker.
+            // Expanding 150,000 recipients inline took ~250-310s against App Service's hard
+            // 230s request timeout, and a timeout left a half-created batch with no way to tell
+            // which recipients had been enqueued - so a retry double-sent to everyone already
+            // queued.
+            var batch = await _templateService.CreateBatch(
+                request.BatchName, request.TemplateId, senderUpn, request.ScheduledSendUtc);
 
-            // Add directly specified UPNs
-            if (hasRecipientUpns)
-            {
-                foreach (var upn in request.RecipientUpns!)
-                {
-                    allRecipientUpns.Add(upn);
-                }
-            }
+            await _templateService.EnqueueBatchExpansionAsync(
+                batch.Id,
+                request.RecipientUpns ?? new List<string>(),
+                request.SmartGroupIds ?? new List<string>());
 
-            // Resolve smart groups and add their members
-            if (hasSmartGroups)
-            {
-                var failedSmartGroups = new List<string>();
-                foreach (var smartGroupId in request.SmartGroupIds!)
-                {
-                    try
-                    {
-                        var smartGroupUpns = await _smartGroupService.GetSmartGroupUpns(smartGroupId);
-                        foreach (var upn in smartGroupUpns)
-                        {
-                            allRecipientUpns.Add(upn);
-                        }
-                        _logger.LogInformation($"Resolved smart group {smartGroupId} to {smartGroupUpns.Count} UPNs");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Failed to resolve smart group {smartGroupId}: {ex.Message}");
-                        failedSmartGroups.Add(smartGroupId);
-                    }
-                }
+            _logger.LogInformation("Accepted batch {BatchId}; expansion queued", batch.Id);
 
-                // If all smart groups failed and there are no direct recipients, return a more informative error
-                if (failedSmartGroups.Count > 0 && allRecipientUpns.Count == 0)
-                {
-                    return BadRequest($"Failed to resolve {failedSmartGroups.Count} smart group(s). " +
-                        "This may be because Copilot Connected mode is not properly configured or the groups have not been resolved yet. " +
-                        "Try resolving the smart groups first by viewing their members in the Smart Groups page.");
-                }
-            }
-
-            if (allRecipientUpns.Count == 0)
-            {
-                return BadRequest("No valid recipients found after resolving smart groups");
-            }
-
-            // Create batch
-            var batch = await _templateService.CreateBatch(request.BatchName, request.TemplateId, senderUpn);
-
-            // Create message log entries for each recipient
-            var logs = await _templateService.LogBatchMessages(batch.Id, allRecipientUpns.ToList());
-
-            _logger.LogInformation($"Created batch {batch.Id} with {logs.Count} messages (from {request.RecipientUpns?.Count ?? 0} direct UPNs and {request.SmartGroupIds?.Count ?? 0} smart groups)");
-
-            return Ok(new
+            return Accepted(new
             {
                 batch,
-                messageCount = logs.Count,
-                logs,
-                smartGroupsResolved = request.SmartGroupIds?.Count ?? 0
+                status = BatchStatus.Queued,
+                message = "Batch accepted. Recipients are being resolved in the background; poll the batch for progress."
             });
         }
         catch (Exception ex)
@@ -175,12 +134,46 @@ public class SendNudgeController : ControllerBase
         }
     }
 
-    // PUT: api/SendNudge/UpdateLogStatus was removed. It was never called by the UI, and after
-    // delivery rows were re-keyed to (PartitionKey, RowKey) its arguments silently shifted -
-    // every parameter is a string, so `UpdateMessageLogStatus(logId, status, lastError)` still
-    // compiled but bound status to the row key and lastError to the status. Delivery status is
-    // owned by the dispatcher; there is no reason to expose arbitrary mutation of it over HTTP.
+    // POST: api/SendNudge/CancelBatch/{batchId}
+    /// <summary>
+    /// Stop an in-flight batch. Remaining queued deliveries are dropped by the dispatcher
+    /// rather than being deleted from storage, so the audit trail of what was already sent
+    /// stays intact.
+    /// </summary>
+    [HttpPost("CancelBatch/{batchId}")]
+    public async Task<IActionResult> CancelBatch(string batchId)
+    {
+        try
+        {
+            await _templateService.SetBatchStatusAsync(batchId, BatchStatus.Cancelled);
+            _logger.LogInformation("Batch {BatchId} cancelled by {User}", batchId, User.Identity?.Name);
+            return Ok(new { batchId, status = BatchStatus.Cancelled });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling batch {BatchId}", batchId);
+            return StatusCode(500, "Error cancelling batch");
+        }
+    }
+
+    // POST: api/SendNudge/PauseBatch/{batchId}
+    [HttpPost("PauseBatch/{batchId}")]
+    public async Task<IActionResult> PauseBatch(string batchId, [FromQuery] bool resume = false)
+    {
+        try
+        {
+            var status = resume ? BatchStatus.Running : BatchStatus.Paused;
+            await _templateService.SetBatchStatusAsync(batchId, status);
+            return Ok(new { batchId, status });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating batch {BatchId}", batchId);
+            return StatusCode(500, "Error updating batch");
+        }
+    }
 }
+
 
 public class CreateBatchAndSendRequest
 {
@@ -196,4 +189,9 @@ public class CreateBatchAndSendRequest
     /// Smart group IDs to resolve and include as recipients (requires Copilot Connected mode)
     /// </summary>
     public List<string>? SmartGroupIds { get; set; }
+
+    /// <summary>
+    /// Earliest UTC time this batch may start sending. Null sends as soon as expansion completes.
+    /// </summary>
+    public DateTime? ScheduledSendUtc { get; set; }
 }

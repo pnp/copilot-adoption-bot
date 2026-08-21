@@ -15,6 +15,7 @@ public class BatchQueueService
     private readonly QueueClient _queueClient;
     private readonly ILogger<BatchQueueService> _logger;
     private readonly string _queueName;
+    private readonly QueueServiceClient? _queueServiceClient;
     private const string DEFAULT_QUEUE_NAME = "batch-messages";
 
     /// <summary>
@@ -35,8 +36,8 @@ public class BatchQueueService
         _logger = logger;
         _queueName = queueName ?? DEFAULT_QUEUE_NAME;
 
-        var queueServiceClient = AzureStorageClientFactory.CreateQueueServiceClient(storageAuthConfig, logger);
-        _queueClient = queueServiceClient.GetQueueClient(_queueName);
+        _queueServiceClient = AzureStorageClientFactory.CreateQueueServiceClient(storageAuthConfig, logger);
+        _queueClient = _queueServiceClient.GetQueueClient(_queueName);
     }
 
     /// <summary>
@@ -173,4 +174,64 @@ public class BatchQueueService
         await _queueClient.DeleteIfExistsAsync();
         _logger.LogInformation($"Queue '{_queueName}' deleted");
     }
+
+    #region Control queue
+
+    private const string CONTROL_QUEUE_NAME = "batch-control";
+    private QueueClient? _controlQueueClient;
+
+    private QueueClient ControlQueue =>
+        _controlQueueClient ??= _queueServiceClient is not null
+            ? _queueServiceClient.GetQueueClient(CONTROL_QUEUE_NAME)
+            : throw new InvalidOperationException(
+                "Control queue requires the StorageAuthConfig constructor.");
+
+    /// <summary>
+    /// Enqueue a batch-expansion instruction. Kept on a separate queue so a long-running
+    /// expansion can't be starved behind 150,000 delivery messages.
+    /// </summary>
+    public async Task EnqueueControlMessageAsync(BatchControlMessage message)
+    {
+        await ControlQueue.CreateIfNotExistsAsync();
+        await ControlQueue.SendMessageAsync(JsonSerializer.Serialize(message));
+        _logger.LogInformation("Enqueued expansion for batch {BatchId}", message.BatchId);
+    }
+
+    /// <summary>
+    /// Dequeue a batch-expansion instruction. The visibility timeout is generous because
+    /// expanding a large batch legitimately takes minutes.
+    /// </summary>
+    public async Task<(BatchControlMessage? Message, QueueMessage? QueueMessage)> DequeueControlMessageAsync()
+    {
+        await ControlQueue.CreateIfNotExistsAsync();
+
+        var messages = await ControlQueue.ReceiveMessagesAsync(
+            maxMessages: 1, visibilityTimeout: TimeSpan.FromMinutes(30));
+
+        var queueMessage = messages.Value.FirstOrDefault();
+        if (queueMessage == null) return (null, null);
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<BatchControlMessage>(queueMessage.MessageText);
+            if (parsed != null) return (parsed, queueMessage);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Poison control message {MessageId}; deleting", queueMessage.MessageId);
+        }
+
+        await ControlQueue.DeleteMessageAsync(queueMessage.MessageId, queueMessage.PopReceipt);
+        return (null, null);
+    }
+
+    /// <summary>
+    /// Remove a control message once its expansion has completed.
+    /// </summary>
+    public async Task DeleteControlMessageAsync(QueueMessage queueMessage)
+    {
+        await ControlQueue.DeleteMessageAsync(queueMessage.MessageId, queueMessage.PopReceipt);
+    }
+
+    #endregion
 }
