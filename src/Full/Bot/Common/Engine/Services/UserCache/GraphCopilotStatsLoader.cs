@@ -48,13 +48,18 @@ public class GraphCopilotStatsLoader : ICopilotStatsLoader
                 var downloadUrl = response.Headers.Location?.ToString();
                 if (!string.IsNullOrEmpty(downloadUrl))
                 {
-                    using var csvResponse = await s_httpClient.GetAsync(downloadUrl);
+                    using var csvResponse = await s_httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
                     result.StatusCode = (int)csvResponse.StatusCode;
 
                     if (csvResponse.IsSuccessStatusCode)
                     {
-                        var csvContent = await csvResponse.Content.ReadAsStringAsync();
-                        result.Records = CopilotUsageCsvParser.Parse(csvContent);
+                        // Stream the report rather than buffering it into one string. At 150k
+                        // users the CSV is ~52 MB, which ReadAsStringAsync turns into a single
+                        // contiguous ~105 MB UTF-16 allocation on the Large Object Heap - a
+                        // realistic OOM on a 32-bit worker even with free memory available.
+                        await using var csvStream = await csvResponse.Content.ReadAsStreamAsync();
+                        using var csvReader = new StreamReader(csvStream);
+                        result.Records = await CopilotUsageCsvParser.ParseAsync(csvReader);
                         result.Success = true;
                     }
                     else

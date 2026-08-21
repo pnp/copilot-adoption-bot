@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+
+// Cap rendered rows: a 150,000-recipient batch would otherwise put 150,000 rows in the DOM
+// and lock the tab. Progress totals come from the batch counters, not from this list.
+const MAX_RENDERED_ROWS = 500;
 import {
     Button,
     Card,
@@ -301,10 +305,13 @@ export const BatchProgressPage: React.FC<BatchProgressPageProps> = ({ loader }) 
         );
     }
 
-    const sentCount = logs.filter(log => log.status.toLowerCase() === 'success' || log.status.toLowerCase() === 'sent').length;
-    const failedCount = logs.filter(log => log.status.toLowerCase() === 'failed').length;
-    const pendingCount = logs.filter(log => log.status.toLowerCase() === 'pending').length;
-    const totalCount = logs.length;
+    // Progress comes from the running counters on the batch row. Deriving it from the delivery
+    // rows meant downloading every recipient (~25 MB at 150k) on every 5-second refresh, and
+    // rendering one DOM row per recipient.
+    const sentCount = batch.sentCount;
+    const failedCount = batch.failedCount;
+    const pendingCount = batch.pendingCount;
+    const totalCount = batch.totalCount;
     const progressPercent = totalCount > 0 ? ((sentCount + failedCount) / totalCount) * 100 : 0;
 
     return (
@@ -443,7 +450,7 @@ export const BatchProgressPage: React.FC<BatchProgressPageProps> = ({ loader }) 
             </Card>
 
             <Card className={styles.card}>
-                <CardHeader header={<Text weight="semibold">Message Details ({logs.length})</Text>} />
+                <CardHeader header={<Text weight="semibold">Message Details ({logs.length}{logs.length > MAX_RENDERED_ROWS ? `, showing first ${MAX_RENDERED_ROWS}` : ''})</Text>} />
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -454,7 +461,7 @@ export const BatchProgressPage: React.FC<BatchProgressPageProps> = ({ loader }) 
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {logs.map((log) => (
+                        {logs.slice(0, MAX_RENDERED_ROWS).map((log) => (
                             <TableRow key={log.id}>
                                 <TableCell>
                                     <TableCellLayout>{log.recipientUpn || 'N/A'}</TableCellLayout>

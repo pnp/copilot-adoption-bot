@@ -212,3 +212,67 @@ application writes data** — archive to Blob and query externally.
 - [Configuration Reference](CONFIGURATION.md) — tunable settings
 - Open scalability issues are tracked in GitHub under the `scalability` and
   `performance` labels.
+
+---
+
+## 7. Hosting: moving background work off the web app
+
+**This is a deployment decision, not a code one.** The application code is now written so the
+move is straightforward, but it has not been made.
+
+### What the code already does
+
+`AlwaysOn=false` is fixed by policy, so the worker is unloaded whenever it goes idle —
+interruption is the norm, not the exception. Background work is therefore built to survive it:
+
+| Property | Where |
+|---|---|
+| **Idempotent deliveries** | Delivery rows are keyed by `(batchId~shard, recipientUpn)`, so re-processing upserts rather than duplicating |
+| **Checkpointed expansion** | `BatchExpansionService` records progress on the batch row every 5,000 recipients and resumes from there |
+| **Transient failures redeliver** | The dispatcher leaves the queue message in place; only terminal outcomes delete it |
+| **Rate shaping survives restart** | The token bucket refills from wall-clock time, so a restart doesn't produce a burst |
+
+An interrupted run therefore resumes correctly. What it *cannot* do is make progress while the
+worker is unloaded — a 150,000-message drain takes ~2 hours of active processing, and queue
+polling generates no HTTP traffic to keep the process alive.
+
+### Options, in order of preference
+
+**A. Azure Functions (queue trigger)** — recommended.
+- Native `QueueTrigger`; the platform activates on message arrival, so `AlwaysOn` is irrelevant.
+- Scales out on queue depth: 150,000 messages drain across many instances instead of 8-at-a-time
+  on one.
+- Built-in poison queue, retry policy, per-execution billing.
+- Use Flex Consumption or Premium for VNet integration, which this deployment needs for its
+  private endpoints.
+
+**B. Azure Container Apps with KEDA.**
+- KEDA `azure-queue` scaler scales replicas 0→N on queue length.
+- Keeps a single deployable container if splitting the codebase is unattractive.
+
+**C. Stay on App Service, accept the constraint.**
+- Viable only if a nudge run is small enough to finish inside an active window, or if something
+  external keeps the worker warm (a scheduled ping).
+- The hosted services will still be torn down mid-run; correctness is preserved, completion time
+  is not.
+
+### Migration shape
+
+The background services are already independent of the web request pipeline, so option A means:
+
+1. New Functions project referencing `Engine`.
+2. `BatchMessageProcessorService` → a `[QueueTrigger("batch-messages")]` function.
+3. `BatchExpansionService` → a `[QueueTrigger("batch-control")]` function.
+4. `CacheWarmupHostedService` → a `[TimerTrigger]` function.
+5. The web app keeps only request/response work: accept the batch, return `202`, serve the API
+   and SPA.
+
+Nothing in `Engine` needs to change — the services take their dependencies through DI and do not
+reference `IApplicationBuilder` or the HTTP pipeline.
+
+### Also outstanding on the current host
+
+- **64-bit worker** (`use32BitWorkerProcess: false`) — no reason to run .NET 10 as 32-bit.
+- **`healthCheckPath`** — the app exposes `/health`, but App Service is not configured to use it,
+  so an unhealthy instance is never recycled.
+- **Data Protection key persistence** — keys regenerate on every restart.
