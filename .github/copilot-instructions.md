@@ -3,6 +3,43 @@
 This file teaches Copilot (and other AI assistants) the conventions, hot paths and
 gotchas of this repo. Keep it short, specific and current.
 
+## :rotating_light: Never commit secrets, environment details, PII or customer names
+
+**This is the highest-priority rule in this file. It applies to every file, commit message,
+PR description, issue, code comment and doc.**
+
+This is a public, customer-deployable sample. Nothing tenant-specific may enter version
+control — not even in a comment or a commit message.
+
+**Never commit:**
+
+| Category | Examples |
+|---|---|
+| Credentials | client secrets, connection strings, API keys, SAS tokens, passwords, certificates |
+| Environment identifiers | subscription IDs, tenant IDs, resource group names, app service / storage account names, App Insights keys, object IDs, principal IDs |
+| Real customer or tenant names | company names, tenant domains (`*.onmicrosoft.com`), deployment names |
+| PII | user names, UPNs, email addresses, display names |
+| Real endpoints | AI Foundry endpoints, bot messaging URLs, private-endpoint hostnames |
+
+**Use placeholders instead:**
+
+```
+00000000-0000-0000-0000-000000000000   not a real GUID
+contoso.com / user@contoso.com         not a real tenant or user
+<subscription-id> / <your-rg>          angle-bracket placeholders in docs
+```
+
+**Git-ignored files are fine.** `deployment-config.json` is git-ignored and is the right
+place for real values — keep it that way, and never `git add -f` it. Real values also
+belong in .NET User Secrets, GitHub Actions secrets, or Key Vault.
+
+**Before committing**, check the diff for GUIDs, `.onmicrosoft.com`, real host names and
+personal names. This applies to files you generate as much as files you edit — a scaling
+doc or a deployment script written from a live environment is exactly where these leak.
+
+**If you are diagnosing a live environment**, keep the findings in the conversation. Only
+generalised, non-identifying conclusions belong in the repo.
+
 ## Repo layout
 
 - `src/Full/Bot/Adoption Bot.sln` – the solution. All C# work happens under here.
