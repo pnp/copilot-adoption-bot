@@ -39,6 +39,42 @@ public class AIFoundryService
     private readonly ChatClient _chatClient;
     private readonly SettingsStorageManager? _settingsManager;
 
+    /// <summary>
+    /// Maximum follow-up chat completions in flight at once.
+    ///
+    /// <para>
+    /// Without a gate, a nudge blast to 150,000 users produces a reply burst that maps
+    /// one-to-one onto concurrent model calls: a 10% reply rate over five minutes is ~50
+    /// requests/second, which at ~2s latency is ~100 concurrent completions on a single-core
+    /// worker that is also running the dispatcher. The smart-group path was already bounded;
+    /// this path was not.
+    /// </para>
+    /// </summary>
+    private static readonly SemaphoreSlim FollowUpGate = new(8, 8);
+
+    /// <summary>
+    /// Wall-clock budget for a single follow-up completion. Without this a hung call holds a
+    /// Bot Framework turn, a thread and a queue slot indefinitely.
+    /// </summary>
+    private static readonly TimeSpan FollowUpTimeout = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// Maximum characters accepted from a user message. Protects both the token bill and the
+    /// 64 KB Azure Table property limit that the persisted history has to fit inside.
+    /// </summary>
+    internal const int MaxUserMessageChars = 2000;
+
+    /// <summary>
+    /// Maximum characters of conversation history replayed as context. The dialog also caps
+    /// history by entry count, but 20 long turns can still be tens of thousands of tokens.
+    /// </summary>
+    internal const int MaxHistoryChars = 4000;
+
+    /// <summary>
+    /// Maximum characters of card context injected into the system prompt.
+    /// </summary>
+    internal const int MaxCardContextChars = 1000;
+
     public AIFoundryService(AIFoundryConfig config, ILogger<AIFoundryService> logger, SettingsStorageManager? settingsManager = null)
     {
         _config = config;
@@ -278,6 +314,19 @@ Which users match the group description? Return as JSON array.";
     }
 
     /// <summary>
+    /// Reduce card JSON to a short text digest for prompt context.
+    /// </summary>
+    private static string SummariseCardContext(string? cardJson) =>
+        AIPromptBudget.SummariseCard(cardJson, MaxCardContextChars);
+
+    /// <summary>
+    /// Keep the most recent history turns that fit the character budget.
+    /// </summary>
+    private static List<(string role, string message)> TrimHistory(
+        List<(string role, string message)>? history, int maxChars) =>
+        AIPromptBudget.TrimHistory(history, maxChars);
+
+    /// <summary>
     /// Handle a follow-up chat message from a user.
     /// </summary>
     /// <param name="userUpn">The UPN of the user sending the message</param>
@@ -289,16 +338,32 @@ Which users match the group description? Return as JSON array.";
         string userUpn,
         string userMessage,
         string? originalNudgeContext,
-        List<(string role, string message)>? conversationHistory = null)
+        List<(string role, string message)>? conversationHistory = null,
+        CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation($"Handling follow-up chat from {userUpn}: {userMessage.Substring(0, Math.Min(50, userMessage.Length))}...");
+        ArgumentNullException.ThrowIfNull(userMessage);
+
+        // Truncate before doing anything else: an unbounded paste would otherwise be billed
+        // as tokens and then fail to persist against the 64 KB table property limit.
+        if (userMessage.Length > MaxUserMessageChars)
+        {
+            _logger.LogInformation("Truncating {Length}-char message from {Upn} to {Max}",
+                userMessage.Length, userUpn, MaxUserMessageChars);
+            userMessage = userMessage[..MaxUserMessageChars];
+        }
+
+        _logger.LogDebug("Handling follow-up chat from {Upn}", userUpn);
 
         // Get the configurable system prompt
         var systemPrompt = await GetFollowUpChatSystemPromptAsync();
 
-        if (!string.IsNullOrEmpty(originalNudgeContext))
+        // Summarise rather than embedding the raw card. Nudge templates are 7-8 KB and the
+        // intro cards are ~94 KB (embedded base64 images), which would be ~24k tokens in a
+        // single system prompt - and card text is not trusted input for system-level content.
+        var cardSummary = SummariseCardContext(originalNudgeContext);
+        if (!string.IsNullOrEmpty(cardSummary))
         {
-            systemPrompt += $"\n\nThe original nudge message context was about: {originalNudgeContext}";
+            systemPrompt += $"\n\nThe original nudge message context was about: {cardSummary}";
         }
 
         try
@@ -308,19 +373,16 @@ Which users match the group description? Return as JSON array.";
                 new SystemChatMessage(systemPrompt)
             };
 
-            // Add conversation history if available
-            if (conversationHistory != null)
+            // Add conversation history if available, trimmed to a character budget.
+            foreach (var (role, message) in TrimHistory(conversationHistory, MaxHistoryChars))
             {
-                foreach (var (role, message) in conversationHistory)
+                if (role.Equals("user", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (role.Equals("user", StringComparison.OrdinalIgnoreCase))
-                    {
-                        messages.Add(new UserChatMessage(message));
-                    }
-                    else if (role.Equals("assistant", StringComparison.OrdinalIgnoreCase))
-                    {
-                        messages.Add(new AssistantChatMessage(message));
-                    }
+                    messages.Add(new UserChatMessage(message));
+                }
+                else if (role.Equals("assistant", StringComparison.OrdinalIgnoreCase))
+                {
+                    messages.Add(new AssistantChatMessage(message));
                 }
             }
 
@@ -332,11 +394,24 @@ Which users match the group description? Return as JSON array.";
                 Temperature = 0.7f
             };
 
-            var response = await _chatClient.CompleteChatAsync(messages, options);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(FollowUpTimeout);
 
-            if (response?.Value?.Content != null && response.Value.Content.Count > 0)
+            await FollowUpGate.WaitAsync(cts.Token);
+            ChatCompletion? completion;
+            try
             {
-                var responseText = response.Value.Content[0].Text;
+                var response = await _chatClient.CompleteChatAsync(messages, options, cts.Token);
+                completion = response?.Value;
+            }
+            finally
+            {
+                FollowUpGate.Release();
+            }
+
+            if (completion?.Content != null && completion.Content.Count > 0)
+            {
+                var responseText = completion.Content[0].Text;
 
                 return new AIFollowUpResponse
                 {
@@ -348,6 +423,15 @@ Which users match the group description? Return as JSON array.";
             return new AIFollowUpResponse
             {
                 Response = "I'm sorry, I couldn't process your message. Please try again.",
+                ShouldEndConversation = false
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Follow-up chat for {Upn} timed out after {Timeout}", userUpn, FollowUpTimeout);
+            return new AIFollowUpResponse
+            {
+                Response = "Sorry, that took longer than expected. Please try again.",
                 ShouldEndConversation = false
             };
         }
