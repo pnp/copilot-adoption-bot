@@ -93,6 +93,7 @@ At a glance, the solution is composed of:
 | **[Features Guide](docs/FEATURES.md)** | Detailed feature documentation |
 | **[Deployment Guide](docs/DEPLOYMENT.md)** | Azure deployment and CI/CD pipelines |
 | **[Deploy with Copilot CLI](docs/DEPLOYMENT-COPILOT-CLI.md)** | Agent-guided Azure deployment from your terminal |
+| **[Scaling Guide](docs/SCALING.md)** | Capacity model at scale and the performance escalation ladder |
 | **[Security Guide](docs/SECURITY.md)** | Security best practices |
 | **[Troubleshooting](docs/TROUBLESHOOTING.md)** | Common issues and solutions |
 

@@ -34,7 +34,6 @@ public class UserCacheController : ControllerBase
         try
         {
             var metadata = await _cacheManager.GetSyncMetadataAsync();
-            var users = await _cacheManager.GetAllCachedUsersAsync(forceRefresh: false, skipAutoSync: true);
             var now = DateTime.UtcNow;
 
             bool isUserCacheFresh = metadata.LastDeltaSyncDate.HasValue &&
@@ -44,7 +43,7 @@ public class UserCacheController : ControllerBase
 
             return Ok(new CacheStatusDto
             {
-                CachedUserCount = users.Count,
+                CachedUserCount = metadata.LastSyncUserCount,
                 LastDeltaSyncDate = metadata.LastDeltaSyncDate,
                 LastFullSyncDate = metadata.LastFullSyncDate,
                 LastCopilotStatsUpdate = metadata.LastCopilotStatsUpdate,
