@@ -122,6 +122,100 @@ public class AIFoundryService
     internal const int SmartGroupResolutionMaxParallelism = 4;
 
     /// <summary>
+    /// Hard cap on the AI-classification fallback, expressed in chunks. Without this, a
+    /// description the model can't turn into a filter would silently fan out across the whole
+    /// tenant - ~1,500 completions and tens of dollars for a single resolution.
+    /// </summary>
+    internal const int MaxFallbackChunks = 20;
+
+    /// <summary>
+    /// Ask the model <b>once</b> to translate a natural-language group description into a
+    /// structured <see cref="SmartGroupFilter"/> that the application evaluates locally.
+    ///
+    /// <para>
+    /// This replaces classifying every user in the tenant with the model. At 150,000 users the
+    /// old approach was ~1,500 chat completions and tens of millions of input tokens per
+    /// resolution, recurring on a 1-hour cache TTL, with no guarantee that the same description
+    /// produced the same membership twice. One completion is deterministic, auditable, and
+    /// roughly four orders of magnitude cheaper.
+    /// </para>
+    /// </summary>
+    /// <returns>The filter, or null if the model could not produce a usable one.</returns>
+    public async Task<SmartGroupFilter?> GenerateSmartGroupFilterAsync(
+        string groupDescription, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(groupDescription);
+
+        var systemPrompt = $@"You translate a natural-language description of a group of employees into a JSON filter.
+
+Respond with JSON only - no prose, no markdown fence.
+
+Schema:
+{{
+  ""all"": [ {{ ""field"": ""<field>"", ""op"": ""<op>"", ""value"": <value> }} ],
+  ""any"": [ {{ ""field"": ""<field>"", ""op"": ""<op>"", ""value"": <value> }} ]
+}}
+
+""all"" conditions must all match. ""any"" conditions require at least one match. Omit ""any"" if unused.
+
+Allowed fields:
+{string.Join(", ", SmartGroupFilter.SupportedFields)}
+
+Allowed operators:
+- eq, neq            : exact match (case-insensitive)
+- contains, startsWith: substring match on text fields
+- in                 : value is a JSON array of strings
+- isNull, isNotNull  : field is absent / present (omit ""value"")
+- olderThanDays      : date field is older than N days, OR the user has no such activity at all
+- withinLastDays     : date field is within the last N days
+
+Guidance:
+- ""hasn't used Copilot in 30 days"" -> {{ ""field"": ""CopilotLastActivityDate"", ""op"": ""olderThanDays"", ""value"": 30 }}
+- ""licensed users"" -> {{ ""field"": ""HasCopilotLicense"", ""op"": ""eq"", ""value"": true }}
+- Prefer the fewest conditions that capture the intent. Do not invent fields.
+
+Today's date is {DateTime.UtcNow:yyyy-MM-dd}.";
+
+        var messages = new List<ChatMessage>
+        {
+            new SystemChatMessage(systemPrompt),
+            new UserChatMessage(groupDescription)
+        };
+
+        var options = new ChatCompletionOptions
+        {
+            MaxOutputTokenCount = 600,
+            Temperature = 0f   // deterministic: the same description should give the same filter
+        };
+
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(FollowUpTimeout);
+
+            var response = await _chatClient.CompleteChatAsync(messages, options, cts.Token);
+            var text = response?.Value?.Content is { Count: > 0 } content ? content[0].Text : null;
+
+            var filter = SmartGroupFilter.TryParse(text, out var error);
+            if (filter == null)
+            {
+                _logger.LogWarning("Could not build a smart-group filter for '{Description}': {Error}. Raw: {Raw}",
+                    groupDescription, error, text);
+                return null;
+            }
+
+            _logger.LogInformation("Smart group '{Description}' resolved to filter: {Filter}",
+                groupDescription, filter.Describe());
+            return filter;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating smart-group filter for '{Description}'", groupDescription);
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Resolve a smart group description to matching users using AI.
     /// </summary>
     /// <param name="groupDescription">Natural language description of the target users</param>
@@ -138,6 +232,54 @@ public class AIFoundryService
             _logger.LogWarning("No users provided for smart group resolution");
             return new List<AIUserMatchResult>();
         }
+
+        // One model call to derive the rule, then evaluate it locally over the directory.
+        var filter = await GenerateSmartGroupFilterAsync(groupDescription);
+        if (filter != null)
+        {
+            var utcNow = DateTime.UtcNow;
+            var matches = availableUsers
+                .Where(u => filter.Matches(u, utcNow))
+                .Select(u => new AIUserMatchResult
+                {
+                    UserPrincipalName = u.UserPrincipalName,
+                    ConfidenceScore = 1.0,
+                    Reason = filter.Describe()
+                })
+                .ToList();
+
+            _logger.LogInformation(
+                "Smart group '{Description}' matched {MatchCount} of {UserCount} users via structured filter",
+                groupDescription, matches.Count, availableUsers.Count);
+
+            return matches;
+        }
+
+        // Fall back to per-user classification only when a filter could not be derived. Bounded
+        // hard, because this path costs one model call per 100 users.
+        return await ClassifyWithModelAsync(groupDescription, availableUsers);
+    }
+
+    /// <summary>
+    /// Legacy per-user classification. Retained only as a fallback for descriptions that cannot
+    /// be expressed as a structured filter, and capped so it can never fan out across a whole
+    /// tenant unnoticed.
+    /// </summary>
+    private async Task<List<AIUserMatchResult>> ClassifyWithModelAsync(
+        string groupDescription, List<EnrichedUserInfo> availableUsers)
+    {
+        var maxUsers = SmartGroupResolutionChunkSize * MaxFallbackChunks;
+        if (availableUsers.Count > maxUsers)
+        {
+            _logger.LogError(
+                "Refusing AI classification fallback for '{Description}': {UserCount} users exceeds the {MaxUsers} cap. " +
+                "Rephrase the group so it can be expressed as a structured filter.",
+                groupDescription, availableUsers.Count, maxUsers);
+            return new List<AIUserMatchResult>();
+        }
+
+        _logger.LogWarning(
+            "Falling back to AI classification for '{Description}' over {UserCount} users", groupDescription, availableUsers.Count);
 
         // Page the user list. Sending an entire tenant in a single prompt would blow past
         // the model's input-token limit and is expensive even when it fits.
