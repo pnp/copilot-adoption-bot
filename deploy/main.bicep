@@ -80,10 +80,13 @@ param aiFoundryEndpoint string = ''
 @description('AI Foundry model deployment name.')
 param aiFoundryDeploymentName string = 'gpt-4o'
 
-@description('Enable the admin web UI sign-in (separate app registration to the bot).')
-param webAuthEnabled bool = false
+@description('''
+Web auth application (client) ID for the admin UI sign-in.
 
-@description('Web auth application (client) ID.')
+WebAuthConfig settings are always written, because the application treats that config
+section as required (AzureADAuthConfig demands a non-empty ClientId/ClientSecret/TenantId).
+Leave these empty to reuse the bot/Graph registration.
+''')
 param webAuthClientId string = ''
 
 @secure()
@@ -189,6 +192,18 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'GraphConfig__TenantId', value: graphTenantId }
         { name: 'GraphConfig__ApiAudience', value: 'https://graph.microsoft.com' }
 
+        // --- Web UI sign-in ---
+        // WebAuthConfig is a REQUIRED config section (TeamsAppConfig.WebAuthConfig is not
+        // marked Optional), and AzureADAuthConfig requires a non-empty ClientId, ClientSecret
+        // and TenantId. These must therefore always be present or the app fails to start with
+        // "Missing required configuration value 'ClientId'". When a dedicated web-auth
+        // registration isn't supplied we fall back to the bot/Graph registration.
+        { name: 'WebAuthConfig__ClientId', value: empty(webAuthClientId) ? graphClientId : webAuthClientId }
+        { name: 'WebAuthConfig__ClientSecret', value: empty(webAuthClientSecret) ? graphClientSecret : webAuthClientSecret }
+        { name: 'WebAuthConfig__TenantId', value: empty(webAuthTenantId) ? graphTenantId : webAuthTenantId }
+        { name: 'WebAuthConfig__ApiAudience', value: empty(webAuthApiAudience) ? 'api://${empty(webAuthClientId) ? graphClientId : webAuthClientId}' : webAuthApiAudience }
+        { name: 'WebAuthConfig__Authority', value: '${environment().authentication.loginEndpoint}${empty(webAuthTenantId) ? graphTenantId : webAuthTenantId}' }
+
         // --- Storage (RBAC via the managed identity above) ---
         { name: 'StorageAuthConfig__StorageAccountName', value: storageAccountName }
         { name: 'StorageAuthConfig__UseRBAC', value: 'true' }
@@ -203,13 +218,6 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
       empty(aiFoundryEndpoint) ? [] : [
         { name: 'AIFoundryConfig__Endpoint', value: aiFoundryEndpoint }
         { name: 'AIFoundryConfig__DeploymentName', value: aiFoundryDeploymentName }
-      ],
-      !webAuthEnabled ? [] : [
-        { name: 'WebAuthConfig__ClientId', value: webAuthClientId }
-        { name: 'WebAuthConfig__ClientSecret', value: webAuthClientSecret }
-        { name: 'WebAuthConfig__TenantId', value: webAuthTenantId }
-        { name: 'WebAuthConfig__ApiAudience', value: webAuthApiAudience }
-        { name: 'WebAuthConfig__Authority', value: '${environment().authentication.loginEndpoint}${webAuthTenantId}' }
       ])
     }
   }

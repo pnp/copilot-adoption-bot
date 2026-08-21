@@ -139,6 +139,24 @@ Write-Step 'Ensuring resource group'
 
 $rgExists = az group exists --name $ResourceGroup | ConvertFrom-Json
 if (-not $rgExists) {
+    if ($WhatIfPreference) {
+        # az deployment group what-if requires the resource group to exist, and -WhatIf must
+        # not create anything. Report and stop rather than failing inside ARM.
+        Write-Warn "Resource group '$ResourceGroup' does not exist yet."
+        Write-Host ""
+        Write-Host "  WhatIf: every resource would be created new:" -ForegroundColor Yellow
+        Write-Host "    - Resource group  $ResourceGroup ($location)"
+        Write-Host "    - App Service Plan $appServiceName-plan ($planSku)"
+        Write-Host "    - App Service      $appServiceName"
+        Write-Host "    - Storage account  $storageName"
+        if ($config.appInsights.enabled) { Write-Host "    - App Insights     $appServiceName-insights" }
+        Write-Host "    - Role assignments Storage Blob/Table/Queue Data Contributor"
+        Write-Host ""
+        Write-Host "  Re-run without -WhatIf to apply, or create the resource group first to" -ForegroundColor DarkGray
+        Write-Host "  get a resource-level diff from ARM." -ForegroundColor DarkGray
+        return
+    }
+
     if ($PSCmdlet.ShouldProcess($ResourceGroup, 'Create resource group')) {
         az group create --name $ResourceGroup --location $location --output none
         Write-Ok "Created $ResourceGroup"
@@ -173,7 +191,6 @@ if ($config.aiFoundry.enabled -and $config.aiFoundry.endpoint) {
     $params += "aiFoundryDeploymentName=$($config.aiFoundry.deploymentName)"
 }
 if ($config.webAuth.enabled) {
-    $params += "webAuthEnabled=true"
     $params += "webAuthClientId=$($config.webAuth.clientId)"
     $params += "webAuthClientSecret=$($config.webAuth.clientSecret)"
     $params += "webAuthTenantId=$($config.webAuth.tenantId)"
